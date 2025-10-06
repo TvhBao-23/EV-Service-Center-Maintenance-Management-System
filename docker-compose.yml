@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+    networks:
+      - ev-service-network
+
+  # API Gateway Service (Simplified for now)
+  api-gateway:
+    build:
+      context: ./evservicecenter
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mysql
+    networks:
+      - ev-service-network
+
+  # Database
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - MYSQL_DATABASE=ev_service_center
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ev-service-network
+
+volumes:
+  mysql_data:
+
+
+networks:
+  ev-service-network:
+    driver: bridge
