@@ -20,6 +20,21 @@ function Login() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500))
     
+    // Check for admin account first
+    if (formData.email.trim().toLowerCase() === 'admin@gmail.com' && formData.password === 'admin') {
+      const adminData = { 
+        id: 'admin-001', 
+        fullName: 'Administrator', 
+        email: 'admin@gmail.com', 
+        phone: 'N/A', 
+        role: 'admin' 
+      }
+      login(adminData)
+      setIsLoading(false)
+      navigate('/admin')
+      return
+    }
+    
     // Validate against stored mock users
     const users = JSON.parse(localStorage.getItem('users') || '[]')
     const found = users.find(u => u.email === formData.email.trim().toLowerCase() && u.password === formData.password)

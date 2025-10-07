@@ -11,6 +11,7 @@ import PersonalProfile from './pages/PersonalProfile.jsx'
 import Payment from './pages/Payment.jsx'
 import Technician from './pages/Technician.jsx'
 import Staff from './pages/Staff.jsx'
+import Admin from './pages/Admin.jsx'
 import DashboardLayout from './components/DashboardLayout.jsx'
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
           <Route path="/payment" element={<Payment />} />
         <Route path="/technician" element={<Technician />} />
         <Route path="/staff" element={<Staff />} />
+        <Route path="/admin" element={<Admin />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
