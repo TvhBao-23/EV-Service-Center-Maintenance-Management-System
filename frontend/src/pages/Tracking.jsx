@@ -267,6 +267,30 @@ function Tracking() {
           </div>
         )}
 
+        {/* Vehicle Status Cards - moved to top */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Tổng số xe</h3>
+            <p className="text-3xl font-bold text-green-600">{vehicles.length}</p>
+            <p className="text-gray-600 text-sm">Xe đang được quản lý</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Chờ thanh toán</h3>
+            <p className="text-3xl font-bold text-orange-600">{paymentReminders.count}</p>
+            <p className="text-gray-600 text-sm">Lịch chờ thanh toán</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Đang bảo dưỡng</h3>
+            <p className="text-3xl font-bold text-blue-600">{activeBookings.length}</p>
+            <p className="text-gray-600 text-sm">Xe đang được bảo dưỡng</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nhắc nhở</h3>
+            <p className="text-3xl font-bold text-red-600">{reminders.length}</p>
+            <p className="text-gray-600 text-sm">Cần bảo dưỡng</p>
+          </div>
+        </div>
+
         {/* Payment Reminders */}
         {paymentReminders.hasReminders && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
@@ -390,30 +414,6 @@ function Tracking() {
               })}
             </div>
           )}
-        </div>
-
-        {/* Vehicle Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Tổng số xe</h3>
-            <p className="text-3xl font-bold text-green-600">{vehicles.length}</p>
-            <p className="text-gray-600 text-sm">Xe đang được quản lý</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Chờ thanh toán</h3>
-            <p className="text-3xl font-bold text-orange-600">{paymentReminders.count}</p>
-            <p className="text-gray-600 text-sm">Lịch chờ thanh toán</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Đang bảo dưỡng</h3>
-            <p className="text-3xl font-bold text-blue-600">{activeBookings.length}</p>
-            <p className="text-gray-600 text-sm">Xe đang được bảo dưỡng</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nhắc nhở</h3>
-            <p className="text-3xl font-bold text-red-600">{reminders.length}</p>
-            <p className="text-gray-600 text-sm">Cần bảo dưỡng</p>
-          </div>
         </div>
 
         {/* Vehicle List with KM Update */}

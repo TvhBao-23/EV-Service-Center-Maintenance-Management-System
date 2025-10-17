@@ -1,78 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { loadList, saveList, upsertItem, deleteItem, getCurrentUserId } from '../lib/store'
-
-function AddEditVehicleModal({ open, onClose, initial }) {
-  const [form, setForm] = useState(() => initial || { model: '', vin: '', purchaseDate: '', currentKm: 0 })
-
-  useEffect(() => {
-    if (open) setForm(initial || { model: '', vin: '', purchaseDate: '', currentKm: 0 })
-  }, [open, initial])
-
-  const handleSave = () => {
-    if (!form.model || !form.vin || form.vin.length < 10) return
-    const id = initial?.id || `v_${Date.now()}`
-    const item = { ...form, id, currentKm: Number(form.currentKm) || 0 }
-    const list = upsertItem('vehicles', item)
-    onClose(list)
-  }
-
-  if (!open) return null
-
-  return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">{initial ? 'Chỉnh sửa xe' : 'Thêm xe mới'}</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Tên xe / Model</label>
-            <input value={form.model} onChange={(e)=>setForm({ ...form, model: e.target.value })} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" placeholder="VD: Tesla Model 3" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Số VIN</label>
-            <input value={form.vin} onChange={(e)=>setForm({ ...form, vin: e.target.value })} maxLength={17} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" placeholder="17 ký tự" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Ngày mua</label>
-              <input type="date" value={form.purchaseDate} onChange={(e)=>setForm({ ...form, purchaseDate: e.target.value })} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Km hiện tại</label>
-              <input type="number" value={form.currentKm} onChange={(e)=>setForm({ ...form, currentKm: e.target.value })} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" />
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={()=>onClose()} className="px-4 py-2 rounded-lg border">Hủy</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700">Lưu</button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { loadList } from '../lib/store'
 
 function MyVehicles() {
-  const userId = useMemo(() => getCurrentUserId(), [])
-  const [vehicles, setVehicles] = useState(() => loadList('vehicles', []))
-  const [openModal, setOpenModal] = useState(false)
-  const [editing, setEditing] = useState(null)
+  const [vehicles] = useState(() => loadList('vehicles', []))
+  const [viewing, setViewing] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // No auto seeding; let user add vehicles manually
+    // View-only: vehicles are managed by staff/admin
   }, [])
-
-  const openAdd = () => { setEditing(null); setOpenModal(true) }
-  const openEdit = (v) => { setEditing(v); setOpenModal(true) }
-  const onCloseModal = (nextList) => {
-    setOpenModal(false)
-    if (nextList) setVehicles(nextList)
-  }
-  const handleDelete = (id) => {
-    const next = deleteItem('vehicles', id)
-    setVehicles(next)
-  }
 
   const handleBook = (id) => {
     navigate(`/booking?vehicleId=${encodeURIComponent(id)}`)
@@ -85,14 +22,8 @@ function MyVehicles() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Xe của tôi</h2>
-            <p className="text-gray-600">Quản lý và theo dõi xe điện của bạn</p>
+            <p className="text-gray-600">Thông tin xe được quản lý bởi nhân viên</p>
           </div>
-          <button onClick={openAdd} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m7-7H5" />
-            </svg>
-            Thêm xe
-          </button>
         </div>
 
         {vehicles.length === 0 ? (
@@ -103,10 +34,7 @@ function MyVehicles() {
               </svg>
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Chưa có xe nào</h3>
-            <p className="text-gray-600 mb-6">Thêm xe điện của bạn để bắt đầu quản lý lịch bảo dưỡng</p>
-            <button className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
-              Thêm xe đầu tiên
-            </button>
+            <p className="text-gray-600">Vui lòng liên hệ nhân viên trung tâm để thêm xe vào hồ sơ.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -118,24 +46,55 @@ function MyVehicles() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">{vehicle.model}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 flex-1">{vehicle.model}</h3>
+                  <button
+                    onClick={()=>setViewing(vehicle)}
+                    className="ml-2 p-2 rounded-md hover:bg-gray-100 text-gray-600"
+                    title="Xem chi tiết"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
                   <p><span className="font-medium">VIN:</span> {vehicle.vin}</p>
                   <p><span className="font-medium">Ngày mua:</span> {vehicle.purchaseDate}</p>
                   <p><span className="font-medium">Km hiện tại:</span> {vehicle.currentKm.toLocaleString()} km</p>
                 </div>
-                <div className="flex justify-end space-x-3 mt-4">
+                <div className="flex justify-end mt-4">
                   <button onClick={()=>handleBook(vehicle.id)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">Đặt lịch</button>
-                  <button onClick={()=>openEdit(vehicle)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">Sửa</button>
-                  <button onClick={()=>handleDelete(vehicle.id)} className="px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 transition-colors">Xóa</button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </main>
-      <AddEditVehicleModal open={openModal} onClose={onCloseModal} initial={editing} />
+      {viewing && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Chi tiết xe</h3>
+              <button onClick={()=>setViewing(null)} className="p-2 rounded-md hover:bg-gray-100" title="Đóng">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-700">
+              <p><span className="font-medium">Model:</span> {viewing.model}</p>
+              <p><span className="font-medium">VIN:</span> {viewing.vin}</p>
+              <p><span className="font-medium">Ngày mua:</span> {viewing.purchaseDate || '—'}</p>
+              <p><span className="font-medium">Km hiện tại:</span> {Number(viewing.currentKm || 0).toLocaleString()} km</p>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={()=>setViewing(null)} className="px-4 py-2 rounded-lg border">Đóng</button>
+              <button onClick={()=>{ const id=viewing.id; setViewing(null); handleBook(id) }} className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700">Đặt lịch</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
