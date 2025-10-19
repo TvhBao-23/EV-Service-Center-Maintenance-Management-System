@@ -1,4 +1,4 @@
-FROM openjdk:17-jdk-slim AS build
+FROM eclipse-temurin:17-jdk AS build
 
 # Install Maven
 RUN apt-get update && apt-get install -y maven
@@ -9,22 +9,19 @@ WORKDIR /app
 # Copy pom.xml first for better caching
 COPY pom.xml .
 
-# Download dependencies with retry
-RUN mvn dependency:go-offline -Dmaven.wagon.http.retryHandler.count=3
-
 # Copy source code
 COPY src ./src
 
-# Build the application
+# Build the application directly
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-# Copy the built JAR
-COPY --from=build /app/target/authservice-0.0.1-SNAPSHOT.jar app.jar
+# Copy the built JAR from build stage
+COPY --from=build /app/target/authservice-1.0.0.jar app.jar
 
 # Expose port
 EXPOSE 8081

@@ -13,6 +13,20 @@ services:
     networks:
       - ev-service-network
 
+  # Auth Service
+  authservice:
+    build:
+      context: ./authservice
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mysql
+    networks:
+      - ev-service-network
+
   # API Gateway Service (Simplified for now)
   api-gateway:
     build:
@@ -31,12 +45,13 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - MYSQL_ROOT_PASSWORD=password
       - MYSQL_DATABASE=ev_service_center
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
     networks:
       - ev-service-network
 
