@@ -39,6 +39,19 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - ev-service-network
+  # === Parts & Inventory Service ===
+  parts-inventory-service:
+    build:
+      context: ./parts-inventory-service
+      dockerfile: Dockerfile
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ev_service_center
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=
+    networks:
+      - ev-service-network
+    depends_on:
+      - mysql
 
 volumes:
   mysql_data:
