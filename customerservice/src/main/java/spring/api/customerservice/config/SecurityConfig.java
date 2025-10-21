@@ -23,22 +23,13 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public org.springframework.security.core.userdetails.UserDetailsService userDetailsService() {
-        return username -> {
-            throw new org.springframework.security.core.userdetails.UsernameNotFoundException("Not implemented");
-        };
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
-            .formLogin(form -> form.disable())
-            .httpBasic(basic -> basic.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/health").permitAll()
+                .requestMatchers("/health", "/error").permitAll()
                 .requestMatchers("/api/customer/services/**").permitAll()
                 .requestMatchers("/api/customer/service-centers/**").permitAll()
                 .requestMatchers("/api/customer/**").authenticated()

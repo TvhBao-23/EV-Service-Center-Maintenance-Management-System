@@ -7,22 +7,28 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import spring.api.customerservice.domain.User;
+import spring.api.customerservice.repository.UserRepository;
 
 import java.io.IOException;
 import java.security.Key;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+    
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -39,20 +45,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String role = claims.get("role", String.class);
                 Long userId = claims.get("user_id", Long.class);
                 
-                if (email != null) {
+                if (email != null && userId != null) {
+                    User user = userRepository.findById(userId).orElse(null);
+                    if (user == null) {
+                        user = new User();
+                        user.setUserId(userId);
+                        user.setEmail(email);
+                    }
+                    
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            email,
+                            user,
                             null,
                             List.of(new SimpleGrantedAuthority("ROLE_" + role))
                     );
                     
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                    request.setAttribute("user_id", userId);
-                    request.setAttribute("email", email);
-                    request.setAttribute("role", role);
                 }
             } catch (Exception e) {
-                logger.error("JWT validation error", e);
+                // JWT validation error - skip
             }
         }
         

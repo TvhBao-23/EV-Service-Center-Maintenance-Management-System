@@ -2,6 +2,7 @@ package spring.api.customerservice.api;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import spring.api.customerservice.domain.Customer;
 import spring.api.customerservice.domain.User;
@@ -20,9 +21,9 @@ public class CustomerController {
     private final CustomerRepository customerRepository;
 
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(@RequestAttribute("user_id") Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+    public ResponseEntity<?> getProfile(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Long userId = user.getUserId();
         
         Customer customer = customerRepository.findByUserId(userId)
                 .orElse(null);
@@ -44,8 +45,11 @@ public class CustomerController {
 
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(
-            @RequestAttribute("user_id") Long userId,
+            Authentication authentication,
             @RequestBody Map<String, String> updates) {
+        
+        User authUser = (User) authentication.getPrincipal();
+        Long userId = authUser.getUserId();
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));

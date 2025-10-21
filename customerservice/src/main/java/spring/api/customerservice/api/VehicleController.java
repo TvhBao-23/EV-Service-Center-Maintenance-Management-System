@@ -3,9 +3,11 @@ package spring.api.customerservice.api;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import spring.api.customerservice.api.dto.VehicleDto;
 import spring.api.customerservice.domain.Customer;
+import spring.api.customerservice.domain.User;
 import spring.api.customerservice.domain.Vehicle;
 import spring.api.customerservice.repository.CustomerRepository;
 import spring.api.customerservice.repository.VehicleRepository;
@@ -23,8 +25,9 @@ public class VehicleController {
     private final CustomerRepository customerRepository;
 
     @GetMapping
-    public ResponseEntity<List<Vehicle>> getAllVehicles(@RequestAttribute("user_id") Long userId) {
-        Customer customer = customerRepository.findByUserId(userId)
+    public ResponseEntity<List<Vehicle>> getAllVehicles(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         
         List<Vehicle> vehicles = vehicleRepository.findByCustomerId(customer.getCustomerId());
@@ -33,10 +36,11 @@ public class VehicleController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Vehicle> getVehicle(
-            @RequestAttribute("user_id") Long userId,
+            Authentication authentication,
             @PathVariable Long id) {
         
-        Customer customer = customerRepository.findByUserId(userId)
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         
         Vehicle vehicle = vehicleRepository.findById(id)
@@ -51,13 +55,14 @@ public class VehicleController {
 
     @PostMapping
     public ResponseEntity<?> createVehicle(
-            @RequestAttribute("user_id") Long userId,
+            Authentication authentication,
             @Valid @RequestBody VehicleDto dto) {
         
-        Customer customer = customerRepository.findByUserId(userId)
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseGet(() -> {
                     Customer newCustomer = new Customer();
-                    newCustomer.setUserId(userId);
+                    newCustomer.setUserId(user.getUserId());
                     newCustomer.setCreatedAt(LocalDateTime.now());
                     newCustomer.setUpdatedAt(LocalDateTime.now());
                     return customerRepository.save(newCustomer);
@@ -86,11 +91,12 @@ public class VehicleController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateVehicle(
-            @RequestAttribute("user_id") Long userId,
+            Authentication authentication,
             @PathVariable Long id,
             @RequestBody Map<String, Object> updates) {
         
-        Customer customer = customerRepository.findByUserId(userId)
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         
         Vehicle vehicle = vehicleRepository.findById(id)
@@ -115,10 +121,11 @@ public class VehicleController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteVehicle(
-            @RequestAttribute("user_id") Long userId,
+            Authentication authentication,
             @PathVariable Long id) {
         
-        Customer customer = customerRepository.findByUserId(userId)
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         
         Vehicle vehicle = vehicleRepository.findById(id)
