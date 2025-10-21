@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 import spring.api.authservice.api.dto.AuthResponse;
 import spring.api.authservice.api.dto.LoginRequest;
 import spring.api.authservice.api.dto.RegisterRequest;
+import spring.api.authservice.domain.Customer;
 import spring.api.authservice.domain.User;
 import spring.api.authservice.domain.UserRole;
+import spring.api.authservice.repository.CustomerRepository;
 import spring.api.authservice.repository.UserRepository;
 
 @Service
@@ -17,6 +19,7 @@ import spring.api.authservice.repository.UserRepository;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -35,10 +38,18 @@ public class AuthService {
         user.setPhone(request.phone());
         user.setRole(request.role() != null ? request.role() : UserRole.customer);
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Create customer if role is customer
+        if (savedUser.getRole() == UserRole.customer) {
+            Customer customer = new Customer();
+            customer.setUserId(savedUser.getUserId());
+            customer.setAddress("");
+            customerRepository.save(customer);
+        }
 
         // Generate JWT token
-        String jwtToken = jwtService.generateToken(user);
+        String jwtToken = jwtService.generateToken(savedUser);
         return new AuthResponse(jwtToken);
     }
 
