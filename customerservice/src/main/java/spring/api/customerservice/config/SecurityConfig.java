@@ -38,8 +38,13 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            );
+                .requestMatchers("/health").permitAll()
+                .requestMatchers("/api/customer/services/**").permitAll()
+                .requestMatchers("/api/customer/service-centers/**").permitAll()
+                .requestMatchers("/api/customer/**").authenticated()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
