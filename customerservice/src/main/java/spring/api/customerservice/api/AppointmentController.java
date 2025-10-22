@@ -37,6 +37,10 @@ public class AppointmentController {
 
     @PostMapping
     public ResponseEntity<?> createAppointment(@RequestBody AppointmentCreateDto dto, Authentication auth) {
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        
         User user = (User) auth.getPrincipal();
         Customer customer = customerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Customer not found"));
