@@ -41,6 +41,20 @@ services:
     networks:
       - ev-service-network
 
+  # Staff Service
+  staffservice:
+    build:
+      context: ./staffservice
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mysql
+    networks:
+      - ev-service-network
+
   # API Gateway Service (Simplified for now)
   api-gateway:
     build:
