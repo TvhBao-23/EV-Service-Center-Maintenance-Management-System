@@ -50,7 +50,7 @@ public class AppointmentController {
         appointment.setVehicleId(dto.getVehicleId());
         appointment.setServiceId(dto.getServiceId());
         appointment.setCenterId(dto.getCenterId());
-        appointment.setAppointmentDate(dto.getAppointmentDate());
+        appointment.setAppointmentDate(dto.getAppointmentDateAsLocalDateTime());
         appointment.setStatus("PENDING");
         appointment.setNotes(dto.getNotes());
 
