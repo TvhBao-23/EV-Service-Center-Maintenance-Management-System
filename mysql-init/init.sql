@@ -108,3 +108,28 @@ INSERT INTO services (name, description, estimated_duration_minutes, base_price)
 ('Thay thế pin', 'Thay thế pin xe điện', 180, 15000000),
 ('Kiểm tra hệ thống điện', 'Kiểm tra toàn bộ hệ thống điện của xe', 90, 300000),
 ('Sửa chữa hệ thống phanh', 'Kiểm tra và sửa chữa hệ thống phanh', 120, 800000);
+
+-- Payments table
+CREATE TABLE IF NOT EXISTS payments (
+    payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    appointment_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method ENUM('cash', 'card', 'bank_transfer', 'e_wallet') NOT NULL,
+    status ENUM('pending', 'processing', 'completed', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
+    transaction_id VARCHAR(100) UNIQUE,
+    payment_date TIMESTAMP NULL,
+    verification_code VARCHAR(6),
+    verification_expires_at TIMESTAMP NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_payments_appointment_id ON payments(appointment_id);
+CREATE INDEX idx_payments_customer_id ON payments(customer_id);
+CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
+CREATE INDEX idx_payments_status ON payments(status);
