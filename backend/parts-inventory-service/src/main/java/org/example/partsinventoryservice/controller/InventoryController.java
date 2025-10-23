@@ -3,12 +3,11 @@ package org.example.partsinventoryservice.controller;
 import org.example.partsinventoryservice.model.Inventory;
 import org.example.partsinventoryservice.service.InventoryService;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/inventory")
-@CrossOrigin(origins = "*") // Cho phép frontend truy cập
+@CrossOrigin(origins = "*")
 public class InventoryController {
 
     private final InventoryService inventoryService;
@@ -17,24 +16,30 @@ public class InventoryController {
         this.inventoryService = inventoryService;
     }
 
-    @GetMapping
-    public List<Inventory> getAllInventory() {
-        return inventoryService.getAllInventory();
-    }
-
-    @GetMapping("/{partCode}")
-    public Inventory getInventoryByPartCode(@PathVariable String partCode) {
-        return inventoryService.getInventoryByPartCode(partCode);
+    @GetMapping("/list")
+    public List<Map<String, Object>> getAllInventory() {
+        return inventoryService.getAllInventory().stream().map(inv -> {
+            Map<String, Object> data = new HashMap<>();
+            data.put("id", inv.getInventoryId());
+            data.put("name", inv.getPart().getName());
+            data.put("partCode", inv.getPart().getPartCode());
+            data.put("currentStock", inv.getQuantityInStock());
+            data.put("minStock", inv.getMinStockLevel());
+            data.put("price", inv.getPart().getUnitPrice());
+            data.put("manufacturer", inv.getPart().getManufacturer());
+            return data;
+        }).toList();
     }
 
     @PostMapping("/add/{partCode}")
     public Inventory addStock(@PathVariable String partCode, @RequestParam int quantity) {
-        return inventoryService.addOrUpdateInventory(partCode, quantity);
+        return inventoryService.addStock(partCode, quantity);
     }
 
     @PostMapping("/reduce/{partCode}")
     public Inventory reduceStock(@PathVariable String partCode, @RequestParam int quantity) {
-        return inventoryService.reduceInventory(partCode, quantity);
+        return inventoryService.reduceStock(partCode, quantity);
     }
 }
+
 

@@ -1,10 +1,7 @@
 package org.example.partsinventoryservice.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
@@ -12,6 +9,7 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Part {
 
     @Id
@@ -37,3 +35,4 @@ public class Part {
     @Column(name = "manufacturer", length = 100)
     private String manufacturer;
 }
+

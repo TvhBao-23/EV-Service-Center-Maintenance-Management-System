@@ -1,12 +1,12 @@
 package org.example.partsinventoryservice.service;
 
+
 import org.example.partsinventoryservice.model.Inventory;
 import org.example.partsinventoryservice.model.Part;
 import org.example.partsinventoryservice.respository.InventoryRepository;
 import org.example.partsinventoryservice.respository.PartRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 
 @Service
@@ -27,35 +27,34 @@ public class InventoryService {
 
     public Inventory getInventoryByPartCode(String partCode) {
         Part part = partRepository.findByPartCode(partCode)
-                .orElseThrow(() -> new RuntimeException("Part not found: " + partCode));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng có mã: " + partCode));
         return inventoryRepository.findByPart(part)
-                .orElseThrow(() -> new RuntimeException("Inventory not found for part: " + partCode));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tồn kho cho phụ tùng: " + partCode));
     }
 
-    public Inventory addOrUpdateInventory(String partCode, int quantity) {
+    public Inventory addStock(String partCode, int quantity) {
         Part part = partRepository.findByPartCode(partCode)
-                .orElseThrow(() -> new RuntimeException("Part not found: " + partCode));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng: " + partCode));
 
         Inventory inventory = inventoryRepository.findByPart(part)
                 .orElse(Inventory.builder()
                         .part(part)
-                        .quantity(0)
-                        .minThreshold(5)
+                        .quantityInStock(0)
+                        .minStockLevel(5)
                         .build());
 
-        inventory.setQuantity(inventory.getQuantity() + quantity);
+        inventory.setQuantityInStock(inventory.getQuantityInStock() + quantity);
         return inventoryRepository.save(inventory);
     }
 
-    public Inventory reduceInventory(String partCode, int quantity) {
+    public Inventory reduceStock(String partCode, int quantity) {
         Inventory inventory = getInventoryByPartCode(partCode);
-
-        if (inventory.getQuantity() < quantity) {
-            throw new RuntimeException("Not enough stock for part: " + partCode);
+        if (inventory.getQuantityInStock() < quantity) {
+            throw new RuntimeException("Số lượng tồn kho không đủ để xuất!");
         }
-
-        inventory.setQuantity(inventory.getQuantity() - quantity);
+        inventory.setQuantityInStock(inventory.getQuantityInStock() - quantity);
         return inventoryRepository.save(inventory);
     }
 }
+
 

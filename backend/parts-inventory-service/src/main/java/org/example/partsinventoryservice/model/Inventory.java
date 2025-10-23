@@ -2,10 +2,10 @@ package org.example.partsinventoryservice.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "inventory")
+@Table(name = "part_inventories",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"part_id"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,24 +18,13 @@ public class Inventory {
     private Long inventoryId;
 
     @OneToOne
-    @JoinColumn(name = "part_id", nullable = false, unique = true)
+    @JoinColumn(name = "part_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_inventory_part"))
     private Part part;
 
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
+    @Column(name = "quantity_in_stock", nullable = false)
+    private int quantityInStock = 0;
 
-    @Column(name = "min_threshold", nullable = false)
-    private int minThreshold = 0;
-
-    @Column(name = "max_threshold")
-    private int maxThreshold = 100;
-
-    @Column(name = "last_updated")
-    private LocalDateTime lastUpdated;
-
-    @PrePersist
-    @PreUpdate
-    public void updateTimestamp() {
-        lastUpdated = LocalDateTime.now();
-    }
+    @Column(name = "min_stock_level", nullable = false)
+    private int minStockLevel = 5;
 }
