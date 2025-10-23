@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a21a960b-6dad-4f1b-af3f-9a7d4de3f5a8" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jarRepositories.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartUsageHistoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartUsageHistoryController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Inventory.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Inventory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Part.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Part.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/PartUsageHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/PartUsageHistory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/InventoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/InventoryRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartUsageHistoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartUsageHistoryRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartUsageHistoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartUsageHistoryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/evservicecenter/pom.xml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Dockerfile" />
+        <option value="Interface" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="34MR2RCjboU0PliLWFnpqLc1eaO" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "TheKhai",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "D:/dowload/hk7/xdpmhđt/project/EV-Service-Center-Maintenance-Management-System/backend/parts-inventory-service",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager" selected="Spring Boot.EvservicecenterApplication">
+    <configuration name="EvservicecenterApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="evservicecenter" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="spring.api.evservicecenter.EvservicecenterApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="PartsInventoryServiceApplication (1)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="parts-inventory-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="org.example.partsinventoryservice.PartsInventoryServiceApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="PartsInventoryServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="parts-inventory-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.parts_inventory_service.PartsInventoryServiceApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-28b599e66164-intellij.indexing.shared.core-IU-242.23339.11" />
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-IU-242.23339.11" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a21a960b-6dad-4f1b-af3f-9a7d4de3f5a8" name="Changes" comment="" />
+      <created>1761021246496</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1761021246496</updated>
+      <workItem from="1761021247588" duration="251000" />
+      <workItem from="1761021620501" duration="167000" />
+      <workItem from="1761021834640" duration="33000" />
+      <workItem from="1761021873991" duration="200000" />
+      <workItem from="1761022108360" duration="84000" />
+      <workItem from="1761022240113" duration="613000" />
+      <workItem from="1761023095272" duration="151000" />
+      <workItem from="1761024938221" duration="558000" />
+      <workItem from="1761025508325" duration="511000" />
+      <workItem from="1761043749044" duration="253000" />
+      <workItem from="1761044095850" duration="136000" />
+      <workItem from="1761044251793" duration="148000" />
+      <workItem from="1761129275599" duration="1278000" />
+      <workItem from="1761185842424" duration="572000" />
+      <workItem from="1761195495948" duration="245000" />
+      <workItem from="1761202922329" duration="382000" />
+      <workItem from="1761206074562" duration="754000" />
+      <workItem from="1761206986759" duration="64000" />
+      <workItem from="1761207111134" duration="462000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

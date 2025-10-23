@@ -44,14 +44,17 @@ services:
     build:
       context: ./parts-inventory-service
       dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ev_service_center
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parts_inventory_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=
-    networks:
-      - ev-service-network
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
       - mysql
+    networks:
+      - ev-service-network
 
 volumes:
   mysql_data:
