@@ -15,7 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class PaymentController {
 
     private final PaymentRepository paymentRepository;
@@ -42,13 +42,14 @@ public class PaymentController {
         ));
     }
 
-    @PostMapping("/{paymentId}/verify")
+    @PostMapping("/verify")
     public ResponseEntity<?> verifyPayment(
-            @PathVariable Long paymentId,
-            @RequestBody Map<String, String> body,
+            @RequestBody Map<String, Object> body,
             Authentication auth) {
         
-        String code = body.get("verification_code");
+        Long paymentId = Long.valueOf(body.get("paymentId").toString());
+        String code = body.get("verificationCode").toString();
+        
         if (code == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Thiếu mã xác thực"));
         }

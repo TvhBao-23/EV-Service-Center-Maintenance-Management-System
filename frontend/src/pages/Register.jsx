@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 function Register() {
+  const { register } = useAuth()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -12,36 +15,51 @@ function Register() {
     agreeTerms: false
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setError('')
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Persist mock user to localStorage for later login
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    const newUser = {
-      id: `u_${Date.now()}`,
-      fullName: formData.fullName.trim(),
-      email: formData.email.trim().toLowerCase(),
-      phone: formData.phone.trim(),
-      password: formData.password, // mock only; will be replaced by backend later
-      role: formData.role
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp')
+      setIsLoading(false)
+      return
     }
-    // Upsert by email
-    const existingIdx = users.findIndex(u => u.email === newUser.email)
-    if (existingIdx >= 0) {
-      users[existingIdx] = { ...users[existingIdx], ...newUser }
-    } else {
-      users.push(newUser)
-    }
-    localStorage.setItem('users', JSON.stringify(users))
-    setIsLoading(false)
     
-    // Redirect to login page
-    window.location.href = '/login?registered=true'
+    try {
+      const userData = {
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password,
+        role: formData.role
+      }
+      
+      const result = await register(userData)
+      
+      if (result.success) {
+        // Redirect by role
+        const userRole = result.user.role || 'customer'
+        if (userRole === 'admin') {
+          navigate('/admin')
+        } else if (userRole === 'technician' || userRole === 'technican') {
+          navigate('/technician')
+        } else if (userRole === 'staff') {
+          navigate('/staff')
+        } else {
+          navigate('/vehicles')
+        }
+      } else {
+        setError(result.error || 'Có lỗi xảy ra khi đăng ký')
+      }
+    } catch (error) {
+      setError('Có lỗi xảy ra khi đăng ký')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleInputChange = (e) => {
@@ -156,9 +174,15 @@ function Register() {
               </label>
             </div>
 
+            {error && (
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !formData.agreeTerms}
               className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}

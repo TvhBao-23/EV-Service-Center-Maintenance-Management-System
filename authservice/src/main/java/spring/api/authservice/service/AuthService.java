@@ -13,6 +13,7 @@ import spring.api.authservice.domain.User;
 import spring.api.authservice.domain.UserRole;
 import spring.api.authservice.repository.CustomerRepository;
 import spring.api.authservice.repository.UserRepository;
+import spring.api.authservice.service.JwtService;
 
 @Service
 @RequiredArgsConstructor
