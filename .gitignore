@@ -2,6 +2,7 @@
 .cursor/
 .codacy/
 .github/
+target/
 
 # Compiled class file
 *.class
