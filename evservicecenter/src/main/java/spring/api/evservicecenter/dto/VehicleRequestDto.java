@@ -1,18 +1,17 @@
 package spring.api.evservicecenter.dto;
 
-
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
-public class VehicleRequestDto {
-    
-    private Long customerId; // ID của khách hàng sở hữu xe
+import lombok.Data;
+
+@Data
+public class VehicleRequestDTO {
     private String vin;
     private String brand;
     private String model;
-    private int year;
+    private Integer year;
     private BigDecimal batteryCapacityKwh;
-    // ... thêm các trường khác nếu cần
-
-    // Getters and Setters
-    // ...
+    private BigDecimal odometerKm;
+    private LocalDate lastServiceDate;
 }

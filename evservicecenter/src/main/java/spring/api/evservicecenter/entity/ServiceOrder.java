@@ -1,4 +1,4 @@
-package spring.api.evservicecenter.model;
+package spring.api.evservicecenter.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
