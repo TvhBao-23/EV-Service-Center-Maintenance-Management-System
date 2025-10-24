@@ -4,9 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.math.BigDecimal;
 
+/**
+ * Entity cho bảng order_items
+ * Quản lý các hạng mục trong phiếu bảo dưỡng (dịch vụ và phụ tùng)
+ */
 @Entity
 @Table(name = "order_items")
 @Data
@@ -17,44 +20,54 @@ public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "item_id")
-    private Long itemId;
+    private Integer itemId;
 
     @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    private Integer orderId;
 
     @Column(name = "service_id")
-    private Long serviceId;
+    private Integer serviceId;
 
     @Column(name = "part_id")
-    private Long partId;
+    private Integer partId;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity = 1;
 
-    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
-    private BigDecimal unitPrice = BigDecimal.ZERO;
+    @Column(name = "unit_price", precision = 10, scale = 2)
+    private BigDecimal unitPrice;
 
-    @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal totalPrice = BigDecimal.ZERO;
+    @Column(name = "total_price", precision = 10, scale = 2)
+    private BigDecimal totalPrice;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @Column(name = "type", length = 20)
     private ItemType type;
 
-    // Relationships
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", insertable = false, updatable = false)
-    private ServiceOrder serviceOrder;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "service_id", insertable = false, updatable = false)
-    private Service service;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "part_id", insertable = false, updatable = false)
-    private Part part;
+    @Column(name = "description", length = 500)
+    private String description;
 
     public enum ItemType {
-        SERVICE, PART
+        SERVICE("Dịch vụ"),
+        PART("Phụ tùng"),
+        LABOR("Nhân công");
+
+        private final String description;
+
+        ItemType(String description) {
+            this.description = description;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+    }
+
+    @PrePersist
+    @PreUpdate
+    protected void calculateTotalPrice() {
+        if (unitPrice != null && quantity != null) {
+            totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        }
     }
 }

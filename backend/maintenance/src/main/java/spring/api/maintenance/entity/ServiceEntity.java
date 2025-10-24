@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Service {
+public class ServiceEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -4,11 +4,13 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalDateTime;
 
+/**
+ * Entity cho bảng vehicles
+ * Quản lý thông tin xe của khách hàng
+ */
 @Entity
 @Table(name = "vehicles")
 @Data
@@ -19,49 +21,46 @@ public class Vehicle {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "vehicle_id")
-    private Long vehicleId;
+    private Integer vehicleId;
 
     @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    private Integer customerId;
 
-    @Column(name = "vin", nullable = false, unique = true, length = 17)
+    @Column(name = "vin", length = 17, unique = true)
     private String vin;
 
-    @Column(name = "brand", nullable = false, length = 50)
+    @Column(name = "brand", length = 100)
     private String brand;
 
-    @Column(name = "model", nullable = false, length = 50)
+    @Column(name = "model", length = 100)
     private String model;
 
     @Column(name = "year")
     private Integer year;
 
-    @Column(name = "battery_capacity_kwh", precision = 5, scale = 2)
+    @Column(name = "battery_capacity_kwh", precision = 10, scale = 2)
     private BigDecimal batteryCapacityKwh;
 
     @Column(name = "odometer_km", precision = 10, scale = 2)
-    private BigDecimal odometerKm = BigDecimal.ZERO;
+    private BigDecimal odometerKm;
 
     @Column(name = "last_service_date")
-    private LocalDate lastServiceDate;
+    private LocalDateTime lastServiceDate;
 
     @Column(name = "last_service_km", precision = 10, scale = 2)
-    private BigDecimal lastServiceKm = BigDecimal.ZERO;
+    private BigDecimal lastServiceKm;
 
     @Column(name = "next_service_due_km", precision = 10, scale = 2)
     private BigDecimal nextServiceDueKm;
 
     @Column(name = "next_service_due_date")
-    private LocalDate nextServiceDueDate;
+    private LocalDateTime nextServiceDueDate;
 
-    // Relationships
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", insertable = false, updatable = false)
-    private Customer customer;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Appointment> appointments;
-
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ServiceOrder> serviceOrders;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }

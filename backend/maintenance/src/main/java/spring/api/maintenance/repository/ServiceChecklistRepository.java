@@ -5,64 +5,64 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
+/**
+ * Repository cho ServiceChecklist entity
+ */
 @Repository
-public interface ServiceChecklistRepository extends JpaRepository<ServiceChecklist, Long> {
+public interface ServiceChecklistRepository extends JpaRepository<ServiceChecklist, Integer> {
 
-    // Find checklist items by order ID
-    List<ServiceChecklist> findByOrderId(Long orderId);
+    /**
+     * Tìm checklist theo phiếu bảo dưỡng
+     */
+    List<ServiceChecklist> findByOrderId(Integer orderId);
 
-    // Find completed checklist items
+    /**
+     * Tìm checklist đã hoàn thành
+     */
     List<ServiceChecklist> findByIsCompletedTrue();
 
-    // Find pending checklist items
+    /**
+     * Tìm checklist chưa hoàn thành
+     */
     List<ServiceChecklist> findByIsCompletedFalse();
 
-    // Find checklist items by order and completion status
-    List<ServiceChecklist> findByOrderIdAndIsCompleted(Long orderId, Boolean isCompleted);
+    /**
+     * Tìm checklist theo người thực hiện
+     */
+    List<ServiceChecklist> findByCompletedBy(Integer completedBy);
 
-    // Find checklist items by technician
-    List<ServiceChecklist> findByCompletedBy(Long completedBy);
+    /**
+     * Tìm checklist đã hoàn thành của một phiếu
+     */
+    @Query("SELECT sc FROM ServiceChecklist sc WHERE sc.orderId = :orderId AND sc.isCompleted = true")
+    List<ServiceChecklist> findCompletedByOrderId(@Param("orderId") Integer orderId);
 
-    // Find checklist items by completion date range
-    List<ServiceChecklist> findByCompletedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
+    /**
+     * Tìm checklist chưa hoàn thành của một phiếu
+     */
+    @Query("SELECT sc FROM ServiceChecklist sc WHERE sc.orderId = :orderId AND sc.isCompleted = false")
+    List<ServiceChecklist> findPendingByOrderId(@Param("orderId") Integer orderId);
 
-    // Find checklist items by item name containing keyword
-    List<ServiceChecklist> findByItemNameContainingIgnoreCase(String itemName);
-
-    // Find checklist items with notes
-    @Query("SELECT sc FROM ServiceChecklist sc WHERE sc.notes IS NOT NULL AND sc.notes != ''")
-    List<ServiceChecklist> findItemsWithNotes();
-
-    // Find checklist items by order with details
-    @Query("SELECT sc FROM ServiceChecklist sc LEFT JOIN FETCH sc.serviceOrder WHERE sc.orderId = :orderId")
-    List<ServiceChecklist> findByOrderIdWithDetails(@Param("orderId") Long orderId);
-
-    // Count completed items by order
-    @Query("SELECT COUNT(sc) FROM ServiceChecklist sc WHERE sc.orderId = :orderId AND sc.isCompleted = true")
-    long countCompletedItemsByOrderId(@Param("orderId") Long orderId);
-
-    // Count total items by order
-    @Query("SELECT COUNT(sc) FROM ServiceChecklist sc WHERE sc.orderId = :orderId")
-    long countTotalItemsByOrderId(@Param("orderId") Long orderId);
-
-    // Calculate completion percentage for order
+    /**
+     * Tính phần trăm hoàn thành của một phiếu
+     */
     @Query("SELECT (COUNT(CASE WHEN sc.isCompleted = true THEN 1 END) * 100.0 / COUNT(sc)) FROM ServiceChecklist sc WHERE sc.orderId = :orderId")
-    Double calculateCompletionPercentageByOrderId(@Param("orderId") Long orderId);
+    Double calculateCompletionPercentage(@Param("orderId") Integer orderId);
 
-    // Find checklist items by technician and date range
-    @Query("SELECT sc FROM ServiceChecklist sc WHERE sc.completedBy = :technicianId AND sc.completedAt BETWEEN :startDate AND :endDate")
-    List<ServiceChecklist> findByTechnicianAndDateRange(@Param("technicianId") Long technicianId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
+    /**
+     * Đếm tổng số checklist của một phiếu
+     */
+    long countByOrderId(Integer orderId);
 
-    // Count items by technician
-    long countByCompletedBy(Long completedBy);
+    /**
+     * Đếm checklist đã hoàn thành của một phiếu
+     */
+    long countByOrderIdAndIsCompletedTrue(Integer orderId);
 
-    // Count completed items by technician
-    long countByCompletedByAndIsCompleted(Long completedBy, Boolean isCompleted);
+    /**
+     * Tìm checklist theo phiếu và trạng thái hoàn thành
+     */
+    List<ServiceChecklist> findByOrderIdAndIsCompleted(Integer orderId, Boolean isCompleted);
 }

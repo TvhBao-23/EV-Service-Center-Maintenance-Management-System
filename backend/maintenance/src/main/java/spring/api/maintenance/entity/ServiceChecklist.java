@@ -4,9 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.time.LocalDateTime;
 
+/**
+ * Entity cho bảng service_checklists
+ * Quản lý danh sách kiểm tra chi tiết cho từng phiếu bảo dưỡng
+ */
 @Entity
 @Table(name = "service_checklists")
 @Data
@@ -17,12 +20,12 @@ public class ServiceChecklist {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "checklist_id")
-    private Long checklistId;
+    private Integer checklistId;
 
     @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    private Integer orderId;
 
-    @Column(name = "item_name", nullable = false, length = 200)
+    @Column(name = "item_name", nullable = false, length = 255)
     private String itemName;
 
     @Column(name = "is_completed")
@@ -32,13 +35,23 @@ public class ServiceChecklist {
     private String notes;
 
     @Column(name = "completed_by")
-    private Long completedBy;
+    private Integer completedBy;
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-    // Relationships
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", insertable = false, updatable = false)
-    private ServiceOrder serviceOrder;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        if (isCompleted && completedAt == null) {
+            completedAt = LocalDateTime.now();
+        }
+    }
 }

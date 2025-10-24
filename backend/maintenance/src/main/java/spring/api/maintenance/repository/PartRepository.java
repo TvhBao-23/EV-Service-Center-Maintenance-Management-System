@@ -5,59 +5,77 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository cho Part entity
+ */
 @Repository
-public interface PartRepository extends JpaRepository<Part, Long> {
+public interface PartRepository extends JpaRepository<Part, Integer> {
 
-    // Find part by part code
+    /**
+     * Tìm phụ tùng theo mã
+     */
     Optional<Part> findByPartCode(String partCode);
 
-    // Find parts by name containing keyword
-    List<Part> findByNameContainingIgnoreCase(String name);
-
-    // Find parts by category
+    /**
+     * Tìm phụ tùng theo danh mục
+     */
     List<Part> findByCategory(String category);
 
-    // Find parts by manufacturer
+    /**
+     * Tìm phụ tùng đang hoạt động
+     */
+    List<Part> findByIsActiveTrue();
+
+    /**
+     * Tìm phụ tùng theo nhà sản xuất
+     */
     List<Part> findByManufacturer(String manufacturer);
 
-    // Find parts by price range
-    List<Part> findByUnitPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
+    /**
+     * Tìm phụ tùng theo tên (tìm kiếm gần đúng)
+     */
+    @Query("SELECT p FROM Part p WHERE p.name LIKE %:name% AND p.isActive = true")
+    List<Part> findByNameContaining(@Param("name") String name);
 
-    // Find parts by name and category
-    List<Part> findByNameContainingIgnoreCaseAndCategory(String name, String category);
+    /**
+     * Tìm phụ tùng theo khoảng giá
+     */
+    @Query("SELECT p FROM Part p WHERE p.unitPrice BETWEEN :minPrice AND :maxPrice AND p.isActive = true")
+    List<Part> findByPriceRange(@Param("minPrice") Double minPrice, @Param("maxPrice") Double maxPrice);
 
-    // Find parts by manufacturer and category
-    List<Part> findByManufacturerAndCategory(String manufacturer, String category);
+    /**
+     * Tìm phụ tùng sắp hết hàng
+     */
+    @Query("SELECT p FROM Part p WHERE p.stockQuantity <= p.minStockLevel AND p.isActive = true")
+    List<Part> findLowStockParts();
 
-    // Find parts by description containing keyword
-    @Query("SELECT p FROM Part p WHERE p.description LIKE %:keyword%")
-    List<Part> findByDescriptionContaining(@Param("keyword") String keyword);
+    /**
+     * Tìm phụ tùng hết hàng
+     */
+    @Query("SELECT p FROM Part p WHERE p.stockQuantity = 0 AND p.isActive = true")
+    List<Part> findOutOfStockParts();
 
-    // Find parts ordered by price ascending
-    List<Part> findAllByOrderByUnitPriceAsc();
-
-    // Find parts ordered by price descending
-    List<Part> findAllByOrderByUnitPriceDesc();
-
-    // Find parts by name ordered by price
-    List<Part> findByNameContainingIgnoreCaseOrderByUnitPriceAsc(String name);
-
-    // Count parts by category
+    /**
+     * Đếm phụ tùng theo danh mục
+     */
     long countByCategory(String category);
 
-    // Count parts by manufacturer
-    long countByManufacturer(String manufacturer);
+    /**
+     * Đếm phụ tùng sắp hết hàng
+     */
+    @Query("SELECT COUNT(p) FROM Part p WHERE p.stockQuantity <= p.minStockLevel AND p.isActive = true")
+    long countLowStockParts();
 
-    // Find most expensive parts
-    @Query("SELECT p FROM Part p ORDER BY p.unitPrice DESC")
-    List<Part> findMostExpensiveParts();
+    /**
+     * Tìm phụ tùng theo tên (case insensitive)
+     */
+    List<Part> findByNameContainingIgnoreCase(String name);
 
-    // Find cheapest parts
-    @Query("SELECT p FROM Part p ORDER BY p.unitPrice ASC")
-    List<Part> findCheapestParts();
+    /**
+     * Tìm phụ tùng theo khoảng giá
+     */
+    List<Part> findByUnitPriceBetween(Double minPrice, Double maxPrice);
 }

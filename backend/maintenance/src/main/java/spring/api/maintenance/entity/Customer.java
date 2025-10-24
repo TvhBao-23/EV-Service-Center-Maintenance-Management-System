@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.time.LocalDateTime;
-import java.util.List;
 
+/**
+ * Entity cho bảng customers
+ * Quản lý thông tin khách hàng
+ */
 @Entity
 @Table(name = "customers")
 @Data
@@ -20,23 +22,17 @@ public class Customer {
     @Column(name = "customer_id")
     private Integer customerId;
 
-    // @Column(name = "user_id", unique = true)
-    // private Long userId;
-
-    @Column(name = "first_name", length = 50)
-    private String firstName;
-
-    @Column(name = "last_name", length = 50)
-    private String lastName;
-
-    @Column(name = "email", length = 100, unique = true)
-    private String email;
-
-    @Column(name = "phone", length = 20, unique = true)
-    private String phone;
+    @Column(name = "full_name", nullable = false, length = 255)
+    private String fullName;
 
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
+
+    @Column(name = "email", length = 255)
+    private String email;
+
+    @Column(name = "phone", length = 20)
+    private String phone;
 
     @Column(name = "date_of_birth")
     private LocalDateTime dateOfBirth;
@@ -45,12 +41,10 @@ public class Customer {
     private String gender;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
-    // Relationships
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Vehicle> vehicles;
-
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Appointment> appointments;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }
