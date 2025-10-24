@@ -36,10 +36,13 @@ function Payment() {
     setMessage('')
     
     try {
+      // Get service price from the appointment's service
+      const servicePrice = selectedAppointment.servicePrice || 100000 // Default to basic package
+      
       // Create payment
       const paymentData = {
         appointmentId: selectedAppointment.appointmentId,
-        amount: 750000, // Default amount for demo
+        amount: servicePrice,
         paymentMethod: paymentMethod,
         notes: `Payment for appointment ${selectedAppointment.appointmentId}`
       }
@@ -51,7 +54,7 @@ function Payment() {
     } catch (error) {
       setMessage('Có lỗi xảy ra khi tạo thanh toán')
     } finally {
-      setIsProcessing(false)
+    setIsProcessing(false)
     }
   }
 
@@ -66,7 +69,9 @@ function Payment() {
       setShowVerification(false)
       setCurrentPayment(null)
       setVerificationCode('')
-      loadAppointments()
+      setSelectedAppointment(null)
+      // Reload appointments to update the list and remove paid appointments
+      await loadAppointments()
     } catch (error) {
       setMessage('Mã xác thực không đúng')
     } finally {
@@ -85,12 +90,12 @@ function Payment() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 md:col-span-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Tổng cần thanh toán</h3>
-             <p className="text-3xl font-bold text-green-600">
-               {appointments.length > 0 ? (appointments.length * 750000).toLocaleString('vi-VN') : '0'} VNĐ
-             </p>
-             <p className="text-sm text-gray-500 mt-1">
-               {appointments.length > 0 ? `Từ ${appointments.length} lịch đặt chờ thanh toán` : 'Không có lịch đặt nào'}
-             </p>
+              <p className="text-3xl font-bold text-green-600">
+                {appointments.length > 0 ? appointments.reduce((total, apt) => total + (apt.servicePrice || 100000), 0).toLocaleString('vi-VN') : '0'} VNĐ
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {appointments.length > 0 ? `Từ ${appointments.length} lịch đặt chờ thanh toán` : 'Không có lịch đặt nào'}
+              </p>
           </div>
         </div>
 
@@ -177,7 +182,7 @@ function Payment() {
                         )}
                         </div>
                         <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">750,000 VNĐ</p>
+                        <p className="text-lg font-bold text-green-600">{(appointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ</p>
                           <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                             Chờ thanh toán
                           </span>
@@ -204,7 +209,7 @@ function Payment() {
                       
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600">Tổng tiền:</span>
-                        <span className="text-xl font-bold text-green-600">750,000 VNĐ</span>
+                            <span className="text-xl font-bold text-green-600">{(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ</span>
                       </div>
                     </div>
 
@@ -269,7 +274,7 @@ function Payment() {
                           Đang xử lý...
                         </>
                       ) : (
-                        'Thanh toán 750,000 VNĐ'
+                            `Thanh toán ${(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ`
                       )}
                     </button>
                   </>

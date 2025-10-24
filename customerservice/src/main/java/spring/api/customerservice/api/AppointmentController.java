@@ -34,7 +34,11 @@ public class AppointmentController {
             Customer customer = customerRepository.findByUserId(user.getUserId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
             List<Appointment> appointments = appointmentService.getAppointmentsByCustomerId(customer.getCustomerId());
-            return ResponseEntity.ok(appointments);
+            // Filter out appointments that have been paid
+            List<Appointment> unpaidAppointments = appointments.stream()
+                    .filter(appointment -> !appointmentService.isAppointmentPaid(appointment.getAppointmentId()))
+                    .collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(unpaidAppointments);
         } catch (Exception e) {
             System.err.println("Error fetching appointments: " + e.getMessage());
             return ResponseEntity.ok(List.of());

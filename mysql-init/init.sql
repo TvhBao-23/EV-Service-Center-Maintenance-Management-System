@@ -100,14 +100,12 @@ INSERT INTO service_centers (name, address, phone) VALUES
 ('Trung tâm dịch vụ xe điện Hoài Bảo - Quận 7', '456 Nguyễn Thị Thập, Quận 7, TP.HCM', '0772051290'),
 ('Trung tâm dịch vụ xe điện Hoài Bảo - Quận 12', '789 Đường Tân Thới Hiệp, Quận 12, TP.HCM', '0772051291');
 
--- Insert seed data for services
+-- Insert seed data for services with new pricing packages
 INSERT INTO services (name, description, estimated_duration_minutes, base_price) VALUES
-('Bảo dưỡng định kỳ 6 tháng', 'Kiểm tra và bảo dưỡng định kỳ cho xe điện', 120, 500000),
-('Bảo dưỡng định kỳ 12 tháng', 'Kiểm tra và bảo dưỡng định kỳ cho xe điện', 180, 800000),
-('Sửa chữa động cơ điện', 'Sửa chữa và thay thế động cơ điện', 240, 2000000),
-('Thay thế pin', 'Thay thế pin xe điện', 180, 15000000),
-('Kiểm tra hệ thống điện', 'Kiểm tra toàn bộ hệ thống điện của xe', 90, 300000),
-('Sửa chữa hệ thống phanh', 'Kiểm tra và sửa chữa hệ thống phanh', 120, 800000);
+('Gói Bảo dưỡng Cơ bản', 'Kiểm tra tổng thể và bảo dưỡng cơ bản', 60, 100000),
+('Gói Bảo dưỡng Tiêu chuẩn', 'Bảo dưỡng định kỳ và kiểm tra chi tiết', 120, 500000),
+('Gói Bảo dưỡng Cao cấp', 'Bảo dưỡng toàn diện với thay thế linh kiện', 180, 1000000),
+('Gói Bảo dưỡng Premium', 'Bảo dưỡng toàn diện + nâng cấp hệ thống', 240, 5000000);
 
 -- Payments table
 CREATE TABLE IF NOT EXISTS payments (

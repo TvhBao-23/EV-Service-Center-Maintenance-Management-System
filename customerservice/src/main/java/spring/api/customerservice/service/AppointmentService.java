@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import spring.api.customerservice.domain.Appointment;
 import spring.api.customerservice.domain.AppointmentStatus;
 import spring.api.customerservice.repository.AppointmentRepository;
+import spring.api.customerservice.repository.PaymentRepository;
+import spring.api.customerservice.domain.Payment;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,6 +17,7 @@ import java.util.Optional;
 public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
+    private final PaymentRepository paymentRepository;
 
     public Appointment createAppointment(Long customerId, Long vehicleId, Long serviceId, Long centerId, LocalDateTime appointmentDate, String notes) {
         Appointment appointment = new Appointment();
@@ -50,5 +53,9 @@ public class AppointmentService {
     public List<Appointment> getAppointmentHistoryByCustomerId(Long customerId) {
         // For history, we might want to include COMPLETED and CANCELLED appointments
         return appointmentRepository.findByCustomerIdAndStatusIn(customerId, List.of(AppointmentStatus.completed, AppointmentStatus.cancelled));
+    }
+
+    public boolean isAppointmentPaid(Long appointmentId) {
+        return paymentRepository.existsByAppointmentIdAndStatus(appointmentId, Payment.PaymentStatus.completed);
     }
 }
