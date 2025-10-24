@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a21a960b-6dad-4f1b-af3f-9a7d4de3f5a8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
@@ -15,25 +14,39 @@
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartUsageHistoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartUsageHistoryController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Inventory.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Inventory.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Part.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Part.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/PartUsageHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/PartUsageHistory.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/InventoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/InventoryRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartUsageHistoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartUsageHistoryRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartUsageHistoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartUsageHistoryService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/pom.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartUsageHistoryController.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Inventory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/Part.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/model/PartUsageHistory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/InventoryRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartUsageHistoryRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartUsageHistoryService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/main/resources/application.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/evservicecenter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/evservicecenter/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/mvnw" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/mvnw.cmd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/pom.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/src/main/java/spring/api/evservicecenter/EvservicecenterApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/src/main/java/spring/api/evservicecenter/ServletInitializer.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/src/main/resources/application.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evservicecenter/src/test/java/spring/api/evservicecenter/EvservicecenterApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/MyVehicles.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/MyVehicles.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Tracking.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Tracking.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,21 +74,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "TheKhai",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/dowload/hk7/xdpmhđt/project/EV-Service-Center-Maintenance-Management-System/backend/parts-inventory-service",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "run.configurations.included.in.services": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;TheKhai&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/dowload/hk7/xdpmhđt/project/EV-Service-Center-Maintenance-Management-System/backend/parts-inventory-service&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Spring Boot.EvservicecenterApplication">
     <configuration name="EvservicecenterApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
@@ -87,7 +104,7 @@
     </configuration>
     <configuration name="PartsInventoryServiceApplication (1)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
-      <module name="parts-inventory-service" />
+      <module name="maintenance" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="org.example.partsinventoryservice.PartsInventoryServiceApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
@@ -136,6 +153,9 @@
       <workItem from="1761206074562" duration="754000" />
       <workItem from="1761206986759" duration="64000" />
       <workItem from="1761207111134" duration="462000" />
+      <workItem from="1761315972234" duration="307000" />
+      <workItem from="1761316287587" duration="408000" />
+      <workItem from="1761321632637" duration="22000" />
     </task>
     <servers />
   </component>
