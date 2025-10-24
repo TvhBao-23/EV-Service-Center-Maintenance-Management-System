@@ -156,9 +156,9 @@ function Login() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-green-600 hover:text-green-500 transition-colors">
+                <Link to="/forgot-password" className="font-medium text-green-600 hover:text-green-500 transition-colors">
                   Quên mật khẩu?
-                </a>
+                </Link>
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext.jsx'
 import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
 import MyVehicles from './pages/MyVehicles.jsx'
 import Tracking from './pages/Tracking.jsx'
 import Booking from './pages/Booking.jsx'
@@ -19,6 +20,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<DashboardLayout />}> 
           <Route path="/vehicles" element={<MyVehicles />} />
