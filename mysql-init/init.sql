@@ -131,3 +131,7 @@ CREATE INDEX idx_payments_appointment_id ON payments(appointment_id);
 CREATE INDEX idx_payments_customer_id ON payments(customer_id);
 CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
 CREATE INDEX idx_payments_status ON payments(status);
+
+-- Insert default admin account
+INSERT INTO users (email, password, full_name, phone, role) VALUES
+('admin@gmail.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin Hoài Bảo', '0772051288', 'admin');
