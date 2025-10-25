@@ -1,12 +1,35 @@
 package spring.api.evservicecenter.repository;
 
+
+
+import spring.api.evservicecenter.dto.StaffResponseDTO;
 import spring.api.evservicecenter.entity.Staff;
 
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface StaffRepository extends JpaRepository<Staff, Integer> {
-    // (Bạn có thể thêm các phương thức tìm kiếm nhân viên theo vị trí, tên, v.v. ở đây)
-    // Ví dụ: List<Staff> findByPosition(StaffPosition position);
+
+    /**
+     * Finds a Staff entity along with its associated User eagerly.
+     */
+    @Query("SELECT s FROM Staff s JOIN FETCH s.user u WHERE s.staffId = :staffId")
+    Optional<Staff> findByIdWithUser(Integer staffId);
+
+    /**
+     * Finds all staff members and projects them into StaffResponseDTO.
+     * Uses a constructor expression for efficiency.
+     */
+    @Query("SELECT new com.evservicecenter.dto.StaffResponseDTO(" +
+           "s.staffId, u.userId, u.fullName, u.email, u.phone, u.role, s.position, s.hireDate, u.isActive, u.createdAt) " +
+           "FROM Staff s JOIN s.user u " +
+           // Exclude customers just in case role ENUM gets mixed up
+           "WHERE u.role IN ('staff', 'technician', 'admin')")
+    List<StaffResponseDTO> findAllStaffSummaries();
 }

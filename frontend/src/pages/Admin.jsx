@@ -21,7 +21,9 @@ function Admin() {
   const [records, setRecords] = useState([]);
   const [parts, setParts] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [staffAndTech, setStaffAndTech] = useState([]);
+
+
+  const [staffAndTechForDashboard, setStaffAndTechForDashboard] = useState([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -42,7 +44,7 @@ function Admin() {
     // Tạm thời tải `users` (để lấy staff/tech) và các list khác cho Dashboard
     try {
       const allUsers = JSON.parse(localStorage.getItem("users") || "[]");
-      setStaffAndTech(
+      setStaffAndTechForDashboard(
         allUsers.filter(
           (u) =>
             u.role === "staff" ||
@@ -88,7 +90,7 @@ function Admin() {
     const totalPartsValue = parts.reduce( (sum, p) => sum + (Number(p.currentStock) || 0) * (Number(p.price) || 0), 0 );
 
     return { totalCustomers, totalVehicles, totalStaff, totalTechnicians, totalBookings, pendingBookings, activeBookings, completedBookings, totalRevenue, pendingPayments, lowStockParts: lowStockParts.length, totalPartsValue, };
-  }, [customers, bookings, records, parts, staffAndTech]);
+  }, [customers, bookings, records, parts, staffAndTechForDashboard]);
 
   // Recent activities (Logic tính toán giữ nguyên)
   const recentActivities = useMemo(() => {
@@ -149,7 +151,6 @@ function Admin() {
     </div>
   );
   // (Các hàm render khác giữ nguyên như file gốc bạn cung cấp)
-  const renderStaff = () => ( <div className="space-y-6">{/* ... */}</div> );
   const renderBookings = () => ( <div className="space-y-6">{/* ... */}</div> );
   const renderParts = () => ( <div className="space-y-6">{/* ... */}</div> );
   const renderFinance = () => ( <div className="space-y-6">{/* ... */}</div> );
@@ -167,7 +168,8 @@ function Admin() {
             onRefresh={refreshCustomers}
           />
         );
-      case "staff": return renderStaff();
+      case "staff":
+        return <StaffManagementTab />;
       case "bookings": return renderBookings();
       case "parts": return renderParts();
       case "finance": return renderFinance();
