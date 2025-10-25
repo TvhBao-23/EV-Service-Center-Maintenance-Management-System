@@ -17,43 +17,29 @@ function Login() {
     e.preventDefault()
     setIsLoading(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Check for admin account first
-    if (formData.email.trim().toLowerCase() === 'admin@gmail.com' && formData.password === 'admin') {
-      const adminData = { 
-        id: 'admin-001', 
-        fullName: 'Administrator', 
-        email: 'admin@gmail.com', 
-        phone: 'N/A', 
-        role: 'admin' 
-      }
-      login(adminData)
-      setIsLoading(false)
-      navigate('/admin')
-      return
-    }
-    
-    // Validate against stored mock users
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    const found = users.find(u => u.email === formData.email.trim().toLowerCase() && u.password === formData.password)
-    if (found) {
-      const userData = { id: found.id, fullName: found.fullName, email: found.email, phone: found.phone, role: found.role || 'customer' }
-      login(userData)
-      setIsLoading(false)
-      // Redirect by role
-      if ((userData.role||'customer') === 'technican' || (userData.role||'customer') === 'technician') {
-        navigate('/technician')
-      } else if ((userData.role||'customer') === 'staff') {
-        navigate('/staff')
+    try {
+      const result = await login(formData.email, formData.password)
+      
+      if (result.success) {
+        // Redirect by role
+        const userRole = result.user.role || 'customer'
+        if (userRole === 'admin') {
+          navigate('/admin')
+        } else if (userRole === 'technician' || userRole === 'technican') {
+          navigate('/technician')
+        } else if (userRole === 'staff') {
+          navigate('/staff')
+        } else {
+          navigate('/vehicles')
+        }
       } else {
-        navigate('/vehicles')
+        alert(result.error || 'Email hoặc mật khẩu không đúng')
       }
-      return
+    } catch (error) {
+      alert('Có lỗi xảy ra khi đăng nhập')
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
-    alert('Email hoặc mật khẩu không đúng')
   }
 
   const handleInputChange = (e) => {
@@ -170,9 +156,9 @@ function Login() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-green-600 hover:text-green-500 transition-colors">
+                <Link to="/forgot-password" className="font-medium text-green-600 hover:text-green-500 transition-colors">
                   Quên mật khẩu?
-                </a>
+                </Link>
               </div>
             </div>
 

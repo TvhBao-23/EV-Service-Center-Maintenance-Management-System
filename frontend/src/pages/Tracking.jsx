@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
-import { getCurrentUserId, loadList, saveList } from '../lib/store'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { customerAPI } from '../lib/api.js'
 
 function Tracking() {
   const location = useLocation()
-  const userId = useMemo(() => getCurrentUserId(), [])
+  const { isAuthenticated } = useAuth()
   const [vehicles, setVehicles] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [records, setRecords] = useState([])
+  const [appointments, setAppointments] = useState([])
+  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [sortBy, setSortBy] = useState('date')
   const [editingKm, setEditingKm] = useState(null)
@@ -15,79 +16,82 @@ function Tracking() {
 
   const params = new URLSearchParams(location.search)
   const success = params.get('success') === '1'
-  const successBookingId = params.get('bookingId') || ''
 
   useEffect(() => {
-    if (!userId) return
-    setVehicles(loadList('vehicles', []))
-    setBookings(loadList('bookings', []))
-    setRecords(loadList('records', []))
-  }, [userId])
+    if (!isAuthenticated) return
+    loadData()
+  }, [isAuthenticated])
 
-  const currentBooking = useMemo(() => {
-    if (!bookings.length) return null
-    // Show the booking from success param first, otherwise find active maintenance
-    const byId = bookings.find(b => b.id === successBookingId)
-    if (byId) return byId
-    
-    // Tìm xe đang bảo dưỡng (received hoặc in_maintenance)
-    const activeMaintenance = bookings.filter(b => b.status === 'received' || b.status === 'in_maintenance')
-    if (activeMaintenance.length > 0) {
-      return activeMaintenance.sort((a,b)=> (b.id > a.id ? 1 : -1))[0]
+  const loadData = async () => {
+    try {
+      const [vehiclesData, appointmentsData] = await Promise.all([
+        customerAPI.getVehicles(),
+        customerAPI.getAppointments()
+      ])
+      setVehicles(vehiclesData)
+      setAppointments(appointmentsData)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
     }
-    
-    // Nếu không có xe đang bảo dưỡng, hiển thị xe chờ tiếp nhận gần nhất
-    const pending = bookings.filter(b => b.status === 'pending')
-    return pending.sort((a,b)=> (b.id > a.id ? 1 : -1))[0] || null
-  }, [bookings, successBookingId])
+  }
+
+  const currentAppointment = useMemo(() => {
+    if (!appointments.length) return null
+    // Find pending or confirmed appointments
+    const activeAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed')
+    if (activeAppointments.length > 0) {
+      return activeAppointments.sort((a,b)=> new Date(b.requestedDateTime) - new Date(a.requestedDateTime))[0]
+    }
+    return appointments.sort((a,b)=> new Date(b.requestedDateTime) - new Date(a.requestedDateTime))[0] || null
+  }, [appointments])
 
   const currentVehicle = useMemo(() => {
-    if (!currentBooking) return null
-    return vehicles.find(v => v.id === currentBooking.vehicleId) || null
-  }, [vehicles, currentBooking])
+    if (!currentAppointment) return null
+    return vehicles.find(v => v.vehicleId === currentAppointment.vehicleId) || null
+  }, [vehicles, currentAppointment])
 
-  const activeBookings = useMemo(() => {
-    return bookings.filter(b => b.status === 'received' || b.status === 'in_maintenance')
-  }, [bookings])
+  const activeAppointments = useMemo(() => {
+    return appointments.filter(a => a.status === 'confirmed' || a.status === 'pending')
+  }, [appointments])
 
-  // Filtered and sorted bookings for the table
-  const filteredBookings = useMemo(() => {
-    let filtered = bookings
+  // Filtered and sorted appointments for the table
+  const filteredAppointments = useMemo(() => {
+    let filtered = appointments
 
     // Filter by status
     if (filterStatus !== 'all') {
-      filtered = filtered.filter(b => b.status === filterStatus)
+      filtered = filtered.filter(a => a.status === filterStatus)
     }
 
-    // Sort bookings
+    // Sort appointments
     filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'date':
-          return new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time)
+          return new Date(b.requestedDateTime) - new Date(a.requestedDateTime)
         case 'status':
-          const statusOrder = { 'pending': 0, 'received': 1, 'in_maintenance': 2, 'done': 3, 'cancelled': 4 }
+          const statusOrder = { 'pending': 0, 'confirmed': 1, 'completed': 2, 'cancelled': 3 }
           return statusOrder[a.status] - statusOrder[b.status]
-        case 'service':
-          return a.serviceType.localeCompare(b.serviceType)
         default:
           return 0
       }
     })
 
     return filtered
-  }, [bookings, filterStatus, sortBy])
+  }, [appointments, filterStatus, sortBy])
 
   // Payment reminders for service plans
   const paymentReminders = useMemo(() => {
-    const pendingBookings = bookings.filter(b => b.status === 'pending')
-    const totalAmount = pendingBookings.reduce((sum, b) => sum + (b.estimatedPrice || 0), 0)
+    const pendingAppointments = appointments.filter(a => a.status === 'pending')
+    const totalAmount = pendingAppointments.length * 750000 // Default amount per appointment
     
     return {
-      count: pendingBookings.length,
+      count: pendingAppointments.length,
       totalAmount,
-      hasReminders: pendingBookings.length > 0
+      hasReminders: pendingAppointments.length > 0
     }
-  }, [bookings])
+  }, [appointments])
 
   // AI-powered Smart reminders: periodic maintenance by km or time
   const reminders = useMemo(() => {
@@ -100,33 +104,34 @@ function Tracking() {
     const now = Date.now()
 
     const getLastMaintenanceDate = (vehicleId) => {
-      const done = (records || []).filter(r => (r.vehicleId === vehicleId) && (r.status === 'done' || r.status === 'Hoàn tất'))
-      if (done.length) {
-        // assume r.date is yyyy-MM-dd
-        const d = new Date(done[done.length - 1].date)
+      const completedAppointments = appointments.filter(a => 
+        a.vehicleId === vehicleId && a.status === 'completed'
+      )
+      if (completedAppointments.length) {
+        const d = new Date(completedAppointments[completedAppointments.length - 1].requestedDateTime)
         return isNaN(d.getTime()) ? null : d
       }
-      const v = vehicles.find(v => v.id === vehicleId)
-      if (v?.purchaseDate) {
-        const d = new Date(v.purchaseDate)
+      const v = vehicles.find(v => v.vehicleId === vehicleId)
+      if (v?.year) {
+        const d = new Date(v.year, 0, 1)
         return isNaN(d.getTime()) ? null : d
       }
       return null
     }
 
-    // Check if vehicle has active bookings (pending, received, in_maintenance)
-    const hasActiveBooking = (vehicleId) => {
-      return bookings.some(b => 
-        b.vehicleId === vehicleId && 
-        ['pending', 'received', 'in_maintenance'].includes(b.status)
+    // Check if vehicle has active appointments (pending, confirmed)
+    const hasActiveAppointment = (vehicleId) => {
+      return appointments.some(a => 
+        a.vehicleId === vehicleId && 
+        ['pending', 'confirmed'].includes(a.status)
       )
     }
 
     // AI Analysis: Calculate maintenance urgency based on multiple factors
     const calculateMaintenanceUrgency = (vehicle) => {
-      const lastDate = getLastMaintenanceDate(vehicle.id)
-      const km = Number(vehicle.currentKm || 0)
-      const hasBooking = hasActiveBooking(vehicle.id)
+      const lastDate = getLastMaintenanceDate(vehicle.vehicleId)
+      const km = Number(vehicle.odometerKm || 0)
+      const hasAppointment = hasActiveAppointment(vehicle.vehicleId)
       
       // Base urgency score (0-100)
       let urgencyScore = 0
@@ -165,7 +170,7 @@ function Tracking() {
       }
 
       // Usage frequency analysis (if we have maintenance history)
-      const maintenanceCount = records.filter(r => r.vehicleId === vehicle.id).length
+      const maintenanceCount = appointments.filter(a => a.vehicleId === vehicle.vehicleId).length
       if (maintenanceCount > 0) {
         const avgInterval = km / Math.max(1, maintenanceCount)
         if (avgInterval > KM_INTERVAL * 1.5) urgencyScore += 15 // Heavy usage
@@ -174,7 +179,7 @@ function Tracking() {
       return {
         score: Math.min(100, urgencyScore),
         reasons,
-        hasBooking,
+        hasAppointment,
         priority: urgencyScore > 70 ? 'high' : urgencyScore > 40 ? 'medium' : 'low'
       }
     }
@@ -183,13 +188,13 @@ function Tracking() {
     for (const v of vehicles) {
       const analysis = calculateMaintenanceUrgency(v)
       
-      // Skip if urgency is too low or already has booking
+      // Skip if urgency is too low or already has appointment
       if (analysis.score < 10) continue
 
-      // Determine status based on analysis and existing bookings
+      // Determine status based on analysis and existing appointments
       let status, label, detail
       
-      if (analysis.hasBooking) {
+      if (analysis.hasAppointment) {
         status = 'booked'
         label = 'Đã đặt lịch bảo dưỡng'
         detail = 'Xe đã có lịch đặt trong hệ thống'
@@ -208,7 +213,7 @@ function Tracking() {
       }
 
       items.push({
-        vehicleId: v.id,
+        vehicleId: v.vehicleId,
         vehicleModel: v.model,
         type: 'ai_analysis',
         label,
@@ -216,36 +221,34 @@ function Tracking() {
         detail,
         urgencyScore: analysis.score,
         priority: analysis.priority,
-        hasBooking: analysis.hasBooking
+        hasAppointment: analysis.hasAppointment
       })
     }
 
     // Sort by urgency score (highest first)
     return items.sort((a, b) => b.urgencyScore - a.urgencyScore)
-  }, [vehicles, records, bookings])
+  }, [vehicles, appointments])
 
   // Update vehicle km
   const handleUpdateKm = (vehicleId) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId)
+    const vehicle = vehicles.find(v => v.vehicleId === vehicleId)
     if (!vehicle) return
 
     setEditingKm(vehicleId)
-    setNewKm(vehicle.currentKm || '')
+    setNewKm(vehicle.odometerKm || '')
   }
 
-  const handleSaveKm = (vehicleId) => {
+  const handleSaveKm = async (vehicleId) => {
     if (!newKm || isNaN(Number(newKm))) return
 
-    const updatedVehicles = vehicles.map(v => 
-      v.id === vehicleId 
-        ? { ...v, currentKm: Number(newKm) }
-        : v
-    )
-    
-    setVehicles(updatedVehicles)
-    saveList('vehicles', updatedVehicles)
-    setEditingKm(null)
-    setNewKm('')
+    try {
+      await customerAPI.updateVehicle(vehicleId, { odometerKm: Number(newKm) })
+      loadData() // Reload data from backend
+      setEditingKm(null)
+      setNewKm('')
+    } catch (error) {
+      console.error('Error updating vehicle km:', error)
+    }
   }
 
   const handleCancelKm = () => {
@@ -263,7 +266,7 @@ function Tracking() {
         {success && currentVehicle && (
           <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
             <p className="font-medium">Đặt lịch thành công!</p>
-            <p className="text-sm mt-1">Xe {currentVehicle.model} ({currentVehicle.vin}) đã được đặt lịch {currentBooking?.serviceType?.toLowerCase()} vào {currentBooking?.date} lúc {currentBooking?.time}.</p>
+            <p className="text-sm mt-1">Xe {currentVehicle.model} ({currentVehicle.vin}) đã được đặt lịch vào {new Date(currentAppointment?.requestedDateTime).toLocaleDateString()}.</p>
           </div>
         )}
 
@@ -369,21 +372,21 @@ function Tracking() {
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Xe đang bảo dưỡng</h3>
-          {activeBookings.length === 0 ? (
+          {activeAppointments.length === 0 ? (
             <p className="text-gray-600">Hiện chưa có xe nào đang trong quá trình bảo dưỡng.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeBookings.map((ab) => {
-                const v = vehicles.find(x => x.id === ab.vehicleId)
+              {activeAppointments.map((appointment) => {
+                const v = vehicles.find(x => x.vehicleId === appointment.vehicleId)
                 if (!v) return null
-                const badge = ab.status === 'received' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
-                const label = ab.status === 'received' ? 'Đã tiếp nhận' : 'Đang bảo dưỡng'
+                const badge = appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                const label = appointment.status === 'confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận'
                 return (
-                  <div key={ab.id} className="border rounded-lg p-4">
+                  <div key={appointment.appointmentId} className="border rounded-lg p-4">
                     <p className="text-gray-900 font-medium">{v.model}</p>
                     <p className="text-sm text-gray-600">VIN: {v.vin}</p>
-                    <p className="text-sm text-gray-600 mt-1">Dịch vụ: {ab.serviceType}</p>
-                    <p className="text-sm text-gray-600">Thời gian: {ab.date} {ab.time}</p>
+                    <p className="text-sm text-gray-600 mt-1">Lịch đặt: #{appointment.appointmentId}</p>
+                    <p className="text-sm text-gray-600">Thời gian: {new Date(appointment.requestedDateTime).toLocaleDateString()}</p>
                     <span className={`inline-block mt-3 px-2 py-1 text-xs font-semibold rounded-full ${badge}`}>{label}</span>
                   </div>
                 )
@@ -406,7 +409,7 @@ function Tracking() {
           </div>
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Đang bảo dưỡng</h3>
-            <p className="text-3xl font-bold text-blue-600">{activeBookings.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{activeAppointments.length}</p>
             <p className="text-gray-600 text-sm">Xe đang được bảo dưỡng</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -437,7 +440,7 @@ function Tracking() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Km hiện tại
                     </label>
-                    {editingKm === vehicle.id ? (
+                    {editingKm === vehicle.vehicleId ? (
                       <div className="flex gap-2">
                         <input
                           type="number"
@@ -447,7 +450,7 @@ function Tracking() {
                           placeholder="Nhập km"
                         />
                         <button
-                          onClick={() => handleSaveKm(vehicle.id)}
+                          onClick={() => handleSaveKm(vehicle.vehicleId)}
                           className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700"
                         >
                           Lưu
@@ -462,10 +465,10 @@ function Tracking() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-semibold text-gray-900">
-                          {vehicle.currentKm ? vehicle.currentKm.toLocaleString() : 'Chưa cập nhật'} km
+                          {vehicle.odometerKm ? vehicle.odometerKm.toLocaleString() : 'Chưa cập nhật'} km
                         </span>
                         <button
-                          onClick={() => handleUpdateKm(vehicle.id)}
+                          onClick={() => handleUpdateKm(vehicle.vehicleId)}
                           className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                         >
                           Cập nhật
@@ -492,10 +495,9 @@ function Tracking() {
                   className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">Tất cả trạng thái</option>
-                  <option value="pending">Chờ tiếp nhận</option>
-                  <option value="received">Đã tiếp nhận</option>
-                  <option value="in_maintenance">Đang bảo dưỡng</option>
-                  <option value="done">Hoàn tất</option>
+                  <option value="pending">Chờ xác nhận</option>
+                  <option value="confirmed">Đã xác nhận</option>
+                  <option value="completed">Hoàn tất</option>
                   <option value="cancelled">Đã hủy</option>
                 </select>
                 
@@ -512,10 +514,10 @@ function Tracking() {
             </div>
           </div>
 
-          {filteredBookings.length === 0 ? (
+          {filteredAppointments.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-600">
-                {bookings.length === 0 
+                {appointments.length === 0 
                   ? 'Chưa có lịch đặt nào.' 
                   : 'Không có lịch đặt nào phù hợp với bộ lọc đã chọn.'
                 }
@@ -527,46 +529,39 @@ function Tracking() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Xe</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dịch vụ</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lịch đặt</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thời gian</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trung tâm</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá dự kiến</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ghi chú</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredBookings.map((b) => {
-                    const v = vehicles.find(x => x.id === b.vehicleId)
+                  {filteredAppointments.map((appointment) => {
+                    const v = vehicles.find(x => x.vehicleId === appointment.vehicleId)
                     const statusClass =
-                      b.status === 'pending' ? 'bg-gray-100 text-gray-800' :
-                      b.status === 'received' ? 'bg-blue-100 text-blue-800' :
-                      b.status === 'in_maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                      b.status === 'done' ? 'bg-green-100 text-green-800' :
+                      appointment.status === 'pending' ? 'bg-gray-100 text-gray-800' :
+                      appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                      appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
                       'bg-red-100 text-red-800'
                     return (
-                      <tr key={b.id} className="hover:bg-gray-50">
+                      <tr key={appointment.appointmentId} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900">
                           <div>
                             <div className="font-medium">{v ? v.model : 'N/A'}</div>
-                            <div className="text-gray-500 text-xs">{v ? v.vin : b.vehicleId}</div>
+                            <div className="text-gray-500 text-xs">{v ? v.vin : appointment.vehicleId}</div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{b.serviceType}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">#{appointment.appointmentId}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          <div>{b.date}</div>
-                          <div className="text-gray-500 text-xs">{b.time}</div>
+                          {new Date(appointment.requestedDateTime).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{b.center || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {b.estimatedPrice ? `${b.estimatedPrice.toLocaleString()} VNĐ` : '-'}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{appointment.notes || '-'}</td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}`}>
-                            {b.status === 'pending' && 'Chờ tiếp nhận'}
-                            {b.status === 'received' && 'Đã tiếp nhận'}
-                            {b.status === 'in_maintenance' && 'Đang bảo dưỡng'}
-                            {b.status === 'done' && 'Hoàn tất'}
-                            {b.status === 'cancelled' && 'Đã hủy'}
+                            {appointment.status === 'pending' && 'Chờ xác nhận'}
+                            {appointment.status === 'confirmed' && 'Đã xác nhận'}
+                            {appointment.status === 'completed' && 'Hoàn tất'}
+                            {appointment.status === 'cancelled' && 'Đã hủy'}
                           </span>
                         </td>
                       </tr>
