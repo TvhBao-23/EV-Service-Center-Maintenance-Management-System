@@ -1,49 +1,82 @@
 version: '3.8'
 
 services:
-  # Frontend Service
+  # --- Frontend Service ---
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # Optional: Build args nếu Dockerfile frontend cần
+      # args:
+      #   - REACT_APP_API_URL=${REACT_APP_API_URL_VAR} # Lấy từ .env file
+    container_name: ev-frontend
     ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080
+      - "3000:80" # Map host 3000 -> container 80 (Nginx default)
     networks:
       - ev-service-network
+    restart: unless-stopped
+    depends_on: # Frontend thường không cần depends_on backend trừ khi build time cần API
+      - backend # Đảm bảo backend khởi động trước (nhưng không đảm bảo sẵn sàng)
 
-  # API Gateway Service (Simplified for now)
-  api-gateway:
+  # --- Backend Service (Admin Workshop) ---
+  backend: # Đổi tên service cho rõ ràng hơn 'api-gateway'
     build:
-      context: ./evservicecenter
+      context: ./ev-service-center-admin-workshop # Sửa lại tên thư mục backend
       dockerfile: Dockerfile
+    container_name: ev-backend-adminworkshop
     ports:
-      - "8080:8080"
+      - "8080:8080" # Map host 8080 -> container 8080 (Spring Boot default)
     environment:
+      # Profile Spring Boot
       - SPRING_PROFILES_ACTIVE=docker
+      # Database Connection (lấy từ biến môi trường của docker-compose)
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER} # Sử dụng user thường thay vì root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD} # Sử dụng password của user thường
+      # Thêm các biến môi trường khác backend cần (VD: JWT secret,...)
+      # - JWT_SECRET=your_super_secret_key
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy # Chờ MySQL sẵn sàng
     networks:
       - ev-service-network
+    restart: unless-stopped
+    healthcheck: # Thêm healthcheck cho backend (tùy chọn nhưng nên có)
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"] # Sử dụng actuator
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s # Chờ 30s sau khi start mới bắt đầu check
 
-  # Database
+  # --- Database Service ---
   mysql:
     image: mysql:8.0
+    container_name: ev-mysql
     environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
-      - MYSQL_DATABASE=ev_service_center
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Lấy từ .env file
+      MYSQL_DATABASE: ${MYSQL_DATABASE}         # Lấy từ .env file
+      MYSQL_USER: ${MYSQL_USER}                 # Lấy từ .env file
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}         # Lấy từ .env file
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT}:3306" # Map cổng MySQL ra ngoài (lấy từ .env)
     volumes:
       - mysql_data:/var/lib/mysql
+      # Mount script khởi tạo schema (nếu không dùng Flyway/Liquibase tự động)
+      # - ./ev-service-center-admin-workshop/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - ev-service-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"] # Check bằng user thường
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+# --- Volumes ---
 volumes:
-  mysql_data:
+  mysql_data: # Giữ dữ liệu DB giữa các lần chạy container
 
-
+# --- Networks ---
 networks:
   ev-service-network:
-    driver: bridge
+    driver: bridge # Mạng nội bộ cho các container giao tiếp

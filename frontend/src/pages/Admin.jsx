@@ -8,6 +8,8 @@ import CustomerManagementTab from "../components/CustomerManagementTab";
 // Sửa import: Lấy adminAPI từ lib/api.js
 import { adminAPI } from "../lib/api.js";
 
+import ServiceOrderManagementTab from "../components/ServiceOrderManagementTab";
+
 function Admin() {
   const userId = useMemo(() => getCurrentUserId(), []);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -16,8 +18,6 @@ function Admin() {
   const [customers, setCustomers] = useState([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
-  // State cho các tab khác (tạm thời vẫn dùng localStorage)
-  const [bookings, setBookings] = useState([]);
   const [records, setRecords] = useState([]);
   const [parts, setParts] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -54,7 +54,6 @@ function Admin() {
       );
     } catch (e) { console.error(e); }
 
-    setBookings(loadList("bookings", []));
     setRecords(loadList("records", []));
     setParts(loadList("parts", []));
     setAssignments(loadList("assignments", []));
@@ -79,27 +78,22 @@ function Admin() {
     const totalStaff = staffAndTech.filter((u) => u.role === "staff").length;
     const totalTechnicians = staffAndTech.filter( (u) => u.role === "technican" || u.role === "technician" ).length;
     // ... (logic tính toán còn lại giữ nguyên)
-    const totalBookings = bookings.length;
-    const pendingBookings = bookings.filter((b) => b.status === "pending").length;
-    const activeBookings = bookings.filter((b) => ["received", "in_maintenance"].includes(b.status)).length;
-    const completedBookings = bookings.filter((b) => b.status === "done").length;
     const completedRecords = records.filter( (r) => r.status === "done" || r.status === "Hoàn tất" );
     const totalRevenue = completedRecords.reduce( (sum, r) => sum + (Number(r.cost) || 0), 0 );
-    const pendingPayments = bookings.filter((b) => b.status === "pending").reduce((sum, b) => sum + (Number(b.estimatedPrice) || 0), 0);
     const lowStockParts = parts.filter( (p) => (Number(p.currentStock) || 0) <= (Number(p.minStock) || 0) );
     const totalPartsValue = parts.reduce( (sum, p) => sum + (Number(p.currentStock) || 0) * (Number(p.price) || 0), 0 );
 
-    return { totalCustomers, totalVehicles, totalStaff, totalTechnicians, totalBookings, pendingBookings, activeBookings, completedBookings, totalRevenue, pendingPayments, lowStockParts: lowStockParts.length, totalPartsValue, };
-  }, [customers, bookings, records, parts, staffAndTechForDashboard]);
+    return { totalCustomers, totalVehicles, totalStaff, totalTechnicians, totalTechnicians, totalRevenue, lowStockParts: lowStockParts.length, totalPartsValue, };
+  }, [customers, records, parts, staffAndTechForDashboard]);
 
   // Recent activities (Logic tính toán giữ nguyên)
   const recentActivities = useMemo(() => {
       const activities = [];
-      const localVehicles = loadList("vehicles", []);
-      bookings.slice(-5).forEach((booking) => { /*...*/ });
+      //const localVehicles = loadList("vehicles", []);
+      //bookings.slice(-5).forEach((booking) => { /*...*/ });
       records.filter((r) => r.status === "done" || r.status === "Hoàn tất").slice(-3).forEach((record) => { /*...*/ });
       return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
-  }, [bookings, records]);
+  }, [records]);
 
 
   const tabs = [
@@ -151,7 +145,7 @@ function Admin() {
     </div>
   );
   // (Các hàm render khác giữ nguyên như file gốc bạn cung cấp)
-  const renderBookings = () => ( <div className="space-y-6">{/* ... */}</div> );
+  
   const renderParts = () => ( <div className="space-y-6">{/* ... */}</div> );
   const renderFinance = () => ( <div className="space-y-6">{/* ... */}</div> );
   const renderReports = () => ( <div className="space-y-6">{/* ... */}</div> );
@@ -170,7 +164,7 @@ function Admin() {
         );
       case "staff":
         return <StaffManagementTab />;
-      case "bookings": return renderBookings();
+      case "bookings": return <ServiceOrderManagementTab />;
       case "parts": return renderParts();
       case "finance": return renderFinance();
       case "reports": return renderReports();

@@ -1,0 +1,12 @@
+# Database Credentials
+MYSQL_ROOT_PASSWORD=your_strong_root_password
+MYSQL_DATABASE=ev_service_center
+MYSQL_USER=ev_user # Tạo user riêng cho ứng dụng
+MYSQL_PASSWORD=your_strong_app_password
+MYSQL_PORT=3306 # Cổng MySQL expose ra máy host
+
+# Frontend (nếu cần truyền biến lúc build)
+#REACT_APP_API_URL_VAR=http://localhost:8080
+
+# Backend (ví dụ)
+# JWT_SECRET=your_very_secret_jwt_key_here

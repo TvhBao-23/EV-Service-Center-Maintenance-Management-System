@@ -262,6 +262,9 @@ export const adminAPI = {
   getStaffById: (staffId) => {
      return apiCall(`${API_BASE_URLS.admin}/staff/${staffId}`, 'GET');
   },
+  getActiveTechnicians: () => {
+     return apiCall(`${API_BASE_URLS.admin}/staff/technicians`, 'GET');
+  },
   createStaff: (staffData) => {
     return apiCall(`${API_BASE_URLS.admin}/staff`, 'POST', staffData);
   },
@@ -275,6 +278,20 @@ export const adminAPI = {
   },
   deleteStaff: (staffId) => {
     return apiCall(`${API_BASE_URLS.admin}/staff/${staffId}`, 'DELETE');
+  },
+
+  getAllServiceOrders: () => {
+    return apiCall(`${API_BASE_URLS.admin}/service-orders`, 'GET');
+  },
+  assignTechnicianToOrder: (orderId, technicianId) => {
+    return apiCall(`${API_BASE_URLS.admin}/service-orders/${orderId}/assign-technician`, 'PUT', { technicianId });
+  },
+  updateServiceOrderStatus: (orderId, status) => {
+    // Ensure status is sent correctly based on backend enum expectation (e.g., 'in_progress')
+    return apiCall(`${API_BASE_URLS.admin}/service-orders/${orderId}/status`, 'PUT', { status });
+  },
+   deleteServiceOrder: (orderId) => {
+    return apiCall(`${API_BASE_URLS.admin}/service-orders/${orderId}`, 'DELETE');
   }
 }
 
