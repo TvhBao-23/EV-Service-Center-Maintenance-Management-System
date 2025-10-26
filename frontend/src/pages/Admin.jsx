@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUserId, loadList } from "../lib/store";
 
-import CustomerManagementTab from "./CustomerManagementTab"; // Component mới
-import { getCustomers } from "./apiServices";
-
 function Admin() {
   const userId = useMemo(() => getCurrentUserId(), []);
   const [activeTab, setActiveTab] = useState("dashboard");
