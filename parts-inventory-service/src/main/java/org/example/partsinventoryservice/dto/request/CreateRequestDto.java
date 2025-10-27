@@ -3,16 +3,25 @@ package org.example.partsinventoryservice.dto.request;
 import java.util.List;
 
 public class CreateRequestDto {
-    private String requestedBy;      // Tên hoặc ID kỹ thuật viên gửi yêu cầu
-    private String reason;           // Lý do yêu cầu xuất kho
+    private Long orderId;            // có thể null nếu không liên quan lệnh sửa chữa
+    private Long createdByStaffId;   // id kỹ thuật viên tạo phiếu
+    private String reason;
     private List<CreateRequestItemDto> items;
 
-    public String getRequestedBy() {
-        return requestedBy;
+    public Long getOrderId() {
+        return orderId;
     }
 
-    public void setRequestedBy(String requestedBy) {
-        this.requestedBy = requestedBy;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
+    }
+
+    public Long getCreatedByStaffId() {
+        return createdByStaffId;
+    }
+
+    public void setCreatedByStaffId(Long createdByStaffId) {
+        this.createdByStaffId = createdByStaffId;
     }
 
     public String getReason() {
@@ -31,4 +40,5 @@ public class CreateRequestDto {
         this.items = items;
     }
 }
+
 

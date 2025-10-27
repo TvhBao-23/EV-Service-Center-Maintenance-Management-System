@@ -8,28 +8,36 @@ public class PartRequestItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "request_item_id")
+    private Long requestItemId;
 
-    @ManyToOne
-    @JoinColumn(name = "request_id")
-    private PartRequest partRequest;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id", nullable = false)
+    private PartRequest request;
 
-    @ManyToOne
-    @JoinColumn(name = "part_id")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "part_id", nullable = false)
     private Part part;
 
-    private int quantityRequested;
+    @Column(name = "quantity_requested", nullable = false)
+    private Integer quantityRequested;
 
-    // Getters & Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @Column(name = "quantity_approved", nullable = false)
+    private Integer quantityApproved = 0;
 
-    public PartRequest getPartRequest() { return partRequest; }
-    public void setPartRequest(PartRequest partRequest) { this.partRequest = partRequest; }
+    // Getters/Setters
+    public Long getRequestItemId() { return requestItemId; }
+    public void setRequestItemId(Long requestItemId) { this.requestItemId = requestItemId; }
+
+    public PartRequest getRequest() { return request; }
+    public void setRequest(PartRequest request) { this.request = request; }
 
     public Part getPart() { return part; }
     public void setPart(Part part) { this.part = part; }
 
-    public int getQuantityRequested() { return quantityRequested; }
-    public void setQuantityRequested(int quantityRequested) { this.quantityRequested = quantityRequested; }
+    public Integer getQuantityRequested() { return quantityRequested; }
+    public void setQuantityRequested(Integer quantityRequested) { this.quantityRequested = quantityRequested; }
+
+    public Integer getQuantityApproved() { return quantityApproved; }
+    public void setQuantityApproved(Integer quantityApproved) { this.quantityApproved = quantityApproved; }
 }

@@ -3,45 +3,73 @@ package org.example.partsinventoryservice.service;
 import org.example.partsinventoryservice.entity.Part;
 import org.example.partsinventoryservice.entity.PartTransaction;
 import org.example.partsinventoryservice.entity.enum_.TransactionType;
-import org.example.partsinventoryservice.respository.PartRepository;
-import org.example.partsinventoryservice.respository.PartTransactionRepository;
+import org.example.partsinventoryservice.exception.ResourceNotFoundException;
+import org.example.partsinventoryservice.repository.PartRepository;
+import org.example.partsinventoryservice.repository.PartTransactionRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 public class TransactionService {
 
-    private final PartTransactionRepository transactionRepository;
-    private final PartRepository partRepository;
-    private final InventoryService inventoryService;
+    private final PartTransactionRepository txnRepo;
+    private final PartRepository partRepo;
 
-    public TransactionService(PartTransactionRepository transactionRepository, PartRepository partRepository, InventoryService inventoryService) {
-        this.transactionRepository = transactionRepository;
-        this.partRepository = partRepository;
-        this.inventoryService = inventoryService;
+    public TransactionService(PartTransactionRepository txnRepo, PartRepository partRepo) {
+        this.txnRepo = txnRepo;
+        this.partRepo = partRepo;
     }
 
-    public List<PartTransaction> getAllTransactions() {
-        return transactionRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<PartTransaction> getAll() {
+        return txnRepo.findAllByOrderByCreatedAtDesc();
     }
 
-    public PartTransaction recordTransaction(Long partId, TransactionType type, int quantity, String performedBy) {
-        Part part = partRepository.findById(partId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phụ tùng."));
+    @Transactional(readOnly = true)
+    public List<PartTransaction> getByPart(Long partId) {
+        return txnRepo.findByPart_PartIdOrderByCreatedAtDesc(partId);
+    }
 
-        // Cập nhật tồn kho
-        if (type == TransactionType.IMPORT) {
-            inventoryService.updateStock(partId, quantity);
-        } else if (type == TransactionType.EXPORT) {
-            inventoryService.updateStock(partId, -quantity);
-        }
+    @Transactional(readOnly = true)
+    public List<PartTransaction> getByType(TransactionType type) {
+        return txnRepo.findByTypeOrderByCreatedAtDesc(type);
+    }
 
-        PartTransaction transaction = new PartTransaction();
-        transaction.setPart(part);
-        transaction.setType(type);
-        transaction.setQuantity(quantity);
-        transaction.setPerformedBy(performedBy);
-        return transactionRepository.save(transaction);
+    /**
+     * Ghi nhận nhập kho (chỉ ghi transaction — KHÔNG thay đổi tồn kho ở đây)
+     * Nếu muốn thay đổi tồn kho, hãy dùng InventoryService.importStock(...)
+     */
+    @Transactional
+    public PartTransaction recordImport(Long partId, int qty, Long staffId, String note) {
+        Part part = partRepo.findById(partId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
+        PartTransaction t = new PartTransaction();
+        t.setPart(part);
+        t.setType(TransactionType.IMPORT);
+        t.setQuantity(qty);
+        t.setCreatedByStaffId(staffId);
+        t.setNote(note);
+        return txnRepo.save(t);
+    }
+
+    /**
+     * Ghi nhận xuất kho cho yêu cầu (chỉ ghi transaction — KHÔNG thay đổi tồn kho ở đây)
+     * Nếu muốn thay đổi tồn kho, hãy dùng InventoryService.exportStock(...)
+     */
+    @Transactional
+    public PartTransaction recordExportForRequest(Long partId, int qty, Long staffId, Long requestId, Long orderId, String note) {
+        Part part = partRepo.findById(partId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
+        PartTransaction t = new PartTransaction();
+        t.setPart(part);
+        t.setType(TransactionType.EXPORT);
+        t.setQuantity(qty);
+        t.setCreatedByStaffId(staffId);
+        t.setRelatedRequestId(requestId);
+        t.setRelatedOrderId(orderId);
+        t.setNote(note);
+        return txnRepo.save(t);
     }
 }

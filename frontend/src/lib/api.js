@@ -4,7 +4,8 @@ const API_BASE_URLS = {
   auth: 'http://localhost:8081/api/auth',
   customer: 'http://localhost:8082/api/customer',
   staff: 'http://localhost:8083/api/staff',
-  payment: 'http://localhost:8084/api/payment'
+  payment: 'http://localhost:8084/api/payment',
+  parts: 'http://localhost:8086/api'
 }
 
 // Helper function để lấy token từ localStorage
@@ -222,9 +223,51 @@ export const staffAPI = {
   }
 }
 
+export const partsAPI = {
+  getParts: () => apiCall(`${API_BASE_URLS.parts}/parts`),
+
+  getInventory: () => apiCall(`${API_BASE_URLS.parts}/inventory`),
+
+  importStock: (partId, quantity, note) =>
+      apiCall(`${API_BASE_URLS.parts}/inventory/in`, {
+        method: 'POST',
+        body: JSON.stringify({ partId, quantity, note })
+      }),
+
+  exportStock: (partId, quantity, note) =>
+      apiCall(`${API_BASE_URLS.parts}/inventory/out`, {
+        method: 'POST',
+        body: JSON.stringify({ partId, quantity, note })
+      }),
+
+  createRequest: (requestedBy, reason, items) =>
+      apiCall(`${API_BASE_URLS.parts}/requests`, {
+        method: 'POST',
+        body: JSON.stringify({ requestedBy, reason, items })
+      }),
+
+  getRequestsByUser: (username) =>
+      apiCall(`${API_BASE_URLS.parts}/requests/by-user/${username}`),
+
+  getAllRequests: () => apiCall(`${API_BASE_URLS.parts}/requests`),
+
+  approveRequest: (requestId) =>
+      apiCall(`${API_BASE_URLS.parts}/requests/${requestId}/approve`, {
+        method: 'POST'
+      }),
+
+  rejectRequest: (requestId, reason) =>
+      apiCall(`${API_BASE_URLS.parts}/requests/${requestId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      })
+}
+
+
 export default {
   authAPI,
   customerAPI,
   paymentAPI,
-  staffAPI
+  staffAPI,
+  partsAPI
 }

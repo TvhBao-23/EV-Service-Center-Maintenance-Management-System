@@ -19,27 +19,27 @@ public class PartController {
 
     @GetMapping
     public ResponseEntity<List<Part>> getAllParts() {
-        return ResponseEntity.ok(partService.getAllParts());
+        return ResponseEntity.ok(partService.getAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Part> getPartById(@PathVariable Long id) {
-        return ResponseEntity.ok(partService.getPartById(id));
+        return ResponseEntity.ok(partService.getById(id));
     }
 
     @PostMapping
-    public ResponseEntity<Part> addPart(@RequestBody Part part) {
-        return ResponseEntity.ok(partService.addPart(part));
+    public ResponseEntity<Part> createPart(@RequestBody Part part) {
+        return ResponseEntity.ok(partService.create(part));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Part> updatePart(@PathVariable Long id, @RequestBody Part updatedPart) {
-        return ResponseEntity.ok(partService.updatePart(id, updatedPart));
+    public ResponseEntity<Part> updatePart(@PathVariable Long id, @RequestBody Part part) {
+        return ResponseEntity.ok(partService.update(id, part));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePart(@PathVariable Long id) {
-        partService.deletePart(id);
+        partService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }

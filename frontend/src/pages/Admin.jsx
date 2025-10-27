@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUserId, loadList } from "../lib/store";
 
+import { partsAPI } from '../lib/api'
+
 function Admin() {
   const userId = useMemo(() => getCurrentUserId(), []);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -13,6 +15,9 @@ function Admin() {
 
   const [customers, setCustomers] = useState([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -82,13 +87,13 @@ function Admin() {
       .reduce((sum, b) => sum + (Number(b.estimatedPrice) || 0), 0);
 
     // Parts inventory
-    const lowStockParts = parts.filter(
-      (p) => (Number(p.currentStock) || 0) <= (Number(p.minStock) || 0)
-    );
-    const totalPartsValue = parts.reduce(
-      (sum, p) => sum + (Number(p.currentStock) || 0) * (Number(p.price) || 0),
-      0
-    );
+    const getStock = (p) => Number(p.currentStock ?? p.inventory?.currentStock ?? 0);
+    const getMin   = (p) => Number(p.minStock     ?? p.inventory?.minStock     ?? 0);
+    const getPrice = (p) => Number(p.price ?? 0);
+
+    const lowStockParts = parts.filter((p) => getStock(p) <= getMin(p));
+    const totalPartsValue = parts.reduce((sum, p) => sum + getStock(p) * getPrice(p), 0);
+
 
     return {
       totalCustomers,
@@ -142,6 +147,64 @@ function Admin() {
 
     return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
   }, [bookings, vehicles, records]);
+
+  //add parts service
+  useEffect(() => {
+    if (activeTab === "parts") {
+      loadParts();
+      loadRequests();
+    }
+  }, [activeTab]);
+
+  const loadParts = async () => {
+    try {
+      setLoading(true);
+      const data = await partsAPI.getParts();
+      setParts(data);
+    } catch (err) {
+      console.error("Lỗi tải danh sách phụ tùng:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRequests = async () => {
+    try {
+      const data = await partsAPI.getAllRequests();
+      setRequests(data);
+    } catch (err) {
+      console.error("Lỗi tải danh sách yêu cầu:", err);
+    }
+  };
+
+  const approveRequest = async (id) => {
+    if (!window.confirm("Duyệt yêu cầu này?")) return;
+    await partsAPI.approveRequest(id);
+    loadRequests();
+  };
+
+  const rejectRequest = async (id) => {
+    const reason = prompt("Nhập lý do từ chối:");
+    if (!reason) return;
+    await partsAPI.rejectRequest(id, reason);
+    loadRequests();
+  };
+
+  const importStock = async (partId) => {
+    const qty = parseInt(prompt("Nhập số lượng nhập kho:"), 10);
+    if (!qty) return;
+    await partsAPI.importStock(partId, qty, "Nhập kho thủ công");
+    loadParts();
+  };
+
+  const exportStock = async (partId) => {
+    const qty = parseInt(prompt("Nhập số lượng xuất kho:"), 10);
+    if (!qty) return;
+    await partsAPI.exportStock(partId, qty, "Xuất kho thủ công");
+    loadParts();
+  };
+
+  //end parts service
 
   const tabs = [
     { id: "dashboard", label: "Tổng quan", icon: "📊" },
@@ -590,95 +653,139 @@ function Admin() {
   );
 
   const renderParts = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Quản lý phụ tùng
-        </h3>
-        <div className="mb-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Phụ tùng sắp hết:{" "}
-            <span className="font-semibold text-red-600">
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Quản lý phụ tùng
+          </h3>
+          <div className="mb-4 flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              Phụ tùng sắp hết:{" "}
+              <span className="font-semibold text-red-600">
               {dashboardStats.lowStockParts}
             </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              Tổng giá trị tồn kho:{" "}
+              <span className="font-semibold text-green-600">
+                {(dashboardStats?.totalPartsValue || 0).toLocaleString()} VNĐ
+              </span>
+            </div>
           </div>
-          <div className="text-sm text-gray-600">
-            Tổng giá trị:{" "}
-            <span className="font-semibold text-green-600">
-              {dashboardStats.totalPartsValue.toLocaleString()} VNĐ
-            </span>
-          </div>
+          {loading ? (
+              <p>Đang tải...</p>
+          ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Tên phụ tùng
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Số lượng tồn
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Tối thiểu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Giá
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Hành động
+                  </th>
+                </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                {parts.map((part) => (
+                    <tr key={part.partId}>
+                      <td className="px-6 py-4 text-sm">{part.name}</td>
+                      <td className="px-6 py-4 text-sm">{part.inventory?.currentStock ?? 0}</td>
+                      <td className="px-6 py-4 text-sm">{part.inventory?.minStock ?? 0}</td>
+                      <td className="px-6 py-4 text-sm">{Number(part.price ?? 0).toLocaleString()} VNĐ</td>
+
+                      <td className="px-6 py-4 text-sm text-right">
+                        <button
+                            onClick={() => importStock(part.partId)}
+                            className="text-green-600 hover:text-green-800 mr-3"
+                        >
+                          Nhập kho
+                        </button>
+                        <button
+                            onClick={() => exportStock(part.partId)}
+                            className="text-yellow-600 hover:text-yellow-800"
+                        >
+                          Xuất kho
+                        </button>
+                      </td>
+                    </tr>
+                ))}
+                </tbody>
+              </table>
+          )}
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Tên phụ tùng
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Tồn kho
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Tối thiểu
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Giá
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Hành động
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {parts.map((part) => {
-                const isLowStock =
-                  (Number(part.currentStock) || 0) <=
-                  (Number(part.minStock) || 0);
-                return (
-                  <tr key={part.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {part.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {part.currentStock}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {part.minStock}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {Number(part.price || 0).toLocaleString()} VNĐ
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          isLowStock
-                            ? "bg-red-100 text-red-800"
-                            : "bg-green-100 text-green-800"
+
+        {/* === YÊU CẦU XUẤT KHO === */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+            Yêu cầu xuất kho từ kỹ thuật viên
+          </h3>
+          {requests.length === 0 ? (
+              <p className="text-gray-500 text-sm">Không có yêu cầu nào.</p>
+          ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người yêu cầu</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lý do</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành động</th>
+                </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                {requests.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-6 py-4 text-sm">{r.id}</td>
+                      <td className="px-6 py-4 text-sm">{r.requestedBy}</td>
+                      <td className="px-6 py-4 text-sm">{r.reason}</td>
+                      <td className="px-6 py-4 text-sm">
+                    <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            r.status === "PENDING"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : r.status === "APPROVED"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
                         }`}
-                      >
-                        {isLowStock ? "Sắp hết" : "Đủ hàng"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button className="text-blue-600 hover:text-blue-900 mr-3">
-                        Sửa
-                      </button>
-                      <button className="text-green-600 hover:text-green-900">
-                        Nhập kho
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    >
+                      {r.status}
+                    </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm">
+                        {r.status === "PENDING" && (
+                            <>
+                              <button
+                                  onClick={() => approveRequest(r.id)}
+                                  className="text-green-600 hover:text-green-800 mr-3"
+                              >
+                                Duyệt
+                              </button>
+                              <button
+                                  onClick={() => rejectRequest(r.id)}
+                                  className="text-red-600 hover:text-red-800"
+                              >
+                                Từ chối
+                              </button>
+                            </>
+                        )}
+                      </td>
+                    </tr>
+                ))}
+                </tbody>
+              </table>
+          )}
         </div>
       </div>
-    </div>
   );
 
   const renderFinance = () => (

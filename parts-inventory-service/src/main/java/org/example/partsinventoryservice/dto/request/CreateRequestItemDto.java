@@ -20,4 +20,3 @@ public class CreateRequestItemDto {
         this.quantity = quantity;
     }
 }
-

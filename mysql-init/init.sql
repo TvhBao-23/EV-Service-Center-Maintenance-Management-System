@@ -6,7 +6,7 @@ COLLATE utf8mb4_unicode_ci;
 USE ev_service_center;
 
 -- 1. users
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 -- 2. customers
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
     address TEXT,
@@ -28,8 +28,16 @@ CREATE TABLE customers (
 
 -- 3. staffs
 
+CREATE TABLE IF NOT EXISTS staffs (
+    staff_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    position ENUM('receptionist', 'technician', 'manager', 'admin') NOT NULL,
+    hire_date DATE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- 4. vehicles
-CREATE TABLE vehicles (
+CREATE TABLE IF NOT EXISTS vehicles (
     vehicle_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
     vin VARCHAR(17) NOT NULL UNIQUE,
@@ -46,7 +54,7 @@ CREATE TABLE vehicles (
 ) ENGINE=InnoDB;
 
 -- 5. services
-CREATE TABLE services (
+CREATE TABLE IF NOT EXISTS services (
     service_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -58,7 +66,7 @@ CREATE TABLE services (
 ) ENGINE=InnoDB;
 
 -- 6. parts
-CREATE TABLE parts (
+CREATE TABLE IF NOT EXISTS parts (
     part_id INT AUTO_INCREMENT PRIMARY KEY,
     part_code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -69,7 +77,7 @@ CREATE TABLE parts (
 ) ENGINE=InnoDB;
 
 -- 7. appointments
-CREATE TABLE appointments (
+CREATE TABLE IF NOT EXISTS appointments (
     appointment_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
     vehicle_id INT NOT NULL,
@@ -84,7 +92,7 @@ CREATE TABLE appointments (
 ) ENGINE=InnoDB;
 
 -- 8. service_orders
-CREATE TABLE service_orders (
+CREATE TABLE IF NOT EXISTS service_orders (
     order_id INT AUTO_INCREMENT PRIMARY KEY,
     appointment_id INT UNIQUE,
     vehicle_id INT NOT NULL,
@@ -102,7 +110,7 @@ CREATE TABLE service_orders (
 ) ENGINE=InnoDB;
 
 -- 9. order_items
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     item_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     service_id INT,
@@ -117,7 +125,7 @@ CREATE TABLE order_items (
 ) ENGINE=InnoDB;
 
 -- 10. part_inventories
-CREATE TABLE part_inventories (
+CREATE TABLE IF NOT EXISTS part_inventories (
     inventory_id INT AUTO_INCREMENT PRIMARY KEY,
     part_id INT NOT NULL,
     quantity_in_stock INT NOT NULL DEFAULT 0 CHECK (quantity_in_stock >= 0),
@@ -127,7 +135,7 @@ CREATE TABLE part_inventories (
 ) ENGINE=InnoDB;
 
 -- 11. part_usage_history
-CREATE TABLE part_usage_history (
+CREATE TABLE IF NOT EXISTS part_usage_history (
     usage_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     part_id INT NOT NULL,
@@ -139,7 +147,7 @@ CREATE TABLE part_usage_history (
 ) ENGINE=InnoDB;
 
 -- 12. service_checklists
-CREATE TABLE service_checklists (
+CREATE TABLE IF NOT EXISTS service_checklists (
     checklist_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     item_name VARCHAR(200) NOT NULL,
@@ -152,7 +160,7 @@ CREATE TABLE service_checklists (
 ) ENGINE=InnoDB;
 
 -- 13. payments
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     payment_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
@@ -164,7 +172,7 @@ CREATE TABLE payments (
 ) ENGINE=InnoDB;
 
 -- 14. chat_messages
-CREATE TABLE chat_messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
     staff_id INT NOT NULL,
@@ -177,7 +185,7 @@ CREATE TABLE chat_messages (
 ) ENGINE=InnoDB;
 
 -- 15. notifications
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     notification_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     title VARCHAR(100) NOT NULL,
@@ -190,7 +198,7 @@ CREATE TABLE notifications (
 ) ENGINE=InnoDB;
 
 -- 16. part_requests: phiếu yêu cầu xuất kho
-CREATE TABLE part_requests (
+CREATE TABLE IF NOT EXISTS part_requests (
     request_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT,                                   -- tham chiếu lệnh sửa chữa (nếu có)
     created_by_staff_id INT NOT NULL,               -- người tạo (Technician)
@@ -207,7 +215,7 @@ CREATE TABLE part_requests (
 ) ENGINE=InnoDB;
 
 -- 17. part_request_items: chi tiết phụ tùng trong yêu cầu
-CREATE TABLE part_request_items (
+CREATE TABLE IF NOT EXISTS part_request_items (
     request_item_id INT AUTO_INCREMENT PRIMARY KEY,
     request_id INT NOT NULL,
     part_id INT NOT NULL,
@@ -218,7 +226,7 @@ CREATE TABLE part_request_items (
 ) ENGINE=InnoDB;
 
 -- 18. part_transactions: lịch sử nhập/xuất (audit)
-CREATE TABLE part_transactions (
+CREATE TABLE IF NOT EXISTS part_transactions (
     txn_id INT AUTO_INCREMENT PRIMARY KEY,
     part_id INT NOT NULL,
     type ENUM('IMPORT','EXPORT','ADJUSTMENT') NOT NULL,
@@ -234,17 +242,11 @@ CREATE TABLE part_transactions (
     FOREIGN KEY (created_by_staff_id) REFERENCES staffs(staff_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Chỉ mục gợi ý
-CREATE INDEX idx_part_requests_status ON part_requests(status, created_at);
-CREATE INDEX idx_part_request_items_req ON part_request_items(request_id);
-CREATE INDEX idx_part_txn_part ON part_transactions(part_id, type, created_at);
-
-
 -- Index
 CREATE INDEX idx_vehicles_customer ON vehicles(customer_id);
 CREATE INDEX idx_appointments_customer ON appointments(customer_id);
 CREATE INDEX idx_service_orders_status ON service_orders(status);
-CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);ev_service_center
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_part_requests_status ON part_requests(status, created_at);
 CREATE INDEX idx_part_request_items_req ON part_request_items(request_id);
 CREATE INDEX idx_part_txn_part ON part_transactions(part_id, type, created_at);

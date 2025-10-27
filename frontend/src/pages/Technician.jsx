@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getCurrentUserId, loadList, saveList } from '../lib/store'
 
+import { partsAPI } from '../lib/api'
+
 function Technician() {
   const techId = useMemo(() => getCurrentUserId(), [])
   const [vehicles, setVehicles] = useState([])
@@ -9,6 +11,12 @@ function Technician() {
   const [reports, setReports] = useState([])
   const [checklists, setChecklists] = useState([])
   const [activeTab, setActiveTab] = useState('queue') // 'queue' | 'assigned'
+
+  const username = "technician1"; // tạm hardcode
+  const [parts, setParts] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (!techId) return
@@ -76,6 +84,52 @@ function Technician() {
     saveList('checklists', list)
   }
 
+  //add part request
+  useEffect(() => {
+    loadParts();
+    loadRequests();
+  }, []);
+
+  const loadParts = async () => {
+    try {
+      const res = await partsAPI.getParts();
+      setParts(res);
+    } catch (err) {
+      console.error("Lỗi tải phụ tùng:", err);
+    }
+  };
+
+  const loadRequests = async () => {
+    try {
+      const res = await partsAPI.getRequestsByUser(username);
+      setRequests(res);
+    } catch (err) {
+      console.error("Lỗi tải yêu cầu:", err);
+    }
+  };
+
+  const toggleSelect = (partId, quantity) => {
+    setSelected((prev) => {
+      const exists = prev.find((p) => p.partId === partId);
+      if (exists) return prev.filter((p) => p.partId !== partId);
+      return [...prev, { partId, quantity }];
+    });
+  };
+
+  const submitRequest = async () => {
+    if (!reason || selected.length === 0) {
+      alert("Vui lòng nhập lý do và chọn phụ tùng!");
+      return;
+    }
+    await partsAPI.createRequest(username, reason, selected);
+    alert("✅ Gửi yêu cầu thành công!");
+    setReason("");
+    setSelected([]);
+    loadRequests();
+  };
+
+  //end part request
+
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -84,20 +138,30 @@ function Technician() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <button
-              onClick={()=>setActiveTab('queue')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab==='queue' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            >Hàng chờ</button>
+                onClick={() => setActiveTab('queue')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'queue' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            >Hàng chờ
+            </button>
             <button
-              onClick={()=>setActiveTab('assigned')}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab==='assigned' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-            >Được phân công</button>
+                onClick={() => setActiveTab('assigned')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'assigned' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+            >Được phân công
+            </button>
+
+            <button
+                onClick={() => setActiveTab('parts')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    activeTab === 'parts' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
+            >Yêu cầu phụ tùng
+            </button>
           </div>
 
           {activeTab === 'queue' && (
-            <>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Hàng chờ tiếp nhận</h3>
-          {queue.length === 0 ? (
-            <p className="text-gray-600 text-sm">Không có công việc chờ.</p>
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Hàng chờ tiếp nhận</h3>
+                {queue.length === 0 ? (
+                    <p className="text-gray-600 text-sm">Không có công việc chờ.</p>
           ) : (
             <div className="overflow-x-auto mb-6">
               <table className="min-w-full divide-y divide-gray-200">
@@ -182,6 +246,86 @@ function Technician() {
           )}
             </>
           )}
+
+          {activeTab === 'parts' && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Gửi yêu cầu xuất kho phụ tùng</h3>
+
+                <label className="block mb-2 font-medium text-gray-700">Lý do yêu cầu</label>
+                <input
+                    value={reason}
+                    onChange={(e)=>setReason(e.target.value)}
+                    className="w-full border rounded px-3 py-2 mb-4"
+                    placeholder="VD: Xe cần thay má phanh, lọc dầu..."
+                />
+
+                <h4 className="font-semibold text-gray-900 mb-2">Danh sách phụ tùng khả dụng</h4>
+                <div className="max-h-64 overflow-y-auto border rounded p-3 mb-4">
+                  {parts.length === 0 ? (
+                      <p className="text-gray-500 text-sm">Không có phụ tùng nào.</p>
+                  ) : (
+                      parts.map((p) => (
+                          <div key={p.partId} className="flex justify-between items-center py-1 border-b">
+                            <span>{p.name}</span>
+                            <input
+                                type="number"
+                                min="1"
+                                placeholder="SL"
+                                className="w-20 border rounded px-2"
+                                onChange={(e) =>
+                                    toggleSelect(p.partId, parseInt(e.target.value) || 1)
+                                }
+                            />
+                          </div>
+                      ))
+                  )}
+                </div>
+
+                <button
+                    onClick={submitRequest}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                >
+                  Gửi yêu cầu
+                </button>
+
+                <h4 className="font-semibold text-gray-900 mt-6 mb-2">Yêu cầu của tôi</h4>
+                {requests.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Chưa có yêu cầu nào.</p>
+                ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lý do</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {requests.map((r) => (
+                          <tr key={r.id}>
+                            <td className="px-4 py-2 text-sm">{r.id}</td>
+                            <td className="px-4 py-2 text-sm">{r.reason}</td>
+                            <td className="px-4 py-2 text-sm">
+                <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        r.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : r.status === "APPROVED"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                    }`}
+                >
+                  {r.status}
+                </span>
+                            </td>
+                          </tr>
+                      ))}
+                      </tbody>
+                    </table>
+                )}
+              </div>
+          )}
+
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">

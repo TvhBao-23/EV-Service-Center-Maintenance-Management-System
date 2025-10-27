@@ -19,17 +19,37 @@ public class TransactionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PartTransaction>> getAllTransactions() {
-        return ResponseEntity.ok(transactionService.getAllTransactions());
+    public ResponseEntity<List<PartTransaction>> getAll() {
+        return ResponseEntity.ok(transactionService.getAll());
     }
 
-    @PostMapping
-    public ResponseEntity<PartTransaction> recordTransaction(
+    @GetMapping("/part/{partId}")
+    public ResponseEntity<List<PartTransaction>> getByPart(@PathVariable Long partId) {
+        return ResponseEntity.ok(transactionService.getByPart(partId));
+    }
+
+    @GetMapping("/type/{type}")
+    public ResponseEntity<List<PartTransaction>> getByType(@PathVariable TransactionType type) {
+        return ResponseEntity.ok(transactionService.getByType(type));
+    }
+
+    @PostMapping("/import")
+    public ResponseEntity<PartTransaction> recordImport(
             @RequestParam Long partId,
-            @RequestParam TransactionType type,
             @RequestParam int quantity,
-            @RequestParam String performedBy
-    ) {
-        return ResponseEntity.ok(transactionService.recordTransaction(partId, type, quantity, performedBy));
+            @RequestParam Long staffId,
+            @RequestParam(required = false, defaultValue = "Nhập kho thủ công") String note) {
+        return ResponseEntity.ok(transactionService.recordImport(partId, quantity, staffId, note));
+    }
+
+    @PostMapping("/export")
+    public ResponseEntity<PartTransaction> recordExport(
+            @RequestParam Long partId,
+            @RequestParam int quantity,
+            @RequestParam Long staffId,
+            @RequestParam(required = false) Long requestId,
+            @RequestParam(required = false) Long orderId,
+            @RequestParam(required = false, defaultValue = "Xuất kho thủ công") String note) {
+        return ResponseEntity.ok(transactionService.recordExportForRequest(partId, quantity, staffId, requestId, orderId, note));
     }
 }

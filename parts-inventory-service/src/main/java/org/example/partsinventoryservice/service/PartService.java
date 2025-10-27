@@ -2,8 +2,9 @@ package org.example.partsinventoryservice.service;
 
 import org.example.partsinventoryservice.entity.Part;
 import org.example.partsinventoryservice.exception.ResourceNotFoundException;
-import org.example.partsinventoryservice.respository.PartRepository;
+import org.example.partsinventoryservice.repository.PartRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,31 +17,44 @@ public class PartService {
         this.partRepository = partRepository;
     }
 
-    public List<Part> getAllParts() {
+    @Transactional(readOnly = true)
+    public List<Part> getAll() {
         return partRepository.findAll();
     }
 
-    public Part getPartById(Long id) {
-        return partRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng với ID: " + id));
+    @Transactional(readOnly = true)
+    public Part getById(Long partId) {
+        return partRepository.findById(partId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
     }
 
-    public Part addPart(Part part) {
-        return partRepository.save(part);
+    @Transactional(readOnly = true)
+    public Part getByCode(String partCode) {
+        return partRepository.findByPartCode(partCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng mã=" + partCode));
     }
 
-    public Part updatePart(Long id, Part updatedPart) {
-        Part part = getPartById(id);
-        part.setName(updatedPart.getName());
-        part.setDescription(updatedPart.getDescription());
-        part.setPrice(updatedPart.getPrice());
-        return partRepository.save(part);
+    @Transactional
+    public Part create(Part req) {
+        // có thể bổ sung validate trùng part_code ở repository bằng unique
+        return partRepository.save(req);
     }
 
-    public void deletePart(Long id) {
-        if (!partRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Không tìm thấy phụ tùng cần xóa.");
-        }
-        partRepository.deleteById(id);
+    @Transactional
+    public Part update(Long partId, Part req) {
+        Part p = getById(partId);
+        p.setPartCode(req.getPartCode());
+        p.setName(req.getName());
+        p.setDescription(req.getDescription());
+        p.setCategory(req.getCategory());
+        p.setUnitPrice(req.getUnitPrice());
+        p.setManufacturer(req.getManufacturer());
+        return partRepository.save(p);
+    }
+
+    @Transactional
+    public void delete(Long partId) {
+        Part p = getById(partId);
+        partRepository.delete(p);
     }
 }

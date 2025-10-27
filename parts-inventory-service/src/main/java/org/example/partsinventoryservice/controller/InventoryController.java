@@ -18,31 +18,52 @@ public class InventoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PartInventory>> getAllInventories() {
-        return ResponseEntity.ok(inventoryService.getAllInventories());
+    public ResponseEntity<List<PartInventory>> getAll() {
+        return ResponseEntity.ok(inventoryService.getAll());
     }
 
     @GetMapping("/{partId}")
-    public ResponseEntity<PartInventory> getInventoryByPart(@PathVariable Long partId) {
-        return ResponseEntity.ok(inventoryService.getInventoryByPart(partId));
+    public ResponseEntity<PartInventory> getByPartId(@PathVariable Long partId) {
+        return ResponseEntity.ok(inventoryService.getByPartId(partId));
     }
 
-    @PostMapping("/{partId}/create")
-    public ResponseEntity<PartInventory> createInventory(@PathVariable Long partId,
-                                                         @RequestParam int initialStock,
-                                                         @RequestParam int minStock) {
-        return ResponseEntity.ok(inventoryService.createInventoryForPart(partId, initialStock, minStock));
+    @PostMapping("/{partId}/init")
+    public ResponseEntity<PartInventory> initInventory(
+            @PathVariable Long partId,
+            @RequestParam int initialQty,
+            @RequestParam(defaultValue = "5") int minStockLevel) {
+        return ResponseEntity.ok(inventoryService.initForPart(partId, initialQty, minStockLevel));
     }
 
-    @PutMapping("/{partId}/update-stock")
-    public ResponseEntity<String> updateStock(@PathVariable Long partId,
-                                              @RequestParam int quantityChange) {
-        inventoryService.updateStock(partId, quantityChange);
-        return ResponseEntity.ok("Đã cập nhật tồn kho cho partId=" + partId);
+    @PutMapping("/{partId}/import")
+    public ResponseEntity<PartInventory> importStock(
+            @PathVariable Long partId,
+            @RequestParam int quantity,
+            @RequestParam Long staffId,
+            @RequestParam(required = false, defaultValue = "Nhập kho thủ công") String note) {
+        return ResponseEntity.ok(inventoryService.importStock(partId, quantity, staffId, note));
     }
 
-    @GetMapping("/low-stock-count")
-    public ResponseEntity<Long> countLowStock() {
-        return ResponseEntity.ok(inventoryService.countLowStockParts());
+    @PutMapping("/{partId}/export")
+    public ResponseEntity<PartInventory> exportStock(
+            @PathVariable Long partId,
+            @RequestParam int quantity,
+            @RequestParam Long staffId,
+            @RequestParam(required = false, defaultValue = "Xuất kho thủ công") String note) {
+        return ResponseEntity.ok(inventoryService.exportStock(partId, quantity, staffId, note, null, null));
+    }
+
+    @PutMapping("/{partId}/adjust")
+    public ResponseEntity<PartInventory> adjustStock(
+            @PathVariable Long partId,
+            @RequestParam int delta,
+            @RequestParam Long staffId,
+            @RequestParam(required = false) String note) {
+        return ResponseEntity.ok(inventoryService.adjustStock(partId, delta, staffId, note));
+    }
+
+    @GetMapping("/low-stock/count")
+    public ResponseEntity<Long> getLowStockCount() {
+        return ResponseEntity.ok(inventoryService.countLowStock());
     }
 }

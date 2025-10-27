@@ -35,6 +35,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: ev-mysql
+    restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=password
       - MYSQL_DATABASE=ev_service_center
@@ -44,10 +45,11 @@ services:
       - mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD-SHELL", "mysql -uroot -ppassword -e 'SELECT 1'" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
     networks:
       - ev-service-network
   # === Parts & Inventory Service ===
@@ -56,7 +58,7 @@ services:
       context: ./parts-inventory-service
       dockerfile: Dockerfile
     ports:
-      - "8083:8083"
+      - "8086:8086"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ev_service_center
       - SPRING_DATASOURCE_USERNAME=root
