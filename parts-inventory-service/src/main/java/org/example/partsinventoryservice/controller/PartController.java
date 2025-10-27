@@ -19,7 +19,7 @@ public class PartController {
 
     @GetMapping
     public ResponseEntity<List<Part>> getAllParts() {
-        return ResponseEntity.ok(partService.getAll());
+        return ResponseEntity.ok(partService.getAllParts());
     }
 
     @GetMapping("/{id}")

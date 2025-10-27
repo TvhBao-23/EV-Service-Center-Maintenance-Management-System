@@ -698,10 +698,12 @@ function Admin() {
                 <tbody className="bg-white divide-y divide-gray-200">
                 {parts.map((part) => (
                     <tr key={part.partId}>
-                      <td className="px-6 py-4 text-sm">{part.name}</td>
-                      <td className="px-6 py-4 text-sm">{part.inventory?.currentStock ?? 0}</td>
-                      <td className="px-6 py-4 text-sm">{part.inventory?.minStock ?? 0}</td>
-                      <td className="px-6 py-4 text-sm">{Number(part.price ?? 0).toLocaleString()} VNĐ</td>
+                      <td className="px-6 py-4 text-sm">{part?.name ?? "—"}</td>
+                      <td className="px-6 py-4 text-sm">{part?.inventory?.quantityInStock ?? 0}</td>
+                      <td className="px-6 py-4 text-sm">{part?.inventory?.minStockLevel ?? 0}</td>
+                      <td className="px-6 py-4 text-sm">
+                        {(Number(part?.unitPrice) || 0).toLocaleString("vi-VN")} VNĐ
+                      </td>
 
                       <td className="px-6 py-4 text-sm text-right">
                         <button

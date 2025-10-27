@@ -1,5 +1,6 @@
 package org.example.partsinventoryservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
@@ -13,6 +14,7 @@ public class PartInventory {
 
     @OneToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "part_id", nullable = false, unique = true)
+    @JsonBackReference
     private Part part;
 
     @Column(name = "quantity_in_stock", nullable = false)

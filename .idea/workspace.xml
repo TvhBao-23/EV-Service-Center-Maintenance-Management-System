@@ -5,66 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a21a960b-6dad-4f1b-af3f-9a7d4de3f5a8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mysql-init/test_data.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/config/CorsConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestItemResponseDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestItemRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EV-Service-Center-Maintenance-Management-System.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/jarRepositories.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/evservicecenter/src/main/resources/application-docker.properties" beforeDir="false" afterPath="$PROJECT_DIR$/evservicecenter/src/main/resources/application-docker.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/evservicecenter/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/evservicecenter/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/lib/api.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ForgotPassword.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ForgotPassword.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Login.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mysql-init/init.sql" beforeDir="false" afterPath="$PROJECT_DIR$/mysql-init/init.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/.mvn/wrapper/maven-wrapper.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/PartsInventoryServiceApplication.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartController.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/PartController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/RequestController.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/RequestController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/TransactionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/TransactionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/ApproveItemDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/ApproveItemDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestItemDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestItemDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/RejectDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/RejectDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestResponseDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestResponseDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartInventory.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartInventory.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequestItem.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequestItem.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartTransaction.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/enum_/RequestStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/enum_/RequestStatus.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/enum_/TransactionType.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/enum_/TransactionType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/BadRequestException.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/BadRequestException.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/GlobalExceptionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/ResourceNotFoundException.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/exception/ResourceNotFoundException.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartInventoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartInventoryRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartRequestRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/respository/PartTransactionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartTransactionRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/RequestService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/RequestService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/TransactionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/TransactionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/test/java/org/example/partsinventoryservice/PartsInventoryServiceApplicationTests.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -187,6 +133,8 @@
       <workItem from="1761568396023" duration="1595000" />
       <workItem from="1761570437393" duration="734000" />
       <workItem from="1761571241018" duration="3822000" />
+      <workItem from="1761575809260" duration="1598000" />
+      <workItem from="1761577728117" duration="939000" />
     </task>
     <servers />
   </component>

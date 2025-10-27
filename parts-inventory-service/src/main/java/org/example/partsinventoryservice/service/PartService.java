@@ -17,6 +17,10 @@ public class PartService {
         this.partRepository = partRepository;
     }
 
+    public List<Part> getAllParts() {
+        return partRepository.findAllWithInventory(); // đảm bảo có inventory
+    }
+
     @Transactional(readOnly = true)
     public List<Part> getAll() {
         return partRepository.findAll();
