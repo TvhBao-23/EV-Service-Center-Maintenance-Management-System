@@ -9,9 +9,13 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
     vin: '', 
     year: new Date().getFullYear(), 
     batteryCapacityKwh: 0,
+    batteryType: 'lithium-ion', // lithium-ion, solid-state, etc.
+    chargingSpeed: 0, // kW
+    rangeKm: 0, // km
     odometerKm: 0,
     lastServiceDate: '',
-    lastServiceKm: 0
+    lastServiceKm: 0,
+    batteryHealth: 100 // percentage
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -23,9 +27,13 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
       vin: '', 
       year: new Date().getFullYear(), 
       batteryCapacityKwh: 0,
+      batteryType: 'lithium-ion',
+      chargingSpeed: 0,
+      rangeKm: 0,
       odometerKm: 0,
       lastServiceDate: '',
-      lastServiceKm: 0
+      lastServiceKm: 0,
+      batteryHealth: 100
     })
   }, [open, initial])
 
@@ -45,9 +53,13 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
         vin: form.vin,
         year: Number(form.year),
         batteryCapacityKwh: Number(form.batteryCapacityKwh),
+        batteryType: form.batteryType,
+        chargingSpeed: Number(form.chargingSpeed),
+        rangeKm: Number(form.rangeKm),
         odometerKm: Number(form.odometerKm),
         lastServiceDate: form.lastServiceDate,
-        lastServiceKm: Number(form.lastServiceKm)
+        lastServiceKm: Number(form.lastServiceKm),
+        batteryHealth: Number(form.batteryHealth)
       }
       
       if (initial) {
@@ -72,7 +84,7 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">{initial ? 'Chỉnh sửa xe' : 'Thêm xe mới'}</h3>
+        <h3 className="text-lg font-semibold mb-4">{initial ? 'Chỉnh sửa xe điện cao cấp' : 'Thêm xe điện cao cấp mới'}</h3>
         
         {error && (
           <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg mb-4">
@@ -120,39 +132,131 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
                 type="number" 
                 value={form.year} 
                 onChange={(e)=>setForm({ ...form, year: e.target.value })} 
-                min="1990" 
+                min="2020" 
                 max={new Date().getFullYear()}
                 className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Dung lượng pin (kWh)</label>
-              <input 
-                type="number" 
-                value={form.batteryCapacityKwh} 
-                onChange={(e)=>setForm({ ...form, batteryCapacityKwh: e.target.value })} 
-                step="0.1"
-                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
-              />
+              <label className="block text-sm text-gray-700 mb-1">Loại pin</label>
+              <select 
+                value={form.batteryType} 
+                onChange={(e)=>setForm({ ...form, batteryType: e.target.value })} 
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="lithium-ion">Lithium-ion</option>
+                <option value="solid-state">Solid-state</option>
+                <option value="lithium-phosphate">Lithium Phosphate (LFP)</option>
+                <option value="nickel-cobalt">Nickel Cobalt</option>
+              </select>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Km hiện tại</label>
-              <input 
-                type="number" 
-                value={form.odometerKm} 
-                onChange={(e)=>setForm({ ...form, odometerKm: e.target.value })} 
-                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
-              />
+          {/* Thông tin pin và hiệu suất */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-200">
+            <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+              <svg className="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Thông tin Pin & Hiệu suất
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Dung lượng pin (kWh) *</label>
+                <input 
+                  type="number" 
+                  value={form.batteryCapacityKwh} 
+                  onChange={(e)=>setForm({ ...form, batteryCapacityKwh: e.target.value })} 
+                  step="0.1"
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  placeholder="VD: 75.0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Tốc độ sạc (kW)</label>
+                <input 
+                  type="number" 
+                  value={form.chargingSpeed} 
+                  onChange={(e)=>setForm({ ...form, chargingSpeed: e.target.value })} 
+                  step="1"
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  placeholder="VD: 150"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Tầm hoạt động (km)</label>
+                <input 
+                  type="number" 
+                  value={form.rangeKm} 
+                  onChange={(e)=>setForm({ ...form, rangeKm: e.target.value })} 
+                  step="1"
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  placeholder="VD: 500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Lần bảo dưỡng cuối (km)</label>
+            <div className="mt-4">
+              <label className="block text-sm text-gray-700 mb-1">Tình trạng pin (%)</label>
+              <div className="flex items-center space-x-3">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={form.batteryHealth} 
+                  onChange={(e)=>setForm({ ...form, batteryHealth: e.target.value })} 
+                  className="flex-1"
+                />
+                <span className="text-sm font-medium text-gray-700 w-12">{form.batteryHealth}%</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {form.batteryHealth >= 90 ? 'Tuyệt vời' : 
+                 form.batteryHealth >= 80 ? 'Tốt' : 
+                 form.batteryHealth >= 70 ? 'Khá' : 
+                 form.batteryHealth >= 60 ? 'Trung bình' : 'Cần kiểm tra'}
+              </div>
+            </div>
+          </div>
+          
+          {/* Thông tin vận hành */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+              <svg className="w-4 h-4 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Thông tin Vận hành
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Km hiện tại</label>
+                <input 
+                  type="number" 
+                  value={form.odometerKm} 
+                  onChange={(e)=>setForm({ ...form, odometerKm: e.target.value })} 
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                  placeholder="VD: 15000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Lần bảo dưỡng cuối (km)</label>
+                <input 
+                  type="number" 
+                  value={form.lastServiceKm} 
+                  onChange={(e)=>setForm({ ...form, lastServiceKm: e.target.value })} 
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm text-gray-700 mb-1">Ngày bảo dưỡng cuối</label>
               <input 
-                type="number" 
-                value={form.lastServiceKm} 
-                onChange={(e)=>setForm({ ...form, lastServiceKm: e.target.value })} 
+                type="date" 
+                value={form.lastServiceDate} 
+                onChange={(e)=>setForm({ ...form, lastServiceDate: e.target.value })} 
                 className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
               />
             </div>
@@ -240,8 +344,8 @@ function MyVehicles() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900">Xe của tôi</h2>
-            <p className="text-gray-600">Quản lý và theo dõi xe điện của bạn</p>
+            <h2 className="text-3xl font-bold text-gray-900">Xe điện cao cấp của tôi</h2>
+            <p className="text-gray-600">Quản lý và theo dõi xe điện cao cấp của bạn</p>
           </div>
           <button onClick={openAdd} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,8 +390,30 @@ function MyVehicles() {
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
                   <p><span className="font-medium">VIN:</span> {vehicle.vin}</p>
+                  <p><span className="font-medium">Loại pin:</span> {vehicle.batteryType || 'Lithium-ion'}</p>
                   <p><span className="font-medium">Dung lượng pin:</span> {vehicle.batteryCapacityKwh} kWh</p>
+                  {vehicle.chargingSpeed > 0 && (
+                    <p><span className="font-medium">Tốc độ sạc:</span> {vehicle.chargingSpeed} kW</p>
+                  )}
+                  {vehicle.rangeKm > 0 && (
+                    <p><span className="font-medium">Tầm hoạt động:</span> {vehicle.rangeKm} km</p>
+                  )}
                   <p><span className="font-medium">Km hiện tại:</span> {vehicle.odometerKm?.toLocaleString()} km</p>
+                  {vehicle.batteryHealth && (
+                    <div className="flex items-center">
+                      <span className="font-medium mr-2">Tình trạng pin:</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            vehicle.batteryHealth >= 80 ? 'bg-green-500' : 
+                            vehicle.batteryHealth >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{width: `${vehicle.batteryHealth}%`}}
+                        ></div>
+                      </div>
+                      <span className="text-xs">{vehicle.batteryHealth}%</span>
+                    </div>
+                  )}
                   {vehicle.lastServiceDate && (
                     <p><span className="font-medium">Bảo dưỡng cuối:</span> {new Date(vehicle.lastServiceDate).toLocaleDateString()}</p>
                   )}

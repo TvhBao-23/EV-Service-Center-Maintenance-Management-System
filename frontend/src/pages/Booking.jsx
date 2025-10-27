@@ -15,6 +15,99 @@ function Booking() {
   const [services, setServices] = useState([])
   const [serviceCenters, setServiceCenters] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Dữ liệu dịch vụ xe điện cao cấp
+  const premiumEVServices = [
+    {
+      serviceId: 1,
+      serviceName: "Bảo dưỡng định kỳ",
+      description: "Kiểm tra tổng thể hệ thống điện, pin và các bộ phận chính",
+      basePrice: 500000,
+      estimatedDurationMinutes: 120,
+      category: "maintenance"
+    },
+    {
+      serviceId: 2,
+      serviceName: "Thay pin lithium-ion",
+      description: "Thay thế pin lithium-ion cao cấp cho xe điện",
+      basePrice: 15000000,
+      estimatedDurationMinutes: 480,
+      category: "battery"
+    },
+    {
+      serviceId: 3,
+      serviceName: "Sửa chữa hệ thống sạc",
+      description: "Kiểm tra và sửa chữa hệ thống sạc nhanh DC",
+      basePrice: 2500000,
+      estimatedDurationMinutes: 180,
+      category: "charging"
+    },
+    {
+      serviceId: 4,
+      serviceName: "Thay motor điện",
+      description: "Thay thế motor điện cao cấp cho xe điện",
+      basePrice: 8000000,
+      estimatedDurationMinutes: 360,
+      category: "motor"
+    },
+    {
+      serviceId: 5,
+      serviceName: "Kiểm tra BMS",
+      description: "Kiểm tra và cập nhật hệ thống quản lý pin (Battery Management System)",
+      basePrice: 1200000,
+      estimatedDurationMinutes: 90,
+      category: "software"
+    },
+    {
+      serviceId: 6,
+      serviceName: "Thay inverter",
+      description: "Thay thế bộ chuyển đổi điện DC/AC cao cấp",
+      basePrice: 3500000,
+      estimatedDurationMinutes: 240,
+      category: "electronics"
+    },
+    {
+      serviceId: 7,
+      serviceName: "Bảo dưỡng hệ thống làm mát",
+      description: "Kiểm tra và bảo dưỡng hệ thống làm mát pin và motor",
+      basePrice: 800000,
+      estimatedDurationMinutes: 150,
+      category: "cooling"
+    },
+    {
+      serviceId: 8,
+      serviceName: "Cập nhật phần mềm",
+      description: "Cập nhật phần mềm hệ thống và tối ưu hiệu suất",
+      basePrice: 300000,
+      estimatedDurationMinutes: 60,
+      category: "software"
+    }
+  ]
+
+  // Dữ liệu trung tâm dịch vụ
+  const premiumServiceCenters = [
+    {
+      centerId: 1,
+      centerName: "EV Service Center Quận 1",
+      address: "123 Nguyễn Huệ, Quận 1, TP.HCM",
+      phone: "028 1234 5678",
+      services: ["maintenance", "battery", "charging", "motor", "software", "electronics", "cooling"]
+    },
+    {
+      centerId: 2,
+      centerName: "EV Service Center Quận 7",
+      address: "456 Nguyễn Thị Thập, Quận 7, TP.HCM",
+      phone: "028 2345 6789",
+      services: ["maintenance", "battery", "charging", "motor", "software", "electronics", "cooling"]
+    },
+    {
+      centerId: 3,
+      centerName: "EV Service Center Quận 12",
+      address: "789 Đường Tân Thới Hiệp, Quận 12, TP.HCM",
+      phone: "028 3456 7890",
+      services: ["maintenance", "battery", "charging", "motor", "software", "electronics", "cooling"]
+    }
+  ]
   const [form, setForm] = useState({
     vehicleId: '',
     serviceId: '',
@@ -35,15 +128,13 @@ function Booking() {
 
   const loadData = async () => {
     try {
-      const [vehiclesData, servicesData, centersData] = await Promise.all([
-        customerAPI.getVehicles(),
-        customerAPI.getServices(),
-        customerAPI.getServiceCenters()
-      ])
+      // Load vehicles from API
+      const vehiclesData = await customerAPI.getVehicles()
       
+      // Use local premium EV services data
+      setServices(premiumEVServices)
+      setServiceCenters(premiumServiceCenters)
       setVehicles(vehiclesData)
-      setServices(servicesData)
-      setServiceCenters(centersData)
       
       // Set default vehicle if provided in query
       if (vehicleIdFromQuery && vehiclesData.length > 0) {
@@ -52,8 +143,11 @@ function Booking() {
         setForm(prev => ({ ...prev, vehicleId: vehiclesData[0].vehicleId }))
       }
     } catch (error) {
-      console.error('Error loading data:', error)
-      setError('Có lỗi xảy ra khi tải dữ liệu')
+      console.error('Error loading vehicles:', error)
+      // Still set services and centers even if vehicles fail
+      setServices(premiumEVServices)
+      setServiceCenters(premiumServiceCenters)
+      setError('Có lỗi xảy ra khi tải danh sách xe')
     } finally {
       setLoading(false)
     }
@@ -148,20 +242,20 @@ function Booking() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại dịch vụ</label>
-              <select
-                name="serviceId"
-                value={form.serviceId}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                required
-              >
-                <option value="">-- Chọn loại dịch vụ --</option>
-                {services.map((service) => (
-                  <option key={service.serviceId} value={service.serviceId}>
-                    {service.serviceName} - {service.basePrice?.toLocaleString('vi-VN')} VNĐ
-                  </option>
-                ))}
-              </select>
+                     <select
+                       name="serviceId"
+                       value={form.serviceId}
+                       onChange={handleChange}
+                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                       required
+                     >
+                       <option value="">-- Chọn loại dịch vụ --</option>
+                       {services.map((service) => (
+                         <option key={service.serviceId} value={service.serviceId}>
+                           {service.serviceName}
+                         </option>
+                       ))}
+                     </select>
             </div>
 
               <div>
@@ -207,13 +301,42 @@ function Booking() {
             </div>
 
             {getSelectedService() && (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <h4 className="font-semibold text-gray-900 mb-3">Thông tin dịch vụ</h4>
-                <div className="space-y-2 text-sm">
-                  <p><span className="font-medium">Tên dịch vụ:</span> {getSelectedService().serviceName}</p>
-                  <p><span className="font-medium">Mô tả:</span> {getSelectedService().description}</p>
-                  <p><span className="font-medium">Giá cơ bản:</span> {getSelectedService().basePrice?.toLocaleString('vi-VN')} VNĐ</p>
-                  <p><span className="font-medium">Thời gian dự kiến:</span> {getSelectedService().estimatedDurationMinutes} phút</p>
+              <div className="border border-green-200 rounded-lg p-6 bg-gradient-to-r from-green-50 to-blue-50">
+                <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Thông tin dịch vụ
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-3">
+                    <div>
+                      <span className="font-medium text-gray-700">Tên dịch vụ:</span>
+                      <p className="text-gray-900 font-semibold">{getSelectedService().serviceName}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Mô tả:</span>
+                      <p className="text-gray-600">{getSelectedService().description}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="font-medium text-gray-700">Giá cơ bản:</span>
+                      <p className="text-green-600 font-bold text-lg">{getSelectedService().basePrice?.toLocaleString('vi-VN')} VNĐ</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Thời gian dự kiến:</span>
+                      <p className="text-gray-900 font-semibold">{getSelectedService().estimatedDurationMinutes} phút</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-green-200">
+                  <div className="flex items-center text-xs text-gray-500">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Giá có thể thay đổi tùy theo tình trạng thực tế của xe
+                  </div>
                 </div>
               </div>
             )}

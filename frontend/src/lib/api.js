@@ -95,6 +95,14 @@ export const authAPI = {
   // Logout
   logout: () => {
     removeAuthToken()
+  },
+
+  // Change password
+  changePassword: async (currentPassword, newPassword) => {
+    return apiCall(`${API_BASE_URLS.auth}/change-password`, {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
   }
 }
 

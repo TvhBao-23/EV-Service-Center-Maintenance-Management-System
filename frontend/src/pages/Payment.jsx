@@ -21,8 +21,31 @@ function Payment() {
   const loadAppointments = async () => {
     try {
       const data = await customerAPI.getAppointments()
-      setAppointments(data)
-      console.log('Loaded appointments:', data)
+      
+      // Map appointments with service prices from our premium EV services
+      const premiumEVServices = [
+        { serviceId: 1, serviceName: "Bảo dưỡng định kỳ", basePrice: 500000 },
+        { serviceId: 2, serviceName: "Thay pin lithium-ion", basePrice: 15000000 },
+        { serviceId: 3, serviceName: "Sửa chữa hệ thống sạc", basePrice: 2500000 },
+        { serviceId: 4, serviceName: "Thay motor điện", basePrice: 8000000 },
+        { serviceId: 5, serviceName: "Kiểm tra BMS", basePrice: 1200000 },
+        { serviceId: 6, serviceName: "Thay inverter", basePrice: 3500000 },
+        { serviceId: 7, serviceName: "Bảo dưỡng hệ thống làm mát", basePrice: 800000 },
+        { serviceId: 8, serviceName: "Cập nhật phần mềm", basePrice: 300000 }
+      ]
+      
+      // Enhance appointments with service information
+      const enhancedAppointments = data.map(appointment => {
+        const service = premiumEVServices.find(s => s.serviceId === appointment.serviceId)
+        return {
+          ...appointment,
+          serviceName: service?.serviceName || 'Dịch vụ không xác định',
+          servicePrice: service?.basePrice || 100000
+        }
+      })
+      
+      setAppointments(enhancedAppointments)
+      console.log('Loaded appointments with service prices:', enhancedAppointments)
     } catch (error) {
       console.error('Error loading appointments:', error)
       setAppointments([])
@@ -174,7 +197,7 @@ function Payment() {
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">Lịch đặt #{appointment.appointmentId}</h4>
+                        <h4 className="font-semibold text-gray-900">{appointment.serviceName}</h4>
                         <p className="text-sm text-gray-600">Ngày: {new Date(appointment.appointmentDate).toLocaleDateString()}</p>
                         <p className="text-sm text-gray-600">Trạng thái: {appointment.status}</p>
                         {appointment.notes && (
@@ -203,7 +226,7 @@ function Payment() {
                     <div className="mb-6">
                       <div className="bg-gray-50 rounded-lg p-4 mb-4">
                         <h4 className="font-medium text-gray-900">Chi tiết lịch đặt</h4>
-                        <p className="text-sm text-gray-600 mt-1">Lịch đặt #{selectedAppointment.appointmentId}</p>
+                        <p className="text-sm text-gray-600 mt-1">{selectedAppointment.serviceName}</p>
                         <p className="text-sm text-gray-600">{new Date(selectedAppointment.appointmentDate).toLocaleDateString()}</p>
                       </div>
                       

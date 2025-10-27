@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
@@ -13,6 +13,20 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  // Load saved credentials on component mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail')
+    const rememberMe = localStorage.getItem('rememberMe') === 'true'
+    
+    if (rememberMe && savedEmail) {
+      setFormData(prev => ({
+        ...prev,
+        email: savedEmail,
+        rememberMe: true
+      }))
+    }
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
@@ -21,6 +35,16 @@ function Login() {
       const result = await login(formData.email, formData.password)
       
       if (result.success) {
+        // Save credentials if "Remember Me" is checked
+        if (formData.rememberMe) {
+          localStorage.setItem('rememberedEmail', formData.email)
+          localStorage.setItem('rememberMe', 'true')
+        } else {
+          // Clear saved credentials if unchecked
+          localStorage.removeItem('rememberedEmail')
+          localStorage.removeItem('rememberMe')
+        }
+        
         // Redirect by role
         const userRole = result.user.role || 'customer'
         if (userRole === 'admin') {

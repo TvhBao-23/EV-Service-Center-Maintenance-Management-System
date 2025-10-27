@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.jsx'
 import { getCurrentUserId, loadList } from '../lib/store'
 
 function Admin() {
   const userId = useMemo(() => getCurrentUserId(), [])
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [users, setUsers] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [bookings, setBookings] = useState([])
@@ -56,6 +61,36 @@ function Admin() {
       totalPartsValue
     }
   }, [users, vehicles, bookings, records, parts])
+
+  // Profile dropdown handlers
+  const displayName = user?.fullName || user?.email || 'Administrator'
+  const initials = (displayName || '').split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase()
+
+  const handleProfileClick = () => {
+    setProfileDropdownOpen(!profileDropdownOpen)
+  }
+
+  const handlePersonalInfo = () => {
+    navigate('/personal-profile')
+    setProfileDropdownOpen(false)
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+    setProfileDropdownOpen(false)
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownOpen && !event.target.closest('.profile-dropdown')) {
+        setProfileDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [profileDropdownOpen])
 
   // Recent activities
   const recentActivities = useMemo(() => {
@@ -548,6 +583,60 @@ function Admin() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="h-16 bg-white border-b flex items-center px-4 justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <span className="text-xl font-bold text-gray-900">EV Service Center</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative profile-dropdown">
+            <button
+              onClick={handleProfileClick}
+              className="flex items-center gap-3 hover:bg-gray-100 rounded-lg p-1 transition-colors"
+              title="Xem thông tin cá nhân"
+            >
+              <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-semibold">
+                {initials || 'AD'}
+              </div>
+              <span className="hidden sm:block text-sm font-medium text-gray-800">{displayName}</span>
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <button
+                  onClick={handlePersonalInfo}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Thông tin cá nhân
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Đăng xuất
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Quản lý hệ thống EV Service Center</h1>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import { authAPI, customerAPI } from '../lib/api.js'
 import { getCurrentUserId, loadList } from '../lib/store'
 
 function PersonalProfile() {
-  const { user, logout } = useAuth()
+  const { user, logout, updateUser, setUser } = useAuth()
   const navigate = useNavigate()
   const userId = getCurrentUserId()
   const [formData, setFormData] = useState({
@@ -19,10 +20,19 @@ function PersonalProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
 
   useEffect(() => {
+    console.log('PersonalProfile useEffect triggered, user:', user)
     if (user) {
-      setFormData({
+      const newFormData = {
         fullName: user.fullName || '',
         email: user.email || '',
         phone: user.phone || '',
@@ -30,7 +40,9 @@ function PersonalProfile() {
         dateOfBirth: user.dateOfBirth || '',
         emergencyContact: user.emergencyContact || '',
         emergencyPhone: user.emergencyPhone || ''
-      })
+      }
+      console.log('Setting formData to:', newFormData)
+      setFormData(newFormData)
     }
   }, [user])
 
@@ -44,20 +56,63 @@ function PersonalProfile() {
 
   const handleSave = async () => {
     setIsLoading(true)
+    setMessage('')
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Update user data in localStorage
-    const updatedUser = { ...user, ...formData }
-    localStorage.setItem('user', JSON.stringify(updatedUser))
-    
-    setIsLoading(false)
-    setIsEditing(false)
-    setMessage('Cập nhật thông tin thành công!')
-    
-    // Clear message after 3 seconds
-    setTimeout(() => setMessage(''), 3000)
+    try {
+      console.log('=== SAVING PROFILE ===')
+      console.log('Current user:', user)
+      console.log('New formData:', formData)
+      
+      // Since backend APIs are not available, we'll use localStorage
+      const oldEmail = user.email
+      const newEmail = formData.email
+      
+      console.log('Old email:', oldEmail, 'New email:', newEmail)
+      
+      // Update user data in localStorage
+      const updatedUser = { ...user, ...formData }
+      console.log('Updated user:', updatedUser)
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      
+      // Update AuthContext state immediately
+      setUser(updatedUser)
+      console.log('AuthContext updated with:', updatedUser)
+      
+      // If email changed, update the user database in localStorage
+      if (oldEmail !== newEmail) {
+        console.log('Email changed, updating database...')
+        // Get existing users
+        const users = JSON.parse(localStorage.getItem('users') || '[]')
+        console.log('Existing users before update:', users)
+        
+        // Find and update the user
+        const userIndex = users.findIndex(u => u.email === oldEmail)
+        console.log('User index:', userIndex)
+        if (userIndex !== -1) {
+          users[userIndex] = { ...users[userIndex], ...formData }
+          localStorage.setItem('users', JSON.stringify(users))
+          console.log('Database updated:', users)
+        }
+        
+        // Also update remembered email if it exists
+        const rememberedEmail = localStorage.getItem('rememberedEmail')
+        if (rememberedEmail === oldEmail) {
+          localStorage.setItem('rememberedEmail', newEmail)
+          console.log('Remembered email updated')
+        }
+      }
+      
+      setMessage('Cập nhật thông tin thành công! Email đã được cập nhật.')
+      setIsEditing(false)
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      setMessage('Có lỗi xảy ra khi cập nhật thông tin')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleCancel = () => {
@@ -78,6 +133,86 @@ function PersonalProfile() {
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
+  }
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target
+    setPasswordForm(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordForm.currentPassword) {
+      setPasswordMessage('Vui lòng nhập mật khẩu hiện tại')
+      return
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordMessage('Mật khẩu mới phải có ít nhất 6 ký tự')
+      return
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage('Mật khẩu xác nhận không khớp')
+      return
+    }
+
+    setPasswordLoading(true)
+    setPasswordMessage('')
+
+    try {
+      const result = await authAPI.changePassword(
+        passwordForm.currentPassword,
+        passwordForm.newPassword
+      )
+
+      if (result.success) {
+        setPasswordMessage('Đổi mật khẩu thành công! Bạn sẽ được đăng xuất để đăng nhập lại.')
+        
+        // Clear form
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        })
+        
+        // Close modal and logout after 2 seconds
+        setTimeout(() => {
+          setShowChangePasswordModal(false)
+          logout()
+          navigate('/login')
+        }, 2000)
+      } else {
+        setPasswordMessage(result.error || 'Có lỗi xảy ra khi đổi mật khẩu')
+      }
+    } catch (error) {
+      setPasswordMessage('Có lỗi xảy ra khi đổi mật khẩu')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const openChangePasswordModal = () => {
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+    setPasswordMessage('')
+    setShowChangePasswordModal(true)
+  }
+
+  const closeChangePasswordModal = () => {
+    setShowChangePasswordModal(false)
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+    setPasswordMessage('')
   }
 
   return (
@@ -247,23 +382,116 @@ function PersonalProfile() {
                 <h4 className="font-medium text-gray-900">Đổi mật khẩu</h4>
                 <p className="text-sm text-gray-600">Cập nhật mật khẩu để bảo mật tài khoản</p>
               </div>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={openChangePasswordModal}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Đổi mật khẩu
               </button>
             </div>
             
-            <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900">Xác thực 2 yếu tố</h4>
-                <p className="text-sm text-gray-600">Thêm lớp bảo mật cho tài khoản</p>
+          </div>
+        </div>
+      </main>
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Đổi mật khẩu</h3>
+              <button
+                onClick={closeChangePasswordModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {passwordMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${
+                passwordMessage.includes('thành công') 
+                  ? 'bg-green-50 text-green-700 border border-green-200' 
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                {passwordMessage}
               </div>
-              <button className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-                Bật 2FA
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mật khẩu hiện tại
+                </label>
+                <input
+                  type="password"
+                  name="currentPassword"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Nhập mật khẩu hiện tại"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mật khẩu mới
+                </label>
+                <input
+                  type="password"
+                  name="newPassword"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Xác nhận mật khẩu mới
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Nhập lại mật khẩu mới"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeChangePasswordModal}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {passwordLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  'Đổi mật khẩu'
+                )}
               </button>
             </div>
           </div>
         </div>
-      </main>
+      )}
     </div>
   )
 }
