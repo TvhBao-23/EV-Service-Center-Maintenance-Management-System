@@ -20,6 +20,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="maintenance" target="17" />
       <module name="staff" target="17" />
     </bytecodeTargetLevel>
   </component>
