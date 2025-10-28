@@ -60,12 +60,10 @@ public class InventoryService {
         return inventoryRepo.save(inv);
     }
 
-    /**
-     * Nhập kho: tăng số lượng và ghi transaction IMPORT
-     */
     @Transactional
     public PartInventory importStock(Long partId, int qty, Long staffId, String note) {
         if (qty <= 0) throw new BadRequestException("Số lượng nhập phải > 0");
+        if (staffId == null) staffId = 1L; // fallback test id
 
         PartInventory inv = inventoryRepo.findByPart_PartId(partId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chưa khởi tạo tồn kho cho partId=" + partId));
@@ -73,7 +71,9 @@ public class InventoryService {
         inv.setQuantityInStock(inv.getQuantityInStock() + qty);
         inventoryRepo.save(inv);
 
-        Part part = inv.getPart();
+        Part part = partRepo.findById(partId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
+
         PartTransaction txn = new PartTransaction();
         txn.setPart(part);
         txn.setType(TransactionType.IMPORT);
@@ -84,6 +84,7 @@ public class InventoryService {
 
         return inv;
     }
+
 
     /**
      * Xuất kho: giảm số lượng và ghi transaction EXPORT

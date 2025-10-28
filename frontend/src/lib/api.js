@@ -225,44 +225,53 @@ export const staffAPI = {
 
 export const partsAPI = {
   getParts: () => apiCall(`${API_BASE_URLS.parts}/parts`),
+  getPart: (id) => apiCall(`${API_BASE_URLS.parts}/parts/${id}`),
 
-  getInventory: () => apiCall(`${API_BASE_URLS.parts}/inventory`),
+  getInventories: () => apiCall(`${API_BASE_URLS.parts}/inventory`),
+  getInventoryByPart: (partId) =>
+      apiCall(`${API_BASE_URLS.parts}/inventory/${partId}`),
+
+  initInventory: (partId, initialQty = 0, minStockLevel = 5) =>
+      apiCall(
+          `${API_BASE_URLS.parts}/inventory/${partId}/init?initialQty=${initialQty}&minStockLevel=${minStockLevel}`,
+          { method: "POST" }
+      ),
 
   importStock: (partId, quantity, note) =>
-      apiCall(`${API_BASE_URLS.parts}/inventory/in`, {
-        method: 'POST',
-        body: JSON.stringify({ partId, quantity, note })
+      apiCall(`${API_BASE_URLS.parts}/inventory/${partId}/import?quantity=${quantity}&staffId=1&note=${note}`, {
+        method: 'PUT'
       }),
 
-  exportStock: (partId, quantity, note) =>
-      apiCall(`${API_BASE_URLS.parts}/inventory/out`, {
-        method: 'POST',
-        body: JSON.stringify({ partId, quantity, note })
-      }),
 
-  createRequest: (requestedBy, reason, items) =>
-      apiCall(`${API_BASE_URLS.parts}/requests`, {
-        method: 'POST',
-        body: JSON.stringify({ requestedBy, reason, items })
-      }),
+  exportStock: (partId, quantity, staffId, note = "Xuất kho thủ công") =>
+      apiCall(
+          `${API_BASE_URLS.parts}/inventory/${partId}/export?quantity=${quantity}&staffId=${staffId}&note=${encodeURIComponent(
+              note
+          )}`,
+          { method: "PUT" }
+      ),
 
-  getRequestsByUser: (username) =>
-      apiCall(`${API_BASE_URLS.parts}/requests/by-user/${username}`),
+  adjustStock: (partId, delta, staffId, note = "Điều chỉnh tồn kho") =>
+      apiCall(
+          `${API_BASE_URLS.parts}/inventory/${partId}/adjust?delta=${delta}&staffId=${staffId}&note=${encodeURIComponent(
+              note
+          )}`,
+          { method: "PUT" }
+      ),
+
+  getLowStockCount: () =>
+      apiCall(`${API_BASE_URLS.parts}/inventory/low-stock/count`),
 
   getAllRequests: () => apiCall(`${API_BASE_URLS.parts}/requests`),
-
-  approveRequest: (requestId) =>
-      apiCall(`${API_BASE_URLS.parts}/requests/${requestId}/approve`, {
-        method: 'POST'
+  approveRequest: (id) =>
+      apiCall(`${API_BASE_URLS.parts}/requests/${id}/approve`, { method: "POST" }),
+  rejectRequest: (id, reason) =>
+      apiCall(`${API_BASE_URLS.parts}/requests/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+        headers: { "Content-Type": "application/json" },
       }),
-
-  rejectRequest: (requestId, reason) =>
-      apiCall(`${API_BASE_URLS.parts}/requests/${requestId}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      })
-}
-
+};
 
 export default {
   authAPI,

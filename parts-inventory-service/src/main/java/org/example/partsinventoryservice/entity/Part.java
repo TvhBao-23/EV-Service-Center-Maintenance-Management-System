@@ -3,6 +3,8 @@ package org.example.partsinventoryservice.entity;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "parts")
@@ -32,6 +34,10 @@ public class Part {
     @OneToOne(mappedBy = "part", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)
     @JsonManagedReference
     private PartInventory inventory;
+
+    @OneToMany(mappedBy = "part", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PartTransaction> transactions = new ArrayList<>();
+
 
     // Getters/Setters
     public Long getPartId() { return partId; }

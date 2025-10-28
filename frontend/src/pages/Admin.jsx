@@ -87,12 +87,17 @@ function Admin() {
       .reduce((sum, b) => sum + (Number(b.estimatedPrice) || 0), 0);
 
     // Parts inventory
-    const getStock = (p) => Number(p.currentStock ?? p.inventory?.currentStock ?? 0);
-    const getMin   = (p) => Number(p.minStock     ?? p.inventory?.minStock     ?? 0);
-    const getPrice = (p) => Number(p.price ?? 0);
+    const getStock = (p) =>
+        Number(p.inventory?.quantityInStock ?? p.currentStock ?? 0);
+    const getMin = (p) =>
+        Number(p.inventory?.minStockLevel ?? p.minStock ?? 0);
+    const getPrice = (p) => Number(p.unitPrice ?? p.price ?? 0);
 
     const lowStockParts = parts.filter((p) => getStock(p) <= getMin(p));
-    const totalPartsValue = parts.reduce((sum, p) => sum + getStock(p) * getPrice(p), 0);
+    const totalPartsValue = parts.reduce(
+        (sum, p) => sum + getStock(p) * getPrice(p),
+        0
+    );
 
 
     return {
@@ -160,7 +165,7 @@ function Admin() {
     try {
       setLoading(true);
       const data = await partsAPI.getParts();
-      setParts(data);
+      setParts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Lỗi tải danh sách phụ tùng:", err);
     } finally {
@@ -171,7 +176,11 @@ function Admin() {
   const loadRequests = async () => {
     try {
       const data = await partsAPI.getAllRequests();
-      setRequests(data);
+      if (Array.isArray(data)) {
+        setRequests(data);
+      } else {
+        console.error("Invalid response format:", data);
+      }
     } catch (err) {
       console.error("Lỗi tải danh sách yêu cầu:", err);
     }
@@ -179,29 +188,59 @@ function Admin() {
 
   const approveRequest = async (id) => {
     if (!window.confirm("Duyệt yêu cầu này?")) return;
-    await partsAPI.approveRequest(id);
-    loadRequests();
+    try {
+      await partsAPI.approveRequest(id);
+      await loadRequests();
+    } catch (e) {
+      alert("Lỗi duyệt yêu cầu!");
+      console.error(e);
+    }
   };
 
   const rejectRequest = async (id) => {
     const reason = prompt("Nhập lý do từ chối:");
     if (!reason) return;
-    await partsAPI.rejectRequest(id, reason);
-    loadRequests();
+    try {
+      await partsAPI.rejectRequest(id, reason);
+      await loadRequests();
+    } catch (e) {
+      alert("Lỗi từ chối yêu cầu!");
+      console.error(e);
+    }
   };
 
   const importStock = async (partId) => {
     const qty = parseInt(prompt("Nhập số lượng nhập kho:"), 10);
-    if (!qty) return;
-    await partsAPI.importStock(partId, qty, "Nhập kho thủ công");
-    loadParts();
+    if (!qty || qty <= 0) return;
+
+    const staffId = Number(prompt("Nhập ID nhân viên thực hiện (staffId):", 1));
+    if (!staffId) return alert("Cần nhập staffId!");
+
+    try {
+      await partsAPI.importStock(partId, qty, staffId, "Nhập kho thủ công");
+      alert("✅ Nhập kho thành công!");
+      await loadParts();
+    } catch (e) {
+      alert("❌ Lỗi khi nhập kho!");
+      console.error(e);
+    }
   };
 
   const exportStock = async (partId) => {
     const qty = parseInt(prompt("Nhập số lượng xuất kho:"), 10);
-    if (!qty) return;
-    await partsAPI.exportStock(partId, qty, "Xuất kho thủ công");
-    loadParts();
+    if (!qty || qty <= 0) return;
+
+    const staffId = Number(prompt("Nhập ID nhân viên thực hiện (staffId):", 1));
+    if (!staffId) return alert("Cần nhập staffId!");
+
+    try {
+      await partsAPI.exportStock(partId, qty, staffId, "Xuất kho thủ công");
+      alert("✅ Xuất kho thành công!");
+      await loadParts();
+    } catch (e) {
+      alert("❌ Lỗi khi xuất kho!");
+      console.error(e);
+    }
   };
 
   //end parts service
@@ -658,6 +697,7 @@ function Admin() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Quản lý phụ tùng
           </h3>
+
           <div className="mb-4 flex justify-between items-center">
             <div className="text-sm text-gray-600">
               Phụ tùng sắp hết:{" "}
@@ -668,10 +708,11 @@ function Admin() {
             <div className="text-sm text-gray-600">
               Tổng giá trị tồn kho:{" "}
               <span className="font-semibold text-green-600">
-                {(dashboardStats?.totalPartsValue || 0).toLocaleString()} VNĐ
-              </span>
+              {(dashboardStats.totalPartsValue || 0).toLocaleString()} VNĐ
+            </span>
             </div>
           </div>
+
           {loading ? (
               <p>Đang tải...</p>
           ) : (
@@ -698,13 +739,19 @@ function Admin() {
                 <tbody className="bg-white divide-y divide-gray-200">
                 {parts.map((part) => (
                     <tr key={part.partId}>
-                      <td className="px-6 py-4 text-sm">{part?.name ?? "—"}</td>
-                      <td className="px-6 py-4 text-sm">{part?.inventory?.quantityInStock ?? 0}</td>
-                      <td className="px-6 py-4 text-sm">{part?.inventory?.minStockLevel ?? 0}</td>
+                      <td className="px-6 py-4 text-sm">{part.name ?? "—"}</td>
                       <td className="px-6 py-4 text-sm">
-                        {(Number(part?.unitPrice) || 0).toLocaleString("vi-VN")} VNĐ
+                        {part.inventory?.quantityInStock ?? 0}
                       </td>
-
+                      <td className="px-6 py-4 text-sm">
+                        {part.inventory?.minStockLevel ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {(Number(part.unitPrice ?? part.price ?? 0)).toLocaleString(
+                            "vi-VN"
+                        )}{" "}
+                        VNĐ
+                      </td>
                       <td className="px-6 py-4 text-sm text-right">
                         <button
                             onClick={() => importStock(part.partId)}
@@ -731,17 +778,28 @@ function Admin() {
           <h3 className="text-lg font-semibold text-gray-900 mb-3">
             Yêu cầu xuất kho từ kỹ thuật viên
           </h3>
+
           {requests.length === 0 ? (
               <p className="text-gray-500 text-sm">Không có yêu cầu nào.</p>
           ) : (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người yêu cầu</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lý do</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành động</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Mã
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Người yêu cầu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Lý do
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Hành động
+                  </th>
                 </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -789,6 +847,7 @@ function Admin() {
         </div>
       </div>
   );
+
 
   const renderFinance = () => (
     <div className="space-y-6">

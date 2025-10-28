@@ -1,5 +1,6 @@
 package org.example.partsinventoryservice.controller;
 
+import org.example.partsinventoryservice.dto.InventoryResponseDto;
 import org.example.partsinventoryservice.entity.PartInventory;
 import org.example.partsinventoryservice.service.InventoryService;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +19,19 @@ public class InventoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PartInventory>> getAll() {
-        return ResponseEntity.ok(inventoryService.getAll());
+    public ResponseEntity<List<InventoryResponseDto>> getAll() {
+        List<InventoryResponseDto> list = inventoryService.getAll().stream()
+                .map(inv -> new InventoryResponseDto(
+                        inv.getPart().getPartId(),
+                        inv.getPart().getName(),
+                        inv.getQuantityInStock(),
+                        inv.getMinStockLevel(),
+                        inv.getPart().getUnitPrice()
+                ))
+                .toList();
+        return ResponseEntity.ok(list);
     }
+
 
     @GetMapping("/{partId}")
     public ResponseEntity<PartInventory> getByPartId(@PathVariable Long partId) {
