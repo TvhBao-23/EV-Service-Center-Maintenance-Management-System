@@ -180,7 +180,7 @@ function Profile() {
                         </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '-'}
-                      </td>
+                        </td>
                       </tr>
                   ))}
                 </tbody>

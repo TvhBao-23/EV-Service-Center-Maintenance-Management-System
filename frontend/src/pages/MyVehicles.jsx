@@ -38,8 +38,13 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
   }, [open, initial])
 
   const handleSave = async () => {
-    if (!form.brand || !form.model || !form.vin || form.vin.length < 10) {
+    if (!form.brand || !form.model || !form.vin) {
       setError('Vui lòng điền đầy đủ thông tin')
+      return
+    }
+    
+    if (form.vin.length !== 17) {
+      setError('Số VIN phải có đúng 17 ký tự')
       return
     }
     
@@ -47,21 +52,27 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
     setError('')
     
     try {
+      // Only send fields that backend accepts (matching VehicleDto)
       const vehicleData = {
         brand: form.brand,
         model: form.model,
         vin: form.vin,
         year: Number(form.year),
-        batteryCapacityKwh: Number(form.batteryCapacityKwh),
+        batteryCapacityKwh: Number(form.batteryCapacityKwh) || null,
+        odometerKm: Number(form.odometerKm) || null,
+        lastServiceDate: form.lastServiceDate || null,
+        lastServiceKm: Number(form.lastServiceKm) || null
+      }
+      
+      // Store extra fields in localStorage for UI display only
+      const extraFields = {
         batteryType: form.batteryType,
         chargingSpeed: Number(form.chargingSpeed),
         rangeKm: Number(form.rangeKm),
-        odometerKm: Number(form.odometerKm),
-        lastServiceDate: form.lastServiceDate,
-        lastServiceKm: Number(form.lastServiceKm),
         batteryHealth: Number(form.batteryHealth)
       }
       
+      // API only - no fallback
       if (initial) {
         // Update existing vehicle
         await customerAPI.updateVehicle(initial.vehicleId, vehicleData)
@@ -115,14 +126,16 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
           </div>
           
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Số VIN *</label>
+            <label className="block text-sm text-gray-700 mb-1">Số VIN * (17 ký tự)</label>
             <input 
               value={form.vin} 
-              onChange={(e)=>setForm({ ...form, vin: e.target.value })} 
-              maxLength={17} 
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
-              placeholder="17 ký tự" 
+              onChange={(e)=>setForm({ ...form, vin: e.target.value.toUpperCase() })} 
+              maxLength={17}
+              minLength={17}
+              placeholder="VD: 1HGBH41JXMN109186"
+              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono" 
             />
+            <p className="text-xs text-gray-500 mt-1">VIN hiện tại: {form.vin.length}/17 ký tự</p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -184,8 +197,8 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
                   className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
                   placeholder="VD: 150"
                 />
-              </div>
-              <div>
+            </div>
+            <div>
                 <label className="block text-sm text-gray-700 mb-1">Tầm hoạt động (km)</label>
                 <input 
                   type="number" 
@@ -216,9 +229,9 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
                  form.batteryHealth >= 80 ? 'Tốt' : 
                  form.batteryHealth >= 70 ? 'Khá' : 
                  form.batteryHealth >= 60 ? 'Trung bình' : 'Cần kiểm tra'}
-              </div>
             </div>
           </div>
+        </div>
           
           {/* Thông tin vận hành */}
           <div className="bg-gray-50 rounded-lg p-4">
@@ -326,10 +339,16 @@ function MyVehicles() {
   const handleDelete = async (vehicleId) => {
     if (confirm('Bạn có chắc chắn muốn xóa xe này?')) {
       try {
+        // API only - no fallback
         await customerAPI.deleteVehicle(vehicleId)
+        console.log('[MyVehicles] Deleted vehicle via API:', vehicleId)
+        
+        // Reload vehicles list
         loadVehicles()
+        alert('Đã xóa xe thành công!')
       } catch (error) {
-        alert('Có lỗi xảy ra khi xóa xe')
+        console.error('[MyVehicles] Delete failed:', error)
+        alert('Không thể xóa xe. Vui lòng thử lại!')
       }
     }
   }

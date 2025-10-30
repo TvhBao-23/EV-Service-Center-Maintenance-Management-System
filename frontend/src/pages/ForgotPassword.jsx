@@ -95,11 +95,43 @@ function ForgotPassword() {
         setIsLoading(false)
         return
       }
+      // Local-first reset: update password in localStorage users by email
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      const idx = users.findIndex(u => u.email === email)
+      if (idx === -1) {
+        setMessage('Email không tồn tại trong hệ thống. Vui lòng đăng ký hoặc dùng email đã tạo tài khoản.')
+        setMessageType('error')
+        setIsLoading(false)
+        return
+      }
 
-      // Call backend API to change password
-      await authAPI.changePassword(email, generatedOTP, newPassword)
-      
-      setMessage('Đổi mật khẩu thành công!')
+      // Update password for existing user only (không tạo tài khoản mới)
+      const existingUser = users[idx]
+      users[idx] = { ...existingUser, password: newPassword }
+
+      // Deduplicate any stale duplicates by email, keep the first occurrence (the updated one)
+      const seen = new Set()
+      const deduped = []
+      for (const u of users) {
+        if (!seen.has(u.email)) {
+          seen.add(u.email)
+          deduped.push(u)
+        }
+      }
+      localStorage.setItem('users', JSON.stringify(deduped))
+
+      // Nếu đang đăng nhập đúng email này, đồng bộ mật khẩu trong localStorage.user
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null')
+      if (storedUser && storedUser.email === email) {
+        // Sync full record from deduped DB to ensure id/customerId remain consistent
+        const db = JSON.parse(localStorage.getItem('users') || '[]')
+        const fresh = db.find(u => u.email === email) || storedUser
+        localStorage.setItem('user', JSON.stringify({ ...storedUser, ...fresh, password: newPassword }))
+      }
+
+      // Bỏ gọi backend ở flow quên mật khẩu để tránh tạo/sai lệch dữ liệu
+
+      setMessage('Đổi mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.')
       setMessageType('success')
       
       // Redirect to login after 2 seconds

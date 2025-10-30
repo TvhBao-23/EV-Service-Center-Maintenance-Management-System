@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { getCurrentUserId, loadList } from '../lib/store'
+import { getCurrentUserId, loadList, loadGlobalList, saveGlobalList } from '../lib/store'
+import { staffAPI } from '../lib/api.js'
 
 function Admin() {
   const userId = useMemo(() => getCurrentUserId(), [])
@@ -15,16 +16,50 @@ function Admin() {
   const [records, setRecords] = useState([])
   const [parts, setParts] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [bookingsState, setBookingsState] = useState([])
 
   useEffect(() => {
     if (!userId) return
+    loadAdminData()
+    // Listen storage changes to update live
+    const onStorage = (e) => {
+      if (e.key === 'bookings') {
+        loadBookingsData()
+      }
+    }
+    const onLocalUpdated = () => {
+      loadBookingsData()
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('local-bookings-updated', onLocalUpdated)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('local-bookings-updated', onLocalUpdated)
+    }
+  }, [userId])
+
+  const loadAdminData = async () => {
     setUsers(JSON.parse(localStorage.getItem('users') || '[]'))
     setVehicles(loadList('vehicles', []))
-    setBookings(loadList('bookings', []))
     setRecords(loadList('records', []))
     setParts(loadList('parts', []))
     setAssignments(loadList('assignments', []))
-  }, [userId])
+    await loadBookingsData()
+  }
+
+  const loadBookingsData = async () => {
+    try {
+      // API only - no fallback
+      const allBookings = await staffAPI.getAppointments()
+      console.log('[Admin] Loaded bookings from API:', allBookings)
+      setBookings(allBookings)
+      setBookingsState(allBookings)
+    } catch (error) {
+      console.error('[Admin] Failed to load bookings:', error)
+      setBookings([])
+      setBookingsState([])
+    }
+  }
 
   // Dashboard Statistics
   const dashboardStats = useMemo(() => {
@@ -389,6 +424,7 @@ function Admin() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã lịch hẹn</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Xe</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dịch vụ</th>
@@ -398,45 +434,96 @@ function Admin() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bookings.map((booking) => {
-                const vehicle = vehicles.find(v => v.id === booking.vehicleId)
-                const user = users.find(u => vehicle?.userId === u.id)
+              {bookingsState.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">Chưa có lịch hẹn nào</td>
+                </tr>
+              ) : (
+                bookingsState.map((booking) => {
+                  const vehicle = vehicles.find(v => (v.vehicleId || v.id) === booking.vehicleId)
+                  const user = users.find(u => u.id === vehicle?.userId)
+                  const status = (booking.status || 'PENDING').toUpperCase()
+                  const pretty = status === 'PENDING' ? 'Chờ tiếp nhận' : status === 'RECEIVED' ? 'Đã tiếp nhận' : status === 'IN_MAINTENANCE' ? 'Đang bảo dưỡng' : status === 'DONE' ? 'Hoàn tất' : status
+
+                  const badgeClass = status === 'PENDING' ? 'bg-gray-100 text-gray-800' :
+                    status === 'RECEIVED' ? 'bg-blue-100 text-blue-800' :
+                    status === 'IN_MAINTENANCE' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+
                 return (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user?.fullName || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {vehicle?.model || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.serviceType}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.date} {booking.time}</td>
+                    <tr key={booking.appointmentId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.appointmentId}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user?.fullName || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vehicle?.model || vehicle?.vin || booking.vehicleId}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.serviceId}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.appointmentDate}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        booking.status === 'pending' ? 'bg-gray-100 text-gray-800' :
-                        booking.status === 'received' ? 'bg-blue-100 text-blue-800' :
-                        booking.status === 'in_maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {booking.status === 'pending' ? 'Chờ tiếp nhận' :
-                         booking.status === 'received' ? 'Đã tiếp nhận' :
-                         booking.status === 'in_maintenance' ? 'Đang bảo dưỡng' :
-                         'Hoàn tất'}
-                      </span>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}`}>{pretty}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button className="text-blue-600 hover:text-blue-900 mr-3">Xem</button>
-                      <button className="text-green-600 hover:text-green-900">Sửa</button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        {status !== 'RECEIVED' && status !== 'IN_MAINTENANCE' && status !== 'DONE' && (
+                          <button onClick={() => updateBookingStatus(booking.appointmentId, 'RECEIVED')} className="text-blue-600 hover:text-blue-900">Tiếp nhận</button>
+                        )}
+                        {(status === 'RECEIVED' || status === 'IN_MAINTENANCE') && status !== 'DONE' && (
+                          <button onClick={() => updateBookingStatus(booking.appointmentId, 'IN_MAINTENANCE')} className="text-yellow-600 hover:text-yellow-900">Đang làm</button>
+                        )}
+                        {(status === 'RECEIVED' || status === 'IN_MAINTENANCE') && (
+                          <button onClick={() => updateBookingStatus(booking.appointmentId, 'DONE')} className="text-green-600 hover:text-green-900">Hoàn tất</button>
+                        )}
+                        {status === 'DONE' && (
+                          <span className="text-green-600 font-semibold">✓ Đã hoàn tất</span>
+                        )}
                     </td>
                   </tr>
                 )
-              })}
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
     </div>
   )
+
+  const updateBookingStatus = async (appointmentId, newStatus) => {
+    console.log(`[Admin] Updating booking ${appointmentId} to status: ${newStatus}`)
+    
+    // Optimistic UI update
+    setBookingsState(prev => 
+      prev.map(b => b.appointmentId === appointmentId ? { ...b, status: newStatus } : b)
+    )
+    
+    try {
+      // Try backend API first
+      await staffAPI.updateAppointmentStatus(appointmentId, newStatus)
+      console.log('[Admin] Updated booking via API')
+      
+      // Reload bookings from API to get latest data
+      await loadBookingsData()
+      
+      // Dispatch events for real-time sync to customer pages
+      try {
+        const event1 = new CustomEvent('local-bookings-updated', { detail: { appointmentId, newStatus } })
+        window.dispatchEvent(event1)
+        console.log('[Admin] Dispatched local-bookings-updated event')
+      } catch (e) {
+        console.error('[Admin] Error dispatching events:', e)
+      }
+      
+      // Show success message
+      const statusText = newStatus === 'RECEIVED' ? 'Đã tiếp nhận' : 
+                        newStatus === 'IN_MAINTENANCE' ? 'Đang bảo dưỡng' : 
+                        newStatus === 'DONE' ? 'Hoàn tất' : newStatus
+      
+      // Use a non-blocking notification instead of alert
+      console.log(`✅ Cập nhật thành công: ${statusText}`)
+      
+    } catch (error) {
+      console.error('[Admin] Failed to update booking status:', error)
+      // Rollback optimistic update on error
+      await loadBookingsData()
+      alert('Có lỗi xảy ra khi cập nhật trạng thái')
+    }
+  }
 
   const renderParts = () => (
     <div className="space-y-6">

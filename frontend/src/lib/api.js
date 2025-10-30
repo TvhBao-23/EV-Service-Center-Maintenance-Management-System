@@ -26,6 +26,13 @@ function removeAuthToken() {
 async function apiCall(url, options = {}) {
   const token = getAuthToken()
   
+  console.log('🌐 API CALL:', {
+    url,
+    method: options.method || 'GET',
+    hasToken: !!token,
+    tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
+  })
+  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
@@ -45,11 +52,20 @@ async function apiCall(url, options = {}) {
   try {
     const response = await fetch(url, config)
     
+    console.log('🌐 API RESPONSE:', {
+      url,
+      status: response.status,
+      ok: response.ok
+    })
+    
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
-        removeAuthToken()
-        window.location.href = '/login'
+        // Token expired or invalid - only clear if not using local auth
+        const authToken = getAuthToken()
+        if (authToken && authToken !== 'local-token' && authToken !== 'admin-token') {
+          removeAuthToken()
+          window.location.href = '/login'
+        }
         throw new Error('Unauthorized')
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -66,30 +82,55 @@ async function apiCall(url, options = {}) {
 export const authAPI = {
   // Đăng nhập
   login: async (email, password) => {
-    const response = await apiCall(`${API_BASE_URLS.auth}/login`, {
+    // Don't send Authorization header for login either
+    const response = await fetch(`${API_BASE_URLS.auth}/login`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+        // No Authorization header for login
+      },
       body: JSON.stringify({ email, password })
     })
     
-    if (response.token) {
-      setAuthToken(response.token)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Login failed: ${errorText}`)
     }
     
-    return response
+    const data = await response.json()
+    
+    if (data.token) {
+      setAuthToken(data.token)
+    }
+    
+    return data
   },
 
   // Đăng ký
   register: async (userData) => {
-    const response = await apiCall(`${API_BASE_URLS.auth}/register`, {
+    // IMPORTANT: Don't send Authorization header for registration
+    // Remove any existing token from the request
+    const response = await fetch(`${API_BASE_URLS.auth}/register`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+        // Explicitly NO Authorization header here
+      },
       body: JSON.stringify(userData)
     })
     
-    if (response.token) {
-      setAuthToken(response.token)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Registration failed: ${errorText}`)
     }
     
-    return response
+    const data = await response.json()
+    
+    if (data.token) {
+      setAuthToken(data.token)
+    }
+    
+    return data
   },
 
   // Logout
@@ -97,7 +138,7 @@ export const authAPI = {
     removeAuthToken()
   },
 
-  // Change password
+  // Change password - API only (no localStorage fallback)
   changePassword: async (currentPassword, newPassword) => {
     return apiCall(`${API_BASE_URLS.auth}/change-password`, {
       method: 'POST',
@@ -182,6 +223,13 @@ export const customerAPI = {
   // Lấy lịch sử tracking
   getTrackingHistory: () => {
     return apiCall(`${API_BASE_URLS.customer}/tracking/history`)
+  },
+  
+  // Mark appointment as paid
+  markAppointmentAsPaid: (appointmentId) => {
+    return apiCall(`${API_BASE_URLS.customer}/appointments/${appointmentId}/mark-paid`, {
+      method: 'PATCH'
+    })
   }
 }
 
@@ -216,14 +264,16 @@ export const paymentAPI = {
 
 // Staff Service APIs
 export const staffAPI = {
-  // Lấy danh sách appointments (cho staff)
-  getAppointments: () => {
-    return apiCall(`${API_BASE_URLS.staff}/appointments`)
+  // Lấy danh sách appointments (cho staff/admin)
+  getAppointments: async () => {
+    // API only - no fallback
+    return await apiCall(`${API_BASE_URLS.staff}/appointments`)
   },
 
   // Cập nhật trạng thái appointment
-  updateAppointmentStatus: (appointmentId, status) => {
-    return apiCall(`${API_BASE_URLS.staff}/appointments/${appointmentId}/status`, {
+  updateAppointmentStatus: async (appointmentId, status) => {
+    // API only - no fallback
+    return await apiCall(`${API_BASE_URLS.staff}/appointments/${appointmentId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status })
     })

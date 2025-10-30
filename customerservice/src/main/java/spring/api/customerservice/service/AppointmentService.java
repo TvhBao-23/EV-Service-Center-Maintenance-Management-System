@@ -35,6 +35,10 @@ public class AppointmentService {
         return appointmentRepository.findByCustomerId(customerId);
     }
 
+    public List<Appointment> getAllAppointments() {
+        return appointmentRepository.findAll();
+    }
+
     public Optional<Appointment> getAppointmentByIdAndCustomerId(Long appointmentId, Long customerId) {
         return appointmentRepository.findByAppointmentIdAndCustomerId(appointmentId, customerId);
     }
@@ -57,5 +61,25 @@ public class AppointmentService {
 
     public boolean isAppointmentPaid(Long appointmentId) {
         return paymentRepository.existsByAppointmentIdAndStatus(appointmentId, Payment.PaymentStatus.completed);
+    }
+    
+    public Appointment markAppointmentAsPaid(Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch đặt"));
+        
+        // Create payment record
+        Payment payment = new Payment();
+        payment.setAppointmentId(appointmentId);
+        payment.setCustomerId(appointment.getCustomerId());
+        payment.setAmount(new java.math.BigDecimal("0")); // Default amount, should be calculated
+        payment.setStatus(Payment.PaymentStatus.completed);
+        payment.setPaymentDate(LocalDateTime.now());
+        payment.setPaymentMethod(Payment.PaymentMethod.e_wallet); // Use enum value
+        payment.setTransactionId("QUICK_PAY_" + System.currentTimeMillis());
+        paymentRepository.save(payment);
+        
+        // Update appointment status to completed or paid
+        appointment.setStatus(AppointmentStatus.completed);
+        return appointmentRepository.save(appointment);
     }
 }

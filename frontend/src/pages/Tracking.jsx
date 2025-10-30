@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { customerAPI } from '../lib/api.js'
+import { loadList, loadGlobalList } from '../lib/store.js'
 
 function Tracking() {
   const location = useLocation()
@@ -20,21 +21,110 @@ function Tracking() {
   useEffect(() => {
     if (!isAuthenticated) return
     loadData()
+
+    // Listen for real-time updates from Admin
+    const handleGlobalBookingsUpdate = (event) => {
+      console.log('[Tracking] Received bookings update event:', event.type, event.detail)
+      setTimeout(() => {
+        loadData()
+      }, 100) // Small delay to ensure localStorage is updated
+    }
+
+    const handleStorageUpdate = (event) => {
+      // Only reload if bookings key changed, don't reload vehicles
+      if (event.key === 'bookings' || event.key === null) {
+        console.log('[Tracking] Received storage update for bookings')
+        setTimeout(() => {
+          // Only reload appointments, not vehicles
+          const localVehicles = loadList('vehicles', [])
+          const globalBookings = loadGlobalList('bookings', [])
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+          
+          // Filter by userId first, then vehicleId
+          const userBookings = globalBookings.filter(booking => {
+            if (booking.userId) {
+              return booking.userId === currentUser.id
+            }
+            const userVehicleIds = localVehicles.map(v => v.vehicleId || v.id)
+            return userVehicleIds.includes(booking.vehicleId)
+          })
+          const mappedAppointments = userBookings.map(booking => ({
+            ...booking,
+            appointmentId: booking.appointmentId,
+            vehicleId: booking.vehicleId,
+            requestedDateTime: booking.appointmentDate,
+            notes: booking.notes,
+            status: mapAdminStatusToTracking(booking.status)
+          }))
+          setAppointments(mappedAppointments)
+          console.log('[Tracking] Updated appointments only, vehicles unchanged')
+        }, 100)
+      }
+    }
+
+    window.addEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
+    window.addEventListener('storage', handleStorageUpdate)
+    
+    console.log('[Tracking] Event listeners registered')
+
+    return () => {
+      window.removeEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
+      window.removeEventListener('storage', handleStorageUpdate)
+      console.log('[Tracking] Event listeners removed')
+    }
   }, [isAuthenticated])
 
   const loadData = async () => {
     try {
-      const [vehiclesData, appointmentsData] = await Promise.all([
-        customerAPI.getVehicles(),
-        customerAPI.getAppointments()
-      ])
-      setVehicles(vehiclesData)
-      setAppointments(appointmentsData)
+      console.log('[Tracking] Loading data...')
+      
+      // Load vehicles - API only
+      const localVehicles = await customerAPI.getVehicles()
+      console.log('[Tracking] User vehicles from API:', localVehicles)
+      setVehicles(localVehicles)
+
+      // Load appointments - API only
+      const userBookings = await customerAPI.getAppointments()
+      console.log('[Tracking] Appointments from API:', userBookings)
+
+      // Map status from Admin format to Tracking format
+      const mappedAppointments = userBookings.map(booking => ({
+        ...booking,
+        appointmentId: booking.appointmentId,
+        vehicleId: booking.vehicleId,
+        requestedDateTime: booking.appointmentDate || booking.requestedDateTime,
+        notes: booking.notes,
+        status: mapAdminStatusToTracking(booking.status)
+      }))
+
+      setAppointments(mappedAppointments)
+      console.log('[Tracking] Mapped appointments set to state:', mappedAppointments)
     } catch (error) {
-      console.error('Error loading data:', error)
+      console.error('[Tracking] Error loading data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Map Admin status format to Tracking status format
+  const mapAdminStatusToTracking = (adminStatus) => {
+    if (!adminStatus) return 'pending'
+    
+    const status = String(adminStatus).toUpperCase()
+    const statusMap = {
+      'PENDING': 'pending',
+      'RECEIVED': 'confirmed',
+      'IN_MAINTENANCE': 'in_maintenance',
+      'DONE': 'completed',
+      'CANCELLED': 'cancelled'
+    }
+    
+    // If it's already in the mapped format, return as is
+    if (['pending', 'confirmed', 'in_maintenance', 'completed', 'cancelled'].includes(adminStatus.toLowerCase())) {
+      return adminStatus.toLowerCase()
+    }
+    
+    return statusMap[status] || 'pending'
   }
 
   const currentAppointment = useMemo(() => {
@@ -244,8 +334,8 @@ function Tracking() {
     try {
       await customerAPI.updateVehicle(vehicleId, { odometerKm: Number(newKm) })
       loadData() // Reload data from backend
-      setEditingKm(null)
-      setNewKm('')
+    setEditingKm(null)
+    setNewKm('')
     } catch (error) {
       console.error('Error updating vehicle km:', error)
     }
@@ -557,12 +647,30 @@ function Tracking() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{appointment.notes || '-'}</td>
                         <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}`}>
-                            {appointment.status === 'pending' && 'Chờ xác nhận'}
-                            {appointment.status === 'confirmed' && 'Đã xác nhận'}
-                            {appointment.status === 'completed' && 'Hoàn tất'}
-                            {appointment.status === 'cancelled' && 'Đã hủy'}
+                          {(() => {
+                            let statusText = 'Chờ xác nhận'
+                            let badgeClass = 'bg-yellow-100 text-yellow-800'
+                            
+                            if (appointment.status === 'pending') {
+                              statusText = 'Chờ tiếp nhận'
+                              badgeClass = 'bg-yellow-100 text-yellow-800'
+                            } else if (appointment.status === 'confirmed' || appointment.status === 'in_maintenance') {
+                              statusText = 'Đang bảo dưỡng'
+                              badgeClass = 'bg-blue-100 text-blue-800'
+                            } else if (appointment.status === 'completed') {
+                              statusText = 'Hoàn tất'
+                              badgeClass = 'bg-green-100 text-green-800'
+                            } else if (appointment.status === 'cancelled') {
+                              statusText = 'Đã hủy'
+                              badgeClass = 'bg-red-100 text-red-800'
+                            }
+                            
+                            return (
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}`}>
+                                {statusText}
                           </span>
+                            )
+                          })()}
                         </td>
                       </tr>
                     )

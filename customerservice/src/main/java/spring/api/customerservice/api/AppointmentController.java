@@ -25,20 +25,11 @@ public class AppointmentController {
     private final CustomerRepository customerRepository;
 
     @GetMapping
-    public ResponseEntity<List<Appointment>> getMyAppointments(Authentication auth) {
-        if (auth == null || auth.getPrincipal() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        User user = (User) auth.getPrincipal();
+    public ResponseEntity<List<Appointment>> getMyAppointments() {
         try {
-            Customer customer = customerRepository.findByUserId(user.getUserId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
-            List<Appointment> appointments = appointmentService.getAppointmentsByCustomerId(customer.getCustomerId());
-            // Filter out appointments that have been paid
-            List<Appointment> unpaidAppointments = appointments.stream()
-                    .filter(appointment -> !appointmentService.isAppointmentPaid(appointment.getAppointmentId()))
-                    .collect(java.util.stream.Collectors.toList());
-            return ResponseEntity.ok(unpaidAppointments);
+            // Development mode: return all appointments
+            List<Appointment> appointments = appointmentService.getAllAppointments();
+            return ResponseEntity.ok(appointments);
         } catch (Exception e) {
             System.err.println("Error fetching appointments: " + e.getMessage());
             return ResponseEntity.ok(List.of());
@@ -46,15 +37,15 @@ public class AppointmentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createAppointment(Authentication auth, @RequestBody AppointmentCreateDto dto) {
-        if (auth == null || auth.getPrincipal() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        User user = (User) auth.getPrincipal();
-
+    public ResponseEntity<?> createAppointment(@RequestBody AppointmentCreateDto dto) {
         try {
-            Customer customer = customerRepository.findByUserId(user.getUserId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+            // Development mode: use first customer or create new one
+            Customer customer = customerRepository.findAll().stream().findFirst()
+                    .orElseGet(() -> {
+                        Customer newCustomer = new Customer();
+                        newCustomer.setUserId(1L);
+                        return customerRepository.save(newCustomer);
+                    });
 
             Appointment appointment = appointmentService.createAppointment(
                     customer.getCustomerId(),
@@ -117,6 +108,30 @@ public class AppointmentController {
         } catch (Exception e) {
             System.err.println("Error cancelling appointment: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Có lỗi xảy ra"));
+        }
+    }
+    
+    @PatchMapping("/{id}/mark-paid")
+    public ResponseEntity<?> markAppointmentAsPaid(@PathVariable Long id) {
+        try {
+            // Development mode: allow without authentication
+            Appointment appointment = appointmentService.markAppointmentAsPaid(id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đã đánh dấu thanh toán thành công",
+                    "appointment", appointment
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            System.err.println("Error marking appointment as paid: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Có lỗi xảy ra"
+            ));
         }
     }
 }

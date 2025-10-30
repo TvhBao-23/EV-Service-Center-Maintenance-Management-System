@@ -29,10 +29,11 @@ function PersonalProfile() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
 
+  // Load formData whenever user changes (including after new registration)
   useEffect(() => {
-    console.log('PersonalProfile useEffect triggered, user:', user)
+    console.log('🔄 PersonalProfile: user changed, reloading data')
     if (user) {
-      const newFormData = {
+      const initialFormData = {
         fullName: user.fullName || '',
         email: user.email || '',
         phone: user.phone || '',
@@ -41,10 +42,10 @@ function PersonalProfile() {
         emergencyContact: user.emergencyContact || '',
         emergencyPhone: user.emergencyPhone || ''
       }
-      console.log('Setting formData to:', newFormData)
-      setFormData(newFormData)
+      console.log('✅ Updated formData from user:', initialFormData)
+      setFormData(initialFormData)
     }
-  }, [user])
+  }, [user])  // Re-run whenever user changes
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -64,49 +65,45 @@ function PersonalProfile() {
       console.log('New formData:', formData)
       
       // Since backend APIs are not available, we'll use localStorage
-      const oldEmail = user.email
-      const newEmail = formData.email
-      
-      console.log('Old email:', oldEmail, 'New email:', newEmail)
-      
-      // Update user data in localStorage
-      const updatedUser = { ...user, ...formData }
+      // NOTE: Email field is now disabled, so no email updates needed
+      console.log('Updating user profile (email changes are disabled)')
+    
+      // Update user data in localStorage (without email changes)
+      const updatedUser = { 
+        ...user, 
+        fullName: formData.fullName,
+        phone: formData.phone,
+        address: formData.address,
+        dateOfBirth: formData.dateOfBirth,
+        emergencyContact: formData.emergencyContact,
+        emergencyPhone: formData.emergencyPhone
+        // Email is NOT updated
+      }
       console.log('Updated user:', updatedUser)
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    
       // Update AuthContext state immediately
       setUser(updatedUser)
       console.log('AuthContext updated with:', updatedUser)
       
-      // If email changed, update the user database in localStorage
-      if (oldEmail !== newEmail) {
-        console.log('Email changed, updating database...')
-        // Get existing users
-        const users = JSON.parse(localStorage.getItem('users') || '[]')
-        console.log('Existing users before update:', users)
-        
-        // Find and update the user
-        const userIndex = users.findIndex(u => u.email === oldEmail)
-        console.log('User index:', userIndex)
-        if (userIndex !== -1) {
-          users[userIndex] = { ...users[userIndex], ...formData }
-          localStorage.setItem('users', JSON.stringify(users))
-          console.log('Database updated:', users)
-        }
-        
-        // Also update remembered email if it exists
-        const rememberedEmail = localStorage.getItem('rememberedEmail')
-        if (rememberedEmail === oldEmail) {
-          localStorage.setItem('rememberedEmail', newEmail)
-          console.log('Remembered email updated')
-        }
-      }
+      setMessage('Cập nhật thông tin thành công!')
       
-      setMessage('Cập nhật thông tin thành công! Email đã được cập nhật.')
-      setIsEditing(false)
+      // Refresh the form to show updated data from localStorage
+      const updatedUserData = JSON.parse(localStorage.getItem('user'))
+      setFormData({
+        fullName: updatedUserData.fullName || '',
+        email: updatedUserData.email || '',
+        phone: updatedUserData.phone || '',
+        address: updatedUserData.address || '',
+        dateOfBirth: updatedUserData.dateOfBirth || '',
+        emergencyContact: updatedUserData.emergencyContact || '',
+        emergencyPhone: updatedUserData.emergencyPhone || ''
+      })
       
-      // Clear message after 3 seconds
-      setTimeout(() => setMessage(''), 3000)
+    setIsEditing(false)
+    
+    // Clear message after 3 seconds
+    setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       console.error('Error updating profile:', error)
       setMessage('Có lỗi xảy ra khi cập nhật thông tin')
@@ -294,6 +291,7 @@ function PersonalProfile() {
               />
             </div>
 
+            {/* Email hiển thị (read-only để tránh lỗi mất dữ liệu) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <input
@@ -301,10 +299,11 @@ function PersonalProfile() {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                disabled={!isEditing}
+                disabled={true}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 placeholder="Nhập địa chỉ email"
               />
+              <p className="text-xs text-gray-500 mt-1">Email được giữ nguyên để đảm bảo an toàn dữ liệu.</p>
             </div>
 
             <div>
@@ -462,7 +461,7 @@ function PersonalProfile() {
                   placeholder="Nhập lại mật khẩu mới"
                 />
               </div>
-            </div>
+              </div>
 
             <div className="flex justify-end gap-3 mt-6">
               <button

@@ -30,7 +30,7 @@ public class Appointment {
     @Column(name = "center_id")
     private Long centerId;
 
-    @Column(name = "appointment_date")
+    @Column(name = "requested_date_time")
     private LocalDateTime appointmentDate;
 
     @Column(length = 50)

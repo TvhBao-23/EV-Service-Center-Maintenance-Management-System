@@ -45,24 +45,24 @@ function Login() {
           localStorage.removeItem('rememberMe')
         }
         
-        // Redirect by role
+      // Redirect by role
         const userRole = result.user.role || 'customer'
         if (userRole === 'admin') {
           navigate('/admin')
         } else if (userRole === 'technician' || userRole === 'technican') {
-          navigate('/technician')
+        navigate('/technician')
         } else if (userRole === 'staff') {
-          navigate('/staff')
-        } else {
-          navigate('/vehicles')
-        }
+        navigate('/staff')
+      } else {
+        navigate('/vehicles')
+      }
       } else {
         alert(result.error || 'Email hoặc mật khẩu không đúng')
-      }
+    }
     } catch (error) {
       alert('Có lỗi xảy ra khi đăng nhập')
     } finally {
-      setIsLoading(false)
+    setIsLoading(false)
     }
   }
 
@@ -180,9 +180,14 @@ function Login() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-green-600 hover:text-green-500 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { try { navigate('/forgot-password') } catch(_) { window.location.href = '/forgot-password' } }}
+                  className="font-medium text-green-600 hover:text-green-500 transition-colors"
+                  aria-label="Quên mật khẩu"
+                >
                   Quên mật khẩu?
-                </a>
+                </button>
               </div>
             </div>
 
@@ -224,6 +229,17 @@ function Login() {
           <Link to="/" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             ← Quay lại trang chủ
           </Link>
+        </div>
+
+        {/* Extra Forgot Password entry point (outside form) */}
+        <div className="text-center mt-2">
+          <Link to="/forgot-password" className="text-sm font-medium text-green-600 hover:text-green-500 transition-colors mr-3">
+            Quên mật khẩu – nhấn vào đây
+          </Link>
+          <a href="/forgot-password" className="text-sm text-gray-500 underline mr-3">(Mở trực tiếp)</a>
+          <a href="/fp" className="text-sm text-gray-500 underline mr-3">(Alias /fp)</a>
+          <a href="/quen-mat-khau" className="text-sm text-gray-500 underline mr-3">(/quen-mat-khau)</a>
+          <a href="/quenmatkhau" className="text-sm text-gray-500 underline">(/quenmatkhau)</a>
         </div>
       </div>
     </div>

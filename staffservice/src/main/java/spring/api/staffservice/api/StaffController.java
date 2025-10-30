@@ -19,21 +19,19 @@ public class StaffController {
     private final AppointmentRepository appointmentRepository;
 
     @GetMapping("/appointments")
-    public ResponseEntity<List<Appointment>> getAllAppointments(Authentication auth) {
+    public ResponseEntity<List<Appointment>> getAllAppointments() {
         List<Appointment> appointments = appointmentRepository.findAllByOrderByAppointmentDateDesc();
         return ResponseEntity.ok(appointments);
     }
 
     @GetMapping("/appointments/status/{status}")
-    public ResponseEntity<List<Appointment>> getAppointmentsByStatus(
-            @PathVariable String status,
-            Authentication auth) {
+    public ResponseEntity<List<Appointment>> getAppointmentsByStatus(@PathVariable String status) {
         List<Appointment> appointments = appointmentRepository.findByStatus(status);
         return ResponseEntity.ok(appointments);
     }
 
     @GetMapping("/appointments/{id}")
-    public ResponseEntity<Appointment> getAppointment(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<Appointment> getAppointment(@PathVariable Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch hẹn"));
         return ResponseEntity.ok(appointment);
@@ -42,8 +40,7 @@ public class StaffController {
     @PutMapping("/appointments/{id}/status")
     public ResponseEntity<?> updateAppointmentStatus(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            Authentication auth) {
+            @RequestBody Map<String, String> body) {
         
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch hẹn"));
@@ -60,8 +57,7 @@ public class StaffController {
     @PutMapping("/appointments/{id}")
     public ResponseEntity<?> updateAppointment(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> updates,
-            Authentication auth) {
+            @RequestBody Map<String, Object> updates) {
         
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch hẹn"));

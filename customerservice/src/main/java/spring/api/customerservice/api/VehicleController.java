@@ -26,43 +26,46 @@ public class VehicleController {
 
     @GetMapping
     public ResponseEntity<List<Vehicle>> getAllVehicles(Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        Customer customer = customerRepository.findByUserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+        // Get current user from JWT token
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
         
+        User user = (User) authentication.getPrincipal();
+        Long userId = user.getUserId();
+        
+        // Find customer by userId
+        Customer customer = customerRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Customer not found for user: " + userId));
+        
+        // Return only vehicles owned by this customer
         List<Vehicle> vehicles = vehicleRepository.findByCustomerId(customer.getCustomerId());
         return ResponseEntity.ok(vehicles);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Vehicle> getVehicle(
-            Authentication authentication,
-            @PathVariable Long id) {
-        
-        User user = (User) authentication.getPrincipal();
-        Customer customer = customerRepository.findByUserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
-        
+    public ResponseEntity<Vehicle> getVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
-        
-        if (!vehicle.getCustomerId().equals(customer.getCustomerId())) {
-            throw new RuntimeException("Bạn không có quyền truy cập xe này");
-        }
         
         return ResponseEntity.ok(vehicle);
     }
 
     @PostMapping
-    public ResponseEntity<?> createVehicle(
-            Authentication authentication,
-            @Valid @RequestBody VehicleDto dto) {
+    public ResponseEntity<?> createVehicle(@Valid @RequestBody VehicleDto dto, Authentication authentication) {
+        // Get current user from JWT token
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
         
         User user = (User) authentication.getPrincipal();
-        Customer customer = customerRepository.findByUserId(user.getUserId())
+        Long userId = user.getUserId();
+        
+        // Find or create customer for this user
+        Customer customer = customerRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     Customer newCustomer = new Customer();
-                    newCustomer.setUserId(user.getUserId());
+                    newCustomer.setUserId(userId);
                     newCustomer.setCreatedAt(LocalDateTime.now());
                     newCustomer.setUpdatedAt(LocalDateTime.now());
                     return customerRepository.save(newCustomer);
@@ -91,49 +94,32 @@ public class VehicleController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateVehicle(
-            Authentication authentication,
             @PathVariable Long id,
-            @RequestBody Map<String, Object> updates) {
-        
-        User user = (User) authentication.getPrincipal();
-        Customer customer = customerRepository.findByUserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+            @Valid @RequestBody VehicleDto dto) {
         
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
         
-        if (!vehicle.getCustomerId().equals(customer.getCustomerId())) {
-            throw new RuntimeException("Bạn không có quyền cập nhật xe này");
-        }
-        
-        if (updates.containsKey("odometerKm")) {
-            vehicle.setOdometerKm((Integer) updates.get("odometerKm"));
-        }
-        if (updates.containsKey("batteryCapacityKwh")) {
-            vehicle.setBatteryCapacityKwh(((Number) updates.get("batteryCapacityKwh")).doubleValue());
-        }
-        
+        // Update all fields from DTO
+        vehicle.setBrand(dto.brand());
+        vehicle.setModel(dto.model());
+        vehicle.setVin(dto.vin());
+        vehicle.setYear(dto.year());
+        vehicle.setBatteryCapacityKwh(dto.batteryCapacityKwh());
+        vehicle.setOdometerKm(dto.odometerKm());
+        vehicle.setLastServiceDate(dto.lastServiceDate());
+        vehicle.setLastServiceKm(dto.lastServiceKm());
         vehicle.setUpdatedAt(LocalDateTime.now());
-        vehicleRepository.save(vehicle);
         
-        return ResponseEntity.ok(Map.of("message", "Cập nhật thành công"));
+        Vehicle saved = vehicleRepository.save(vehicle);
+        
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteVehicle(
-            Authentication authentication,
-            @PathVariable Long id) {
-        
-        User user = (User) authentication.getPrincipal();
-        Customer customer = customerRepository.findByUserId(user.getUserId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
-        
+    public ResponseEntity<?> deleteVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
-        
-        if (!vehicle.getCustomerId().equals(customer.getCustomerId())) {
-            throw new RuntimeException("Bạn không có quyền xóa xe này");
-        }
         
         vehicleRepository.delete(vehicle);
         return ResponseEntity.ok(Map.of("message", "Xóa xe thành công"));

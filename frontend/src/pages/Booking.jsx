@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { customerAPI } from '../lib/api.js'
+import { loadList, saveList, loadGlobalList, saveGlobalList } from '../lib/store.js'
 
 function Booking() {
   const location = useLocation()
@@ -144,10 +145,11 @@ function Booking() {
       }
     } catch (error) {
       console.error('Error loading vehicles:', error)
-      // Still set services and centers even if vehicles fail
+      // API only - no fallback
+      setVehicles([])
       setServices(premiumEVServices)
       setServiceCenters(premiumServiceCenters)
-      setError('Có lỗi xảy ra khi tải danh sách xe')
+      setError('Không thể tải danh sách xe. Vui lòng thêm xe trước khi đặt lịch.')
     } finally {
       setLoading(false)
     }
@@ -181,15 +183,19 @@ function Booking() {
         notes: form.notes
       }
       
+      // API only - no localStorage mirroring
       const result = await customerAPI.createAppointment(appointmentData)
-      if (result.success) {
+      
+      if (result.success || result.appointmentId) {
         alert('Đặt lịch thành công!')
         navigate('/tracking?success=1')
       } else {
         setError(result.message || 'Có lỗi xảy ra khi đặt lịch')
       }
     } catch (error) {
-      setError(error.message || 'Có lỗi xảy ra khi đặt lịch')
+      // API only - no fallback
+      console.error('[Booking] Failed to create appointment:', error)
+      setError(error.message || 'Không thể tạo lịch hẹn. Vui lòng thử lại.')
     } finally {
       setSubmitting(false)
     }
@@ -242,20 +248,20 @@ function Booking() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại dịch vụ</label>
-                     <select
+              <select
                        name="serviceId"
                        value={form.serviceId}
-                       onChange={handleChange}
+                onChange={handleChange}
                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
                        required
-                     >
-                       <option value="">-- Chọn loại dịch vụ --</option>
+              >
+                <option value="">-- Chọn loại dịch vụ --</option>
                        {services.map((service) => (
                          <option key={service.serviceId} value={service.serviceId}>
                            {service.serviceName}
                          </option>
                        ))}
-                     </select>
+              </select>
             </div>
 
               <div>
@@ -339,7 +345,7 @@ function Booking() {
                   </div>
                 </div>
               </div>
-            )}
+              )}
 
             <button
               type="submit"

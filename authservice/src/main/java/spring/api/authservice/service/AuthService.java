@@ -2,10 +2,12 @@ package spring.api.authservice.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import spring.api.authservice.api.dto.AuthResponse;
+import spring.api.authservice.api.dto.ChangePasswordRequest;
 import spring.api.authservice.api.dto.LoginRequest;
 import spring.api.authservice.api.dto.RegisterRequest;
 import spring.api.authservice.domain.Customer;
@@ -55,13 +57,17 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Authenticate user
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.email(),
-                        request.password()
-                )
-        );
+        try {
+            // Authenticate user
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.email(),
+                            request.password()
+                    )
+            );
+        } catch (BadCredentialsException e) {
+            throw new RuntimeException("Email hoặc mật khẩu không đúng");
+        }
 
         // Get user from database
         User user = userRepository.findByEmail(request.email())
@@ -70,5 +76,20 @@ public class AuthService {
         // Generate JWT token
         String jwtToken = jwtService.generateToken(user);
         return new AuthResponse(jwtToken);
+    }
+
+    public void changePassword(String email, ChangePasswordRequest request) {
+        // Get user from database
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new RuntimeException("Mật khẩu hiện tại không đúng");
+        }
+
+        // Update to new password
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
     }
 }

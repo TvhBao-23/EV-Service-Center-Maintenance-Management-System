@@ -7,6 +7,41 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Ensure one canonical user per email in localStorage.users and align stored user
+  const reconcileUserByEmail = (email) => {
+    try {
+      if (!email) return null
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      const sameEmail = users.filter(u => u.email === email)
+      if (sameEmail.length <= 1) return sameEmail[0] || null
+
+      // Keep the earliest (first) record as canonical, merge fields from others when missing
+      const canonical = { ...sameEmail[0] }
+      for (let i = 1; i < sameEmail.length; i++) {
+        const u = sameEmail[i]
+        for (const k of ['fullName','phone','role','customerId','address','dateOfBirth','emergencyContact','emergencyPhone','password','id']) {
+          if ((canonical[k] === undefined || canonical[k] === '' || canonical[k] === null) && u[k] !== undefined && u[k] !== '') {
+            canonical[k] = u[k]
+          }
+        }
+      }
+      // Write back deduped array: put canonical first, remove others
+      const deduped = [canonical, ...users.filter(u => u.email !== email)]
+      localStorage.setItem('users', JSON.stringify(deduped))
+
+      // Align stored user object if same email
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null')
+      if (storedUser && storedUser.email === email) {
+        const aligned = { ...storedUser, ...canonical }
+        localStorage.setItem('user', JSON.stringify(aligned))
+        setUser(aligned)
+      }
+      return canonical
+    } catch {
+      return null
+    }
+  }
+
   useEffect(() => {
     // Load user from localStorage on mount and verify with backend
     loadUserFromStorage()
@@ -22,6 +57,14 @@ export function AuthProvider({ children }) {
       if (savedUser && authToken) {
         // For admin users, don't verify with backend
         const userData = JSON.parse(savedUser)
+        // If using local auth token, trust local data to avoid wiping profile
+        if (authToken === 'local-token') {
+          console.log('Local token detected, using saved user without backend verification')
+          // Reconcile duplicates for safety
+          reconcileUserByEmail(userData.email)
+          setUser(JSON.parse(localStorage.getItem('user') || savedUser))
+          return
+        }
         if (userData.email === 'admin@gmail.com') {
           console.log('Admin user found in storage, setting directly')
           setUser(userData)
@@ -36,9 +79,11 @@ export function AuthProvider({ children }) {
             ...profile
           })
         } catch (error) {
-          // Token invalid, clear storage
-          localStorage.removeItem('user')
-          localStorage.removeItem('authToken')
+          // If backend not reachable, keep local user instead of clearing
+          console.warn('Backend profile verification failed, retaining local user')
+          reconcileUserByEmail(userData.email)
+          setUser(JSON.parse(localStorage.getItem('user') || savedUser))
+          return
         }
       }
     } catch (error) {
@@ -52,153 +97,128 @@ export function AuthProvider({ children }) {
     try {
       console.log('Login attempt:', email, password)
       
-      // Check localStorage database first
-      const users = JSON.parse(localStorage.getItem('users') || '[]')
-      const foundUser = users.find(u => u.email === email && u.password === password)
+      // Try backend API first (microservices architecture)
+      try {
+        const response = await authAPI.login(email, password)
       
-      if (foundUser) {
-        console.log('User found in localStorage database')
-        const userData = {
-          id: foundUser.id,
-          fullName: foundUser.fullName,
-          email: foundUser.email,
-          phone: foundUser.phone,
-          role: foundUser.role || 'customer',
-          customerId: foundUser.customerId,
-          address: foundUser.address,
-          dateOfBirth: foundUser.dateOfBirth,
-          emergencyContact: foundUser.emergencyContact,
-          emergencyPhone: foundUser.emergencyPhone
-        }
-        setUser(userData)
-        localStorage.setItem('user', JSON.stringify(userData))
-        localStorage.setItem('authToken', 'local-token')
-        return { success: true, user: userData }
-      }
-      
-      // Fast-path for admin account to avoid backend dependency issues
-      if (email === 'admin@gmail.com' && password === 'admin') {
-        console.log('Admin login detected, bypassing backend')
-        const adminUser = {
-          id: 'admin-1',
-          fullName: 'Administrator',
-          email: 'admin@gmail.com',
-          phone: '',
-          role: 'admin',
-          customerId: null,
-          address: ''
-        }
-        setUser(adminUser)
-        localStorage.setItem('user', JSON.stringify(adminUser))
-        localStorage.setItem('authToken', 'admin-token')
-        console.log('Admin user set:', adminUser)
-        return { success: true, user: adminUser }
-      }
-
-      // Try backend API as fallback
-      const response = await authAPI.login(email, password)
-      
-      if (response.token) {
-        // For admin users logging via backend, still allow without fetching customer profile
-        if (email === 'admin@gmail.com') {
-          const userData = {
-            id: 'admin-1',
-            fullName: 'Administrator',
-            email: email,
-            phone: '',
-            role: 'admin',
-            customerId: null,
-            address: ''
+        if (response.token) {
+          // For admin users logging via backend, still allow without fetching customer profile
+          if (email === 'admin@gmail.com') {
+            const userData = {
+              id: 'admin-1',
+              fullName: 'Administrator',
+              email: email,
+              phone: '',
+              role: 'admin',
+              customerId: null,
+              address: ''
+            }
+            
+            setUser(userData)
+            localStorage.setItem('user', JSON.stringify(userData))
+            localStorage.setItem('authToken', response.token)
+            
+            return { success: true, user: userData }
           }
           
-          setUser(userData)
-          localStorage.setItem('user', JSON.stringify(userData))
-          localStorage.setItem('authToken', response.token)
-          
-          return { success: true, user: userData }
-        }
-        
-        // For other users, get user profile
-        try {
-          const profile = await customerAPI.getProfile()
-          
-          const userData = {
-            id: profile.user_id,
-            fullName: profile.full_name,
-            email: profile.email,
-            phone: profile.phone,
-            role: profile.role,
-            customerId: profile.customer_id,
-            address: profile.address
+          // For other users, get user profile
+          try {
+            const profile = await customerAPI.getProfile()
+            
+            const userData = {
+              id: profile.user_id,
+              fullName: profile.full_name,
+              email: profile.email,
+              phone: profile.phone,
+              role: profile.role,
+              customerId: profile.customer_id,
+              address: profile.address
+            }
+            
+            setUser(userData)
+            localStorage.setItem('user', JSON.stringify(userData))
+            localStorage.setItem('authToken', response.token)
+            
+            return { success: true, user: userData }
+          } catch (profileError) {
+            // If profile fetch fails, still return success for login
+            return { success: true, user: { email, role: 'customer' } }
           }
-          
-          setUser(userData)
-          localStorage.setItem('user', JSON.stringify(userData))
-          localStorage.setItem('authToken', response.token)
-          
-          return { success: true, user: userData }
-        } catch (profileError) {
-          // If profile fetch fails, still return success for login
-          return { success: true, user: { email, role: 'admin' } }
         }
+      } catch (backendError) {
+        // No fallback - API only
+        console.error('Backend login failed:', backendError)
+        throw backendError
       }
     } catch (error) {
       console.error('Login error:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error.message || 'Đăng nhập thất bại' }
     }
   }
 
   const register = async (userData) => {
     try {
-      // Check if user already exists in localStorage
-      const users = JSON.parse(localStorage.getItem('users') || '[]')
-      const existingUser = users.find(u => u.email === userData.email)
+      console.log('🔵 REGISTER START - Clearing old data...')
       
-      if (existingUser) {
-        return { success: false, error: 'Email đã được sử dụng' }
+      // STEP 1: Clear ALL existing auth data to prevent using old token/user
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      localStorage.removeItem('users') // Clear old users array to prevent data leakage
+      setUser(null)
+      
+      console.log('🔵 REGISTER - Calling register API...')
+      
+      // STEP 2: API only - no fallback
+      const response = await authAPI.register(userData)
+      
+      console.log('🔵 REGISTER - Response received:', { 
+        hasToken: !!response.token,
+        email: userData.email 
+      })
+      
+      if (response.token) {
+        // STEP 3: Store the new token FIRST and WAIT
+        localStorage.setItem('authToken', response.token)
+        console.log('🔵 REGISTER - Token stored, waiting 100ms...')
+        
+        // Small delay to ensure localStorage is flushed
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        console.log('🔵 REGISTER - Fetching profile with new token...')
+        
+        // STEP 4: Get user profile after registration with NEW token
+        const profile = await customerAPI.getProfile()
+        
+        console.log('🔵 REGISTER - Profile received:', {
+          userId: profile.user_id,
+          email: profile.email,
+          fullName: profile.full_name
+        })
+        
+        const userForContext = {
+          id: profile.user_id,
+          fullName: profile.full_name,
+          email: profile.email,
+          phone: profile.phone,
+          role: profile.role,
+          customerId: profile.customer_id,
+          address: profile.address
+        }
+        
+        // STEP 5: Set user in context and localStorage
+        setUser(userForContext)
+        localStorage.setItem('user', JSON.stringify(userForContext))
+        
+        console.log('✅ REGISTER SUCCESS - User data saved:', userForContext)
+        
+        return { success: true, user: userForContext }
       }
       
-      // Create new user
-      const newUser = {
-        id: `user-${Date.now()}`,
-        fullName: userData.fullName,
-        email: userData.email,
-        password: userData.password,
-        phone: userData.phone,
-        role: userData.role || 'customer',
-        customerId: `customer-${Date.now()}`,
-        address: '',
-        dateOfBirth: '',
-        emergencyContact: '',
-        emergencyPhone: ''
-      }
-      
-      // Add to localStorage database
-      users.push(newUser)
-      localStorage.setItem('users', JSON.stringify(users))
-      
-      // Set user in context
-      const userForContext = {
-        id: newUser.id,
-        fullName: newUser.fullName,
-        email: newUser.email,
-        phone: newUser.phone,
-        role: newUser.role,
-        customerId: newUser.customerId,
-        address: newUser.address,
-        dateOfBirth: newUser.dateOfBirth,
-        emergencyContact: newUser.emergencyContact,
-        emergencyPhone: newUser.emergencyPhone
-      }
-      
-      setUser(userForContext)
-      localStorage.setItem('user', JSON.stringify(userForContext))
-      localStorage.setItem('authToken', 'local-token')
-      
-      return { success: true, user: userForContext }
+      console.error('❌ REGISTER FAILED - No token received')
+      return { success: false, error: 'Đăng ký thất bại' }
     } catch (error) {
-      console.error('Register error:', error)
-      return { success: false, error: error.message }
+      console.error('❌ REGISTER ERROR:', error)
+      return { success: false, error: error.message || 'Đăng ký thất bại' }
     }
   }
 
@@ -216,9 +236,9 @@ export function AuthProvider({ children }) {
       const newEmail = userData.email
       
       // Update user data in localStorage
-      const updatedUser = { ...user, ...userData }
-      setUser(updatedUser)
-      localStorage.setItem('user', JSON.stringify(updatedUser))
+    const updatedUser = { ...user, ...userData }
+    setUser(updatedUser)
+    localStorage.setItem('user', JSON.stringify(updatedUser))
       
       // If email changed, update the user database in localStorage
       if (oldEmail !== newEmail) {

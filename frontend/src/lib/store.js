@@ -30,6 +30,20 @@ export function saveList(baseKey, list) {
   localStorage.setItem(key, JSON.stringify(list))
 }
 
+// Global (non-namespaced) helpers for admin-wide data
+export function loadGlobalList(baseKey, defaultValue = []) {
+  try {
+    const raw = localStorage.getItem(baseKey)
+    return raw ? JSON.parse(raw) : defaultValue
+  } catch {
+    return defaultValue
+  }
+}
+
+export function saveGlobalList(baseKey, list) {
+  localStorage.setItem(baseKey, JSON.stringify(list))
+}
+
 export function upsertItem(baseKey, item, idField = 'id') {
   const list = loadList(baseKey)
   const idx = list.findIndex((x) => x[idField] === item[idField])
