@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Maintenance Service
+        - id: maintenance-service
+          uri: http://maintenance-service:8080
+          predicates:
+            - Path=/api/**
+          filters:
+            - StripPrefix=1
+        # Future services can be added here
+        # - id: auth-service
+        #   uri: http://auth-service:8082
+        #   predicates:
+        #     - Path=/api/auth/**
+        #   filters:
+        #     - StripPrefix=2
+      globalcors:
+        corsConfigurations:
+          "[/**]":
+            allowedOrigins: "http://localhost:3000,http://localhost:5173"
+            allowedMethods: "GET,POST,PUT,DELETE,OPTIONS"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
