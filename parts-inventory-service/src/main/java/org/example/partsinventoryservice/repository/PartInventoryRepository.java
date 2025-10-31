@@ -1,5 +1,6 @@
 package org.example.partsinventoryservice.repository;
 
+import jakarta.transaction.Transactional;
 import org.example.partsinventoryservice.entity.Part;
 import org.example.partsinventoryservice.entity.PartInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,8 @@ public interface PartInventoryRepository extends JpaRepository<PartInventory, Lo
     Optional<PartInventory> findByPart_PartId(Long partId);
     long countByQuantityInStockLessThanEqual(Integer minStockLevel);
 
+    @Transactional
+    void deleteByPart_PartId(Long partId);
 }
 
 

@@ -1,5 +1,6 @@
 package org.example.partsinventoryservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -31,15 +32,23 @@ public class Part {
 
     private String manufacturer;
 
-    @OneToOne(mappedBy = "part", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)
+    @OneToOne(mappedBy = "part", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
     private PartInventory inventory;
 
-    @OneToMany(mappedBy = "part", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "part", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<PartTransaction> transactions = new ArrayList<>();
 
+    // Khi set inventory mới, đồng bộ 2 chiều
+    public void setInventory(PartInventory inventory) {
+        if (inventory != null) {
+            inventory.setPart(this);
+        }
+        this.inventory = inventory;
+    }
 
-    // Getters/Setters
+    // Getters/Setters còn lại
     public Long getPartId() { return partId; }
     public void setPartId(Long partId) { this.partId = partId; }
 
@@ -62,5 +71,12 @@ public class Part {
     public void setManufacturer(String manufacturer) { this.manufacturer = manufacturer; }
 
     public PartInventory getInventory() { return inventory; }
-    public void setInventory(PartInventory inventory) { this.inventory = inventory; }
+
+    public List<PartTransaction> getTransactions() { return transactions; }
+    public void setTransactions(List<PartTransaction> transactions) {
+        this.transactions = transactions;
+        if (transactions != null) {
+            transactions.forEach(txn -> txn.setPart(this));
+        }
+    }
 }

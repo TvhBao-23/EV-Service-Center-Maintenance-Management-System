@@ -5,13 +5,30 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a21a960b-6dad-4f1b-af3f-9a7d4de3f5a8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/InventoryResponseDto.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/lib/api.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/InventoryController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mysql-init/init.sql" beforeDir="false" afterPath="$PROJECT_DIR$/mysql-init/init.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mysql-init/test_data.sql" beforeDir="false" afterPath="$PROJECT_DIR$/mysql-init/test_data.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/RequestController.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/ApproveItemDto.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestDto.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestItemDto.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/RejectDto.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestItemResponseDto.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestResponseDto.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequest.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequestItem.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartInventoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartInventoryRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestItemRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartTransactionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartTransactionRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/RequestService.java" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,10 +47,10 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
-  <component name="KubernetesApiProvider"><![CDATA[{
-  "isMigrated": true
-}]]></component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -46,26 +63,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "TheKhai",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/dowload/hk7/xdpmhđt/project/EV-Service-Center-Maintenance-Management-System/parts-inventory-service",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Global Libraries",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.2",
-    "run.configurations.included.in.services": "true",
-    "settings.editor.selected.configurable": "vcs.Git",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;TheKhai&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/dowload/hk7/xdpmhđt/project/EV-Service-Center-Maintenance-Management-System/parts-inventory-service&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Global Libraries&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Spring Boot.EvservicecenterApplication">
     <configuration name="EvservicecenterApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
@@ -146,6 +163,12 @@
       <workItem from="1761626633994" duration="305000" />
       <workItem from="1761636889317" duration="378000" />
       <workItem from="1761647214018" duration="4817000" />
+      <workItem from="1761734449333" duration="100000" />
+      <workItem from="1761735103628" duration="478000" />
+      <workItem from="1761800453850" duration="845000" />
+      <workItem from="1761803148885" duration="142000" />
+      <workItem from="1761877287325" duration="4088000" />
+      <workItem from="1761906484857" duration="7302000" />
     </task>
     <servers />
   </component>

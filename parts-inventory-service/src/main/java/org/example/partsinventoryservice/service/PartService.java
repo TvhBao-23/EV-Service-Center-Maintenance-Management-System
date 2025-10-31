@@ -2,7 +2,9 @@ package org.example.partsinventoryservice.service;
 
 import org.example.partsinventoryservice.entity.Part;
 import org.example.partsinventoryservice.exception.ResourceNotFoundException;
+import org.example.partsinventoryservice.repository.PartInventoryRepository;
 import org.example.partsinventoryservice.repository.PartRepository;
+import org.example.partsinventoryservice.repository.PartTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,18 +14,20 @@ import java.util.List;
 public class PartService {
 
     private final PartRepository partRepository;
+    private final PartInventoryRepository inventoryRepo;   // ✅ Thêm
+    private final PartTransactionRepository txnRepo;
 
-    public PartService(PartRepository partRepository) {
+    public PartService(PartRepository partRepository,
+                       PartInventoryRepository inventoryRepo,
+                       PartTransactionRepository txnRepo) {
         this.partRepository = partRepository;
-    }
-
-    public List<Part> getAllParts() {
-        return partRepository.findAllWithInventory(); // đảm bảo có inventory
+        this.inventoryRepo = inventoryRepo;
+        this.txnRepo = txnRepo;
     }
 
     @Transactional(readOnly = true)
-    public List<Part> getAll() {
-        return partRepository.findAll();
+    public List<Part> getAllParts() {
+        return partRepository.findAllWithInventory();
     }
 
     @Transactional(readOnly = true)
@@ -58,7 +62,15 @@ public class PartService {
 
     @Transactional
     public void delete(Long partId) {
+        // Xóa transaction trước
+        txnRepo.deleteAllByPart_PartId(partId);
+
+        // Xóa inventory
+        inventoryRepo.deleteByPart_PartId(partId);
+
+        // Cuối cùng xóa part
         Part p = getById(partId);
         partRepository.delete(p);
     }
+
 }

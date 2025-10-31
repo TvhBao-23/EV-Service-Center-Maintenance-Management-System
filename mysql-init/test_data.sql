@@ -34,3 +34,4 @@ VALUES
     (1, 'IMPORT', 20, 'admin'),
     (2, 'IMPORT', 10, 'admin'),
     (3, 'IMPORT', 8, 'admin');
+

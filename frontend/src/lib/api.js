@@ -55,8 +55,10 @@ async function apiCall(url, options = {}) {
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
-    
-    return await response.json()
+
+    if (response.status === 204) return null;
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   } catch (error) {
     console.error('API Call Error:', error)
     throw error
@@ -237,17 +239,16 @@ export const partsAPI = {
           { method: "POST" }
       ),
 
-  importStock: (partId, quantity, note) =>
-      apiCall(`${API_BASE_URLS.parts}/inventory/${partId}/import?quantity=${quantity}&staffId=1&note=${note}`, {
-        method: 'PUT'
-      }),
+  importStock: (partId, quantity, staffId, note = "nhập kho thủ công") =>
+      apiCall(
+          `${API_BASE_URLS.parts}/inventory/${partId}/import?quantity=${quantity}&staffId=${staffId}&note=${encodeURIComponent(note)}`,
+          {method: 'PUT'}
+      ),
 
 
   exportStock: (partId, quantity, staffId, note = "Xuất kho thủ công") =>
       apiCall(
-          `${API_BASE_URLS.parts}/inventory/${partId}/export?quantity=${quantity}&staffId=${staffId}&note=${encodeURIComponent(
-              note
-          )}`,
+          `${API_BASE_URLS.parts}/inventory/${partId}/export?quantity=${quantity}&staffId=${staffId}&note=${encodeURIComponent(note)}`,
           { method: "PUT" }
       ),
 
@@ -261,16 +262,26 @@ export const partsAPI = {
 
   getLowStockCount: () =>
       apiCall(`${API_BASE_URLS.parts}/inventory/low-stock/count`),
-
-  getAllRequests: () => apiCall(`${API_BASE_URLS.parts}/requests`),
-  approveRequest: (id) =>
-      apiCall(`${API_BASE_URLS.parts}/requests/${id}/approve`, { method: "POST" }),
-  rejectRequest: (id, reason) =>
-      apiCall(`${API_BASE_URLS.parts}/requests/${id}/reject`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
-        headers: { "Content-Type": "application/json" },
+  createPart: (data) =>
+      apiCall(`${API_BASE_URLS.parts}/parts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       }),
+
+  updatePart: (partId, data) =>
+      apiCall(`${API_BASE_URLS.parts}/parts/${partId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }),
+
+  deletePart: (partId) =>
+      apiCall(`${API_BASE_URLS.parts}/parts/${partId}`, {
+        method: 'DELETE'
+      }),
+
+
 };
 
 export default {

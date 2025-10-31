@@ -16,8 +16,8 @@ function Admin() {
   const [customers, setCustomers] = useState([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
-  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showPartModal, setShowPartModal] = useState(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -157,7 +157,6 @@ function Admin() {
   useEffect(() => {
     if (activeTab === "parts") {
       loadParts();
-      loadRequests();
     }
   }, [activeTab]);
 
@@ -173,41 +172,6 @@ function Admin() {
     }
   };
 
-  const loadRequests = async () => {
-    try {
-      const data = await partsAPI.getAllRequests();
-      if (Array.isArray(data)) {
-        setRequests(data);
-      } else {
-        console.error("Invalid response format:", data);
-      }
-    } catch (err) {
-      console.error("Lỗi tải danh sách yêu cầu:", err);
-    }
-  };
-
-  const approveRequest = async (id) => {
-    if (!window.confirm("Duyệt yêu cầu này?")) return;
-    try {
-      await partsAPI.approveRequest(id);
-      await loadRequests();
-    } catch (e) {
-      alert("Lỗi duyệt yêu cầu!");
-      console.error(e);
-    }
-  };
-
-  const rejectRequest = async (id) => {
-    const reason = prompt("Nhập lý do từ chối:");
-    if (!reason) return;
-    try {
-      await partsAPI.rejectRequest(id, reason);
-      await loadRequests();
-    } catch (e) {
-      alert("Lỗi từ chối yêu cầu!");
-      console.error(e);
-    }
-  };
 
   const importStock = async (partId) => {
     const qty = parseInt(prompt("Nhập số lượng nhập kho:"), 10);
@@ -242,6 +206,19 @@ function Admin() {
       console.error(e);
     }
   };
+
+  const handleDeletePart = async (partId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa phụ tùng này không?")) return;
+    try {
+      await partsAPI.deletePart(partId);
+      alert("🗑️ Đã xóa phụ tùng!");
+      loadParts();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Lỗi khi xóa phụ tùng!");
+    }
+  };
+
 
   //end parts service
 
@@ -694,22 +671,32 @@ function Admin() {
   const renderParts = () => (
       <div className="space-y-6">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Quản lý phụ tùng
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Quản lý phụ tùng
+            </h3>
+
+            {/* ✅ Nút thêm phụ tùng mới */}
+            <button
+                onClick={() => setShowPartModal({ mode: "add", data: null })}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              ➕ Thêm phụ tùng
+            </button>
+          </div>
 
           <div className="mb-4 flex justify-between items-center">
             <div className="text-sm text-gray-600">
               Phụ tùng sắp hết:{" "}
               <span className="font-semibold text-red-600">
-              {dashboardStats.lowStockParts}
-            </span>
+            {dashboardStats.lowStockParts}
+          </span>
             </div>
             <div className="text-sm text-gray-600">
               Tổng giá trị tồn kho:{" "}
               <span className="font-semibold text-green-600">
-              {(dashboardStats.totalPartsValue || 0).toLocaleString()} VNĐ
-            </span>
+            {(dashboardStats.totalPartsValue || 0).toLocaleString("vi-VN")} VNĐ
+          </span>
             </div>
           </div>
 
@@ -719,6 +706,9 @@ function Admin() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Mã
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Tên phụ tùng
                   </th>
@@ -739,6 +729,7 @@ function Admin() {
                 <tbody className="bg-white divide-y divide-gray-200">
                 {parts.map((part) => (
                     <tr key={part.partId}>
+                      <td className="px-6 py-4 text-sm">{part.partCode ?? "—"}</td>
                       <td className="px-6 py-4 text-sm">{part.name ?? "—"}</td>
                       <td className="px-6 py-4 text-sm">
                         {part.inventory?.quantityInStock ?? 0}
@@ -752,18 +743,33 @@ function Admin() {
                         )}{" "}
                         VNĐ
                       </td>
-                      <td className="px-6 py-4 text-sm text-right">
+                      <td className="px-6 py-4 text-sm text-right space-x-2">
+                        {/* ✅ CRUD + Nhập/Xuất kho */}
                         <button
                             onClick={() => importStock(part.partId)}
-                            className="text-green-600 hover:text-green-800 mr-3"
+                            className="text-green-600 hover:text-green-800"
                         >
-                          Nhập kho
+                          Nhập
                         </button>
                         <button
                             onClick={() => exportStock(part.partId)}
                             className="text-yellow-600 hover:text-yellow-800"
                         >
-                          Xuất kho
+                          Xuất
+                        </button>
+                        <button
+                            onClick={() =>
+                                setShowPartModal({ mode: "edit", data: part })
+                            }
+                            className="text-blue-600 hover:text-blue-800"
+                        >
+                          ✏️ Sửa
+                        </button>
+                        <button
+                            onClick={() => handleDeletePart(part.partId)}
+                            className="text-red-600 hover:text-red-800"
+                        >
+                          🗑️ Xóa
                         </button>
                       </td>
                     </tr>
@@ -773,80 +779,17 @@ function Admin() {
           )}
         </div>
 
-        {/* === YÊU CẦU XUẤT KHO === */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">
-            Yêu cầu xuất kho từ kỹ thuật viên
-          </h3>
-
-          {requests.length === 0 ? (
-              <p className="text-gray-500 text-sm">Không có yêu cầu nào.</p>
-          ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Mã
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Người yêu cầu
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Lý do
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Trạng thái
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Hành động
-                  </th>
-                </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                {requests.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-6 py-4 text-sm">{r.id}</td>
-                      <td className="px-6 py-4 text-sm">{r.requestedBy}</td>
-                      <td className="px-6 py-4 text-sm">{r.reason}</td>
-                      <td className="px-6 py-4 text-sm">
-                    <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            r.status === "PENDING"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : r.status === "APPROVED"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                        }`}
-                    >
-                      {r.status}
-                    </span>
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm">
-                        {r.status === "PENDING" && (
-                            <>
-                              <button
-                                  onClick={() => approveRequest(r.id)}
-                                  className="text-green-600 hover:text-green-800 mr-3"
-                              >
-                                Duyệt
-                              </button>
-                              <button
-                                  onClick={() => rejectRequest(r.id)}
-                                  className="text-red-600 hover:text-red-800"
-                              >
-                                Từ chối
-                              </button>
-                            </>
-                        )}
-                      </td>
-                    </tr>
-                ))}
-                </tbody>
-              </table>
-          )}
-        </div>
+        {showPartModal && (
+            <PartModal
+                mode={showPartModal.mode}
+                data={showPartModal.data}
+                onClose={() => setShowPartModal(null)}
+                onSaved={loadParts}
+            />
+        )}
       </div>
   );
+
 
 
   const renderFinance = () => (
@@ -1023,3 +966,105 @@ function Admin() {
 }
 
 export default Admin;
+
+function PartModal({ mode, data, onClose, onSaved }) {
+  const isEdit = mode === "edit";
+  const [form, setForm] = useState(
+      data || {
+        partCode: "",
+        name: "",
+        description: "",
+        category: "",
+        unitPrice: 0,
+        manufacturer: "",
+      }
+  );
+
+  const handleSubmit = async () => {
+    try {
+      if (isEdit) {
+        await partsAPI.updatePart(form.partId, form);
+        alert("✅ Cập nhật phụ tùng thành công!");
+      } else {
+        await partsAPI.createPart(form);
+        alert("✅ Thêm phụ tùng mới thành công!");
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Lỗi khi lưu phụ tùng!");
+    }
+  };
+
+  return (
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <h4 className="text-lg font-semibold mb-4">
+            {isEdit ? "✏️ Sửa phụ tùng" : "➕ Thêm phụ tùng"}
+          </h4>
+
+          <div className="space-y-3">
+            <input
+                value={form.partCode}
+                onChange={(e) => setForm({ ...form, partCode: e.target.value })}
+                placeholder="Mã phụ tùng"
+                className="w-full border rounded px-3 py-2"
+            />
+            <input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Tên phụ tùng"
+                className="w-full border rounded px-3 py-2"
+            />
+            <input
+                type="number"
+                value={form.unitPrice}
+                onChange={(e) =>
+                    setForm({ ...form, unitPrice: parseFloat(e.target.value) })
+                }
+                placeholder="Giá (VNĐ)"
+                className="w-full border rounded px-3 py-2"
+            />
+            <input
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="Danh mục"
+                className="w-full border rounded px-3 py-2"
+            />
+            <input
+                value={form.manufacturer}
+                onChange={(e) =>
+                    setForm({ ...form, manufacturer: e.target.value })
+                }
+                placeholder="Hãng sản xuất"
+                className="w-full border rounded px-3 py-2"
+            />
+            <textarea
+                value={form.description}
+                onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                }
+                placeholder="Mô tả chi tiết"
+                className="w-full border rounded px-3 py-2"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+                onClick={onClose}
+                className="px-3 py-2 rounded-md border hover:bg-gray-100"
+            >
+              Hủy
+            </button>
+            <button
+                onClick={handleSubmit}
+                className="px-3 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              {isEdit ? "Lưu thay đổi" : "Thêm mới"}
+            </button>
+          </div>
+        </div>
+      </div>
+  );
+}

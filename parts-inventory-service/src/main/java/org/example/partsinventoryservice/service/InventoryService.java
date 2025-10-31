@@ -65,14 +65,22 @@ public class InventoryService {
         if (qty <= 0) throw new BadRequestException("Số lượng nhập phải > 0");
         if (staffId == null) staffId = 1L; // fallback test id
 
-        PartInventory inv = inventoryRepo.findByPart_PartId(partId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa khởi tạo tồn kho cho partId=" + partId));
+        Part part = partRepo.findById(partId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
+
+        PartInventory inv = inventoryRepo.findByPart_PartId(partId).orElseGet(() -> {
+            PartInventory newInv = new PartInventory();
+            newInv.setPart(part);
+            newInv.setQuantityInStock(0);
+            newInv.setMinStockLevel(5);
+            return newInv;
+        });
 
         inv.setQuantityInStock(inv.getQuantityInStock() + qty);
         inventoryRepo.save(inv);
 
-        Part part = partRepo.findById(partId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phụ tùng id=" + partId));
+        part.setInventory(inv);
+        partRepo.save(part);
 
         PartTransaction txn = new PartTransaction();
         txn.setPart(part);
@@ -86,9 +94,6 @@ public class InventoryService {
     }
 
 
-    /**
-     * Xuất kho: giảm số lượng và ghi transaction EXPORT
-     */
     @Transactional
     public PartInventory exportStock(Long partId, int qty, Long staffId, String note, Long relatedOrderId, Long relatedRequestId) {
         if (qty <= 0) throw new BadRequestException("Số lượng xuất phải > 0");
@@ -115,9 +120,6 @@ public class InventoryService {
         return inv;
     }
 
-    /**
-     * Điều chỉnh tồn kho (dương hoặc âm) và ghi transaction ADJUSTMENT
-     */
     @Transactional
     public PartInventory adjustStock(Long partId, int delta, Long staffId, String note) {
         PartInventory inv = inventoryRepo.findByPart_PartId(partId)
