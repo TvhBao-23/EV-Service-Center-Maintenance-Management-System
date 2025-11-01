@@ -1,85 +1,142 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getCurrentUserId, loadList, saveList } from '../lib/store'
+import { getCurrentUserId } from '../lib/store'
+import { maintenanceAPI } from '../lib/api'
 
 function Technician() {
   const techId = useMemo(() => getCurrentUserId(), [])
+  const [loading, setLoading] = useState(true)
   const [vehicles, setVehicles] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [reports, setReports] = useState([])
+  const [serviceOrders, setServiceOrders] = useState([])
   const [checklists, setChecklists] = useState([])
   const [activeTab, setActiveTab] = useState('queue') // 'queue' | 'assigned'
 
   useEffect(() => {
-    if (!techId) return
-    setVehicles(loadList('vehicles', []))
-    setBookings(loadList('bookings', []))
-    setAssignments(loadList('assignments', []))
-    setReports(loadList('techReports', []))
-    setChecklists(loadList('checklists', []))
+    if (techId) {
+      fetchTechnicianData()
+    }
   }, [techId])
 
+  const fetchTechnicianData = async () => {
+    try {
+      setLoading(true)
+      // Fetch all service orders for this technician
+      const ordersData = techId ? await maintenanceAPI.getServiceOrdersByTechnician(techId).catch(() => []) : []
+      const allOrders = await maintenanceAPI.getServiceOrders().catch(() => [])
+      
+      // Get all vehicles
+      const vehiclesData = await maintenanceAPI.getVehicles().catch(() => [])
+      
+      setVehicles(vehiclesData || [])
+      setServiceOrders(allOrders || [])
+      
+      // Fetch checklists for assigned orders
+      if (ordersData.length > 0) {
+        const checklistPromises = ordersData.map(order => 
+          maintenanceAPI.getChecklistsByOrderId(order.orderId).catch(() => [])
+        )
+        const allChecklists = await Promise.all(checklistPromises)
+        setChecklists(allChecklists.flat())
+      }
+    } catch (error) {
+      console.error('Error fetching technician data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const normalizeStatus = (status) => {
+    if (!status) return ''
+    return status.toUpperCase().replace(/-/g, '_')
+  }
+
   const assigned = useMemo(() => {
-    if (!assignments.length) return []
-    return assignments
-      .filter(a => a.techId === techId)
-      .map(a => {
-        const booking = bookings.find(b => b.id === a.bookingId)
-        const vehicle = vehicles.find(v => v.id === a.vehicleId)
-        return { ...a, booking, vehicle }
+    if (!techId || !serviceOrders.length) return []
+    return serviceOrders
+      .filter(order => order.assignedTechnicianId === techId)
+      .map(order => {
+        const vehicle = vehicles.find(v => v.vehicleId === order.vehicleId)
+        const orderChecklists = checklists.filter(c => c.orderId === order.orderId)
+        return { order, vehicle, checklists: orderChecklists }
       })
-      .filter(x => x.booking && x.vehicle)
-  }, [assignments, bookings, vehicles, techId])
+      .filter(x => x.vehicle)
+  }, [serviceOrders, vehicles, checklists, techId])
 
   const queue = useMemo(() => {
-    // Jobs without assignment yet
-    const assignedIds = new Set(assignments.map(a => a.bookingId))
-    return bookings
-      .filter(b => !assignedIds.has(b.id) && (b.status === 'received' || b.status === 'in_maintenance' || b.status === 'pending'))
-      .map(b => ({
-        booking: b,
-        vehicle: vehicles.find(v => v.id === b.vehicleId)
-      }))
+    // Orders queued or in progress without assigned technician
+    return serviceOrders
+      .filter(order => {
+        const status = normalizeStatus(order.status)
+        return (status === 'QUEUED' || status === 'IN_PROGRESS') && !order.assignedTechnicianId
+      })
+      .map(order => {
+        const vehicle = vehicles.find(v => v.vehicleId === order.vehicleId)
+        return { order, vehicle }
+      })
       .filter(x => x.vehicle)
-  }, [assignments, bookings, vehicles])
+  }, [serviceOrders, vehicles])
 
-  const updateStatus = (bookingId, nextStatus) => {
-    const next = bookings.map(b => b.id === bookingId ? { ...b, status: nextStatus } : b)
-    setBookings(next)
-    saveList('bookings', next)
-  }
-
-  const submitReport = (bookingId, vehicleId, form) => {
-    const newReport = {
-      id: `tr_${Date.now()}`,
-      bookingId,
-      vehicleId,
-      techId,
-      message: form.message || '',
-      parts: form.parts || '',
-      createdAt: new Date().toISOString()
+  const updateStatus = async (orderId, nextStatus) => {
+    try {
+      await maintenanceAPI.updateServiceOrderStatus(orderId, nextStatus)
+      fetchTechnicianData()
+    } catch (error) {
+      console.error('Error updating status:', error)
+      alert('Lỗi khi cập nhật trạng thái')
     }
-    const next = [...reports, newReport]
-    setReports(next)
-    saveList('techReports', next)
   }
 
-  const assignToMe = (bookingId, vehicleId) => {
-    const next = [...assignments, { id: `as_${Date.now()}`, bookingId, vehicleId, techId }]
-    setAssignments(next)
-    saveList('assignments', next)
+  const assignToMe = async (orderId) => {
+    if (!techId) {
+      alert('Không có thông tin kỹ thuật viên')
+      return
+    }
+    try {
+      await maintenanceAPI.assignTechnician(orderId, techId)
+      fetchTechnicianData()
+    } catch (error) {
+      console.error('Error assigning to me:', error)
+      alert('Lỗi khi nhận công việc')
+    }
   }
 
-  const saveChecklist = (bookingId, data) => {
-    const list = [...checklists.filter(c => c.bookingId !== bookingId), { bookingId, ...data }]
-    setChecklists(list)
-    saveList('checklists', list)
+  const saveChecklist = async (orderId, checklistData) => {
+    try {
+      // Create checklist items
+      const items = []
+      if (checklistData.battery) items.push({ itemName: 'Kiểm tra pin', isCompleted: true })
+      if (checklistData.brakes) items.push({ itemName: 'Kiểm tra phanh', isCompleted: true })
+      if (checklistData.tires) items.push({ itemName: 'Kiểm tra lốp', isCompleted: true })
+      if (checklistData.lights) items.push({ itemName: 'Kiểm tra đèn', isCompleted: true })
+      if (checklistData.note) items.push({ itemName: 'Ghi chú', notes: checklistData.note })
+
+      for (const item of items) {
+        await maintenanceAPI.createServiceChecklist({
+          orderId,
+          ...item
+        })
+      }
+      fetchTechnicianData()
+    } catch (error) {
+      console.error('Error saving checklist:', error)
+      alert('Lỗi khi lưu checklist')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8"></h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-8">Bảng điều khiển Kỹ thuật viên</h2>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -111,14 +168,24 @@ function Technician() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {queue.map(row => (
-                    <tr key={row.booking.id}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.vehicle.model} ({row.vehicle.vin})</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.serviceType}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.date} {row.booking.time}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.status}</td>
+                  {queue.map(({ order, vehicle }) => (
+                    <tr key={order.orderId}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || `Vehicle ${vehicle.vehicleId}` : `Vehicle ${order.vehicleId}`}
+                        {vehicle?.vin && ` (${vehicle.vin})`}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">Order #{order.orderId}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {order.checkInTime ? new Date(order.checkInTime).toLocaleString('vi-VN') : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{order.status || 'queued'}</td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={()=>assignToMe(row.booking.id, row.vehicle.id)} className="px-3 py-1 rounded-md bg-green-600 text-white hover:bg-green-700">Nhận việc</button>
+                        <button 
+                          onClick={()=>assignToMe(order.orderId)} 
+                          className="px-3 py-1 rounded-md bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Nhận việc
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -148,31 +215,35 @@ function Technician() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {assigned.map((row) => (
-                    <tr key={row.booking.id}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.vehicle.model} ({row.vehicle.vin})</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.serviceType}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.date} {row.booking.time}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.booking.center}</td>
+                  {assigned.map(({ order, vehicle, checklists: orderChecklists }) => (
+                    <tr key={order.orderId}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || `Vehicle ${vehicle.vehicleId}` : `Vehicle ${order.vehicleId}`}
+                        {vehicle?.vin && ` (${vehicle.vin})`}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">Order #{order.orderId}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {order.checkInTime ? new Date(order.checkInTime).toLocaleString('vi-VN') : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">-</td>
                       <td className="px-4 py-3 text-sm">
                         <select
                           className="border rounded-md px-2 py-1 text-sm"
-                          value={row.booking.status}
-                          onChange={(e)=>updateStatus(row.booking.id, e.target.value)}
+                          value={order.status || 'queued'}
+                          onChange={(e)=>updateStatus(order.orderId, e.target.value)}
                         >
-                          <option value="pending">Chờ tiếp nhận</option>
-                          <option value="received">Đã tiếp nhận</option>
-                          <option value="in_maintenance">Đang bảo dưỡng</option>
-                          <option value="done">Hoàn tất</option>
-                          <option value="cancelled">Đã hủy</option>
+                          <option value="queued">Chờ xử lý</option>
+                          <option value="in_progress">Đang bảo dưỡng</option>
+                          <option value="completed">Hoàn tất</option>
+                          <option value="delayed">Bị trễ</option>
                         </select>
                       </td>
                       <td className="px-4 py-3 text-right text-sm flex items-center gap-2 justify-end">
                         <ChecklistButton
-                          defaultValue={checklists.find(c => c.bookingId === row.booking.id)}
-                          onSave={(data)=>saveChecklist(row.booking.id, data)}
+                          orderId={order.orderId}
+                          defaultValue={orderChecklists.length > 0 ? orderChecklists : null}
+                          onSave={(data)=>saveChecklist(order.orderId, data)}
                         />
-                        <ReportButton onSubmit={(form)=>submitReport(row.booking.id, row.vehicle.id, form)} />
                       </td>
                     </tr>
                   ))}
@@ -185,19 +256,25 @@ function Technician() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Báo cáo đã gửi</h3>
-          {reports.length === 0 ? (
-            <p className="text-gray-600 text-sm">Chưa có báo cáo nào.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Checklist đã tạo</h3>
+          {checklists.length === 0 ? (
+            <p className="text-gray-600 text-sm">Chưa có checklist nào.</p>
           ) : (
             <ul className="space-y-3">
-              {reports.map(r => (
-                <li key={r.id} className="border rounded-md p-3 text-sm text-gray-800">
+              {checklists.map(c => (
+                <li key={c.checklistId} className="border rounded-md p-3 text-sm text-gray-800">
                   <div className="flex justify-between">
-                    <span>{new Date(r.createdAt).toLocaleString()}</span>
-                    <span className="text-gray-600">Booking: {r.bookingId}</span>
+                    <span className="font-medium">{c.itemName}</span>
+                    <span className={`px-2 py-1 rounded ${c.isCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {c.isCompleted ? 'Đã hoàn thành' : 'Chưa hoàn thành'}
+                    </span>
                   </div>
-                  <p className="mt-2">{r.message}</p>
-                  {r.parts && <p className="mt-1 text-gray-700">Đề xuất phụ tùng: {r.parts}</p>}
+                  {c.notes && <p className="mt-2 text-gray-600">Ghi chú: {c.notes}</p>}
+                  {c.completedAt && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Hoàn thành: {new Date(c.completedAt).toLocaleString('vi-VN')}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -240,9 +317,21 @@ function ReportButton({ onSubmit }) {
   )
 }
 
-function ChecklistButton({ defaultValue, onSave }) {
+function ChecklistButton({ orderId, defaultValue, onSave }) {
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState(() => defaultValue || { battery: false, brakes: false, tires: false, lights: false, note: '' })
+  const [form, setForm] = useState(() => {
+    if (defaultValue && Array.isArray(defaultValue)) {
+      // Map existing checklists to form
+      return {
+        battery: defaultValue.some(c => c.itemName.includes('pin')),
+        brakes: defaultValue.some(c => c.itemName.includes('phanh')),
+        tires: defaultValue.some(c => c.itemName.includes('lop')),
+        lights: defaultValue.some(c => c.itemName.includes('den')),
+        note: defaultValue.find(c => c.notes)?.notes || ''
+      }
+    }
+    return { battery: false, brakes: false, tires: false, lights: false, note: '' }
+  })
   return (
     <>
       <button onClick={()=>setOpen(true)} className="px-3 py-1 rounded-md border text-gray-700 hover:bg-gray-50">Checklist</button>

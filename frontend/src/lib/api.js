@@ -4,7 +4,8 @@ const API_BASE_URLS = {
   auth: 'http://localhost:8081/api/auth',
   customer: 'http://localhost:8082/api/customer',
   staff: 'http://localhost:8083/api/staff',
-  payment: 'http://localhost:8084/api/payment'
+  payment: 'http://localhost:8084/api/payment',
+  maintenance: 'http://localhost:8080/api'
 }
 
 // Helper function để lấy token từ localStorage
@@ -222,9 +223,200 @@ export const staffAPI = {
   }
 }
 
+// Maintenance Service APIs (Backend port 8080)
+export const maintenanceAPI = {
+  // Appointments
+  getAppointments: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments`)
+  },
+  getAppointmentById: (appointmentId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}`)
+  },
+  createAppointment: (appointmentData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments`, {
+      method: 'POST',
+      body: JSON.stringify(appointmentData)
+    })
+  },
+  updateAppointment: (appointmentId, appointmentData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(appointmentData)
+    })
+  },
+  confirmAppointment: (appointmentId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/confirm`, {
+      method: 'PUT'
+    })
+  },
+  cancelAppointment: (appointmentId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/cancel`, {
+      method: 'PUT'
+    })
+  },
+  getAppointmentsByStatus: (status) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/appointments/status/${status}`)
+  },
+
+  // Service Orders
+  getServiceOrders: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders`)
+  },
+  getServiceOrderById: (orderId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}`)
+  },
+  createServiceOrder: (orderData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders`, {
+      method: 'POST',
+      body: JSON.stringify(orderData)
+    })
+  },
+  createServiceOrderFromAppointment: (appointmentId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/from-appointment/${appointmentId}`, {
+      method: 'POST'
+    })
+  },
+  updateServiceOrderStatus: (orderId, status) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    })
+  },
+  assignTechnician: (orderId, technicianId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/assign-technician`, {
+      method: 'PUT',
+      body: JSON.stringify({ technicianId })
+    })
+  },
+  completeServiceOrder: (orderId, completionData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify(completionData)
+    })
+  },
+  getServiceOrdersByTechnician: (technicianId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-orders/technician/${technicianId}`)
+  },
+
+  // Vehicles
+  getVehicles: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/vehicles`)
+  },
+  getVehicleById: (vehicleId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/vehicles/${vehicleId}`)
+  },
+  getVehiclesByCustomer: (customerId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/vehicles/customer/${customerId}`)
+  },
+  createVehicle: (vehicleData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/vehicles`, {
+      method: 'POST',
+      body: JSON.stringify(vehicleData)
+    })
+  },
+  updateVehicle: (vehicleId, vehicleData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/vehicles/${vehicleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(vehicleData)
+    })
+  },
+
+  // Services
+  getServices: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/services`)
+  },
+  getServiceById: (serviceId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/services/${serviceId}`)
+  },
+  getServicesByType: (type) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/services/type/${type}`)
+  },
+  getServicePackages: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/services/packages`)
+  },
+
+  // Parts
+  getParts: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/parts`)
+  },
+  getPartById: (partId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/parts/${partId}`)
+  },
+  getPartByCode: (partCode) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/parts/code/${partCode}`)
+  },
+  createPart: (partData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/parts`, {
+      method: 'POST',
+      body: JSON.stringify(partData)
+    })
+  },
+  updatePart: (partId, partData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/parts/${partId}`, {
+      method: 'PUT',
+      body: JSON.stringify(partData)
+    })
+  },
+
+  // Service Checklists
+  getServiceChecklists: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists`)
+  },
+  getServiceChecklistById: (checklistId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists/${checklistId}`)
+  },
+  getChecklistsByOrderId: (orderId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists/order/${orderId}`)
+  },
+  createServiceChecklist: (checklistData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists`, {
+      method: 'POST',
+      body: JSON.stringify(checklistData)
+    })
+  },
+  updateServiceChecklist: (checklistId, checklistData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists/${checklistId}`, {
+      method: 'PUT',
+      body: JSON.stringify(checklistData)
+    })
+  },
+  completeChecklistItem: (checklistId, completionData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/service-checklists/${checklistId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify(completionData)
+    })
+  },
+
+  // Order Items
+  getOrderItems: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/order-items`)
+  },
+  getOrderItemById: (itemId) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/order-items/${itemId}`)
+  },
+  createServiceItem: (itemData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/order-items/service`, {
+      method: 'POST',
+      body: JSON.stringify(itemData)
+    })
+  },
+  createPartItem: (itemData) => {
+    return apiCall(`${API_BASE_URLS.maintenance}/order-items/part`, {
+      method: 'POST',
+      body: JSON.stringify(itemData)
+    })
+  },
+
+  // Health check
+  health: () => {
+    return apiCall(`${API_BASE_URLS.maintenance}/health`)
+  }
+}
+
 export default {
   authAPI,
   customerAPI,
   paymentAPI,
-  staffAPI
+  staffAPI,
+  maintenanceAPI
 }
