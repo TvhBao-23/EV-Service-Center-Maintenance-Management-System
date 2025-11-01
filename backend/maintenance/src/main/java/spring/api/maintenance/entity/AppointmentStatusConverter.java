@@ -14,7 +14,8 @@ public class AppointmentStatusConverter implements AttributeConverter<Appointmen
         if (attribute == null) {
             return null;
         }
-        return attribute.name();
+        // Map enum to database values (lowercase)
+        return attribute.name().toLowerCase();
     }
 
     @Override

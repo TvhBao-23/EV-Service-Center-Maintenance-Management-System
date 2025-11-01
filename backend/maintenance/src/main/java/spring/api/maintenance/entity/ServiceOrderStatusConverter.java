@@ -14,7 +14,19 @@ public class ServiceOrderStatusConverter implements AttributeConverter<ServiceOr
         if (attribute == null) {
             return null;
         }
-        return attribute.name();
+        // Map enum to database values (lowercase with underscore)
+        switch (attribute) {
+            case QUEUED:
+                return "queued";
+            case IN_PROGRESS:
+                return "in_progress";
+            case COMPLETED:
+                return "completed";
+            case DELAYED:
+                return "delayed";
+            default:
+                return "queued";
+        }
     }
 
     @Override

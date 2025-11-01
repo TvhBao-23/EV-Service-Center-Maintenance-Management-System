@@ -28,7 +28,7 @@ public class Appointment {
     @Column(name = "vehicle_id", nullable = false)
     private Integer vehicleId;
 
-    @Column(name = "service_id", nullable = false)
+    @Column(name = "service_id")
     private Integer serviceId;
 
     @Column(name = "requested_date_time", nullable = false)
@@ -53,8 +53,7 @@ public class Appointment {
         PENDING("Chờ xác nhận"),
         CONFIRMED("Đã xác nhận"),
         CANCELLED("Đã hủy"),
-        COMPLETED("Hoàn thành"),
-        NO_SHOW("Không đến");
+        COMPLETED("Hoàn thành");
 
         private final String description;
 
@@ -79,8 +78,6 @@ public class Appointment {
                     return CANCELLED;
                 case "completed":
                     return COMPLETED;
-                case "no_show":
-                    return NO_SHOW;
                 default:
                     return PENDING;
             }

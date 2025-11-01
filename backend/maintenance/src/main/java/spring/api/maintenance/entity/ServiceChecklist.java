@@ -25,7 +25,7 @@ public class ServiceChecklist {
     @Column(name = "order_id", nullable = false)
     private Integer orderId;
 
-    @Column(name = "item_name", nullable = false, length = 255)
+    @Column(name = "item_name", nullable = false, length = 200)
     private String itemName;
 
     @Column(name = "is_completed")

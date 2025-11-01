@@ -44,13 +44,9 @@ public class OrderItem {
     @Column(name = "type", length = 20)
     private ItemType type;
 
-    @Column(name = "description", length = 500)
-    private String description;
-
     public enum ItemType {
         SERVICE("Dịch vụ"),
-        PART("Phụ tùng"),
-        LABOR("Nhân công");
+        PART("Phụ tùng");
 
         private final String description;
 

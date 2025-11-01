@@ -55,12 +55,4 @@ public class Vehicle {
 
     @Column(name = "next_service_due_date")
     private LocalDateTime nextServiceDueDate;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

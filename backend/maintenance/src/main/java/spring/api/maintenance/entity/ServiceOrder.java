@@ -42,12 +42,12 @@ public class ServiceOrder {
     @Column(name = "check_out_time")
     private LocalDateTime checkOutTime;
 
-    @Column(name = "total_amount", precision = 10, scale = 2)
+    @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", length = 20)
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -64,8 +64,7 @@ public class ServiceOrder {
         QUEUED("Chờ xử lý"),
         IN_PROGRESS("Đang thực hiện"),
         COMPLETED("Hoàn thành"),
-        DELAYED("Bị trễ"),
-        CANCELLED("Đã hủy");
+        DELAYED("Bị trễ");
 
         private final String description;
 
@@ -90,8 +89,6 @@ public class ServiceOrder {
                     return COMPLETED;
                 case "delayed":
                     return DELAYED;
-                case "cancelled":
-                    return CANCELLED;
                 default:
                     return QUEUED;
             }
@@ -99,10 +96,9 @@ public class ServiceOrder {
     }
 
     public enum PaymentStatus {
-        PENDING("Chờ thanh toán"),
+        UNPAID("Chờ thanh toán"),
         PAID("Đã thanh toán"),
-        REFUNDED("Đã hoàn tiền"),
-        PARTIAL("Thanh toán một phần");
+        PARTIALLY_PAID("Thanh toán một phần");
 
         private final String description;
 
@@ -116,20 +112,18 @@ public class ServiceOrder {
 
         // Helper method để convert từ database value
         public static PaymentStatus fromString(String value) {
-            if (value == null) return PENDING;
+            if (value == null) return UNPAID;
             
             switch (value.toLowerCase()) {
-                case "pending":
-                    return PENDING;
+                case "unpaid":
+                    return UNPAID;
                 case "paid":
                     return PAID;
-                case "refunded":
-                    return REFUNDED;
-                case "partial":
                 case "partially_paid":
-                    return PARTIAL;
+                case "partial":
+                    return PARTIALLY_PAID;
                 default:
-                    return PENDING;
+                    return UNPAID;
             }
         }
     }

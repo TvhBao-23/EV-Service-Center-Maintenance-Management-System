@@ -14,7 +14,17 @@ public class PaymentStatusConverter implements AttributeConverter<ServiceOrder.P
         if (attribute == null) {
             return null;
         }
-        return attribute.name();
+        // Map enum to database values
+        switch (attribute) {
+            case UNPAID:
+                return "unpaid";
+            case PAID:
+                return "paid";
+            case PARTIALLY_PAID:
+                return "partially_paid";
+            default:
+                return "unpaid";
+        }
     }
 
     @Override
