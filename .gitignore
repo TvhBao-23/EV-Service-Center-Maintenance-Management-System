@@ -4,6 +4,10 @@
 .github/
 target/
 
+# Documentation files
+API_DOCUMENTATION.md
+api_doc_status.txt
+
 # Compiled class file
 *.class
 
