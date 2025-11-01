@@ -42,6 +42,24 @@ public class ServiceEntity {
     private Integer validityDays;
 
     public enum ServiceType {
-        MAINTENANCE, REPAIR, INSPECTION, PACKAGE
+        MAINTENANCE, REPAIR, INSPECTION, PACKAGE;
+
+        // Helper method để convert từ database value
+        public static ServiceType fromString(String value) {
+            if (value == null) return MAINTENANCE;
+            
+            switch (value.toLowerCase()) {
+                case "maintenance":
+                    return MAINTENANCE;
+                case "repair":
+                    return REPAIR;
+                case "inspection":
+                    return INSPECTION;
+                case "package":
+                    return PACKAGE;
+                default:
+                    return MAINTENANCE;
+            }
+        }
     }
 }

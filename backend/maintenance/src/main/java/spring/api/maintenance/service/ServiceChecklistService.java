@@ -79,4 +79,57 @@ public class ServiceChecklistService {
     public List<ServiceChecklist> getCompletedChecklistItems(Integer orderId) {
         return serviceChecklistRepository.findByOrderIdAndIsCompleted(orderId, true);
     }
+
+    // Methods for ServiceChecklistDirectController
+    public ServiceChecklist createServiceChecklist(Integer orderId, String itemName, boolean isCompleted, String notes, Integer completedBy) {
+        ServiceChecklist checklist = new ServiceChecklist();
+        checklist.setOrderId(orderId);
+        checklist.setItemName(itemName);
+        checklist.setIsCompleted(isCompleted);
+        checklist.setNotes(notes);
+        checklist.setCompletedBy(completedBy);
+        if (isCompleted && completedBy != null) {
+            checklist.setCompletedAt(LocalDateTime.now());
+        }
+        return serviceChecklistRepository.save(checklist);
+    }
+
+    public List<ServiceChecklist> getAllServiceChecklists() {
+        return serviceChecklistRepository.findAll();
+    }
+
+    public Optional<ServiceChecklist> getServiceChecklistById(Integer checklistId) {
+        return serviceChecklistRepository.findById(checklistId);
+    }
+
+    public ServiceChecklist updateServiceChecklist(Integer checklistId, String itemName, Boolean isCompleted, String notes, Integer completedBy) {
+        Optional<ServiceChecklist> optionalItem = serviceChecklistRepository.findById(checklistId);
+        if (optionalItem.isPresent()) {
+            ServiceChecklist item = optionalItem.get();
+            if (itemName != null) {
+                item.setItemName(itemName);
+            }
+            if (isCompleted != null) {
+                item.setIsCompleted(isCompleted);
+                if (isCompleted && completedBy != null) {
+                    item.setCompletedBy(completedBy);
+                    if (item.getCompletedAt() == null) {
+                        item.setCompletedAt(LocalDateTime.now());
+                    }
+                }
+            }
+            if (notes != null) {
+                item.setNotes(notes);
+            }
+            if (completedBy != null) {
+                item.setCompletedBy(completedBy);
+            }
+            return serviceChecklistRepository.save(item);
+        }
+        throw new RuntimeException("Service checklist not found with ID: " + checklistId);
+    }
+
+    public void deleteServiceChecklist(Integer checklistId) {
+        serviceChecklistRepository.deleteById(checklistId);
+    }
 }

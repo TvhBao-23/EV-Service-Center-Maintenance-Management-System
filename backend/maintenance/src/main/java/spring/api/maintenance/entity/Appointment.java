@@ -65,5 +65,25 @@ public class Appointment {
         public String getDescription() {
             return description;
         }
+
+        // Helper method để convert từ database value
+        public static AppointmentStatus fromString(String value) {
+            if (value == null) return PENDING;
+            
+            switch (value.toLowerCase()) {
+                case "pending":
+                    return PENDING;
+                case "confirmed":
+                    return CONFIRMED;
+                case "cancelled":
+                    return CANCELLED;
+                case "completed":
+                    return COMPLETED;
+                case "no_show":
+                    return NO_SHOW;
+                default:
+                    return PENDING;
+            }
+        }
     }
 }

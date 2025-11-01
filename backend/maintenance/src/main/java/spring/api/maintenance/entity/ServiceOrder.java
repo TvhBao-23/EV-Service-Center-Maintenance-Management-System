@@ -76,6 +76,26 @@ public class ServiceOrder {
         public String getDescription() {
             return description;
         }
+
+        // Helper method để convert từ database value
+        public static ServiceOrderStatus fromString(String value) {
+            if (value == null) return QUEUED;
+            
+            switch (value.toLowerCase()) {
+                case "queued":
+                    return QUEUED;
+                case "in_progress":
+                    return IN_PROGRESS;
+                case "completed":
+                    return COMPLETED;
+                case "delayed":
+                    return DELAYED;
+                case "cancelled":
+                    return CANCELLED;
+                default:
+                    return QUEUED;
+            }
+        }
     }
 
     public enum PaymentStatus {
@@ -92,6 +112,25 @@ public class ServiceOrder {
 
         public String getDescription() {
             return description;
+        }
+
+        // Helper method để convert từ database value
+        public static PaymentStatus fromString(String value) {
+            if (value == null) return PENDING;
+            
+            switch (value.toLowerCase()) {
+                case "pending":
+                    return PENDING;
+                case "paid":
+                    return PAID;
+                case "refunded":
+                    return REFUNDED;
+                case "partial":
+                case "partially_paid":
+                    return PARTIAL;
+                default:
+                    return PENDING;
+            }
         }
     }
 }
