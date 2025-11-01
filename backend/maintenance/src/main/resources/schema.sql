@@ -154,7 +154,6 @@ CREATE TABLE IF NOT EXISTS service_checklists (
     notes TEXT,
     completed_by INT,
     completed_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES service_orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY (completed_by) REFERENCES staffs(staff_id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -198,7 +197,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 ) ENGINE=InnoDB;
 
 -- Indexes
-CREATE INDEX idx_vehicles_customer ON vehicles(customer_id);
-CREATE INDEX idx_appointments_customer ON appointments(customer_id);
-CREATE INDEX idx_service_orders_status ON service_orders(status);
-CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_vehicles_customer ON vehicles(customer_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_customer ON appointments(customer_id);
+CREATE INDEX IF NOT EXISTS idx_service_orders_status ON service_orders(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
