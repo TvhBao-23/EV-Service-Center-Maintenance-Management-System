@@ -37,10 +37,6 @@ public class TransactionService {
         return txnRepo.findByTypeOrderByCreatedAtDesc(type);
     }
 
-    /**
-     * Ghi nhận nhập kho (chỉ ghi transaction — KHÔNG thay đổi tồn kho ở đây)
-     * Nếu muốn thay đổi tồn kho, hãy dùng InventoryService.importStock(...)
-     */
     @Transactional
     public PartTransaction recordImport(Long partId, int qty, Long staffId, String note) {
         Part part = partRepo.findById(partId)
@@ -54,10 +50,6 @@ public class TransactionService {
         return txnRepo.save(t);
     }
 
-    /**
-     * Ghi nhận xuất kho cho yêu cầu (chỉ ghi transaction — KHÔNG thay đổi tồn kho ở đây)
-     * Nếu muốn thay đổi tồn kho, hãy dùng InventoryService.exportStock(...)
-     */
     @Transactional
     public PartTransaction recordExportForRequest(Long partId, int qty, Long staffId, Long requestId, Long orderId, String note) {
         Part part = partRepo.findById(partId)

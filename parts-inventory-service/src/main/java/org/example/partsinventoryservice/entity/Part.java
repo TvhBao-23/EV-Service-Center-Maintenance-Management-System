@@ -1,6 +1,7 @@
 package org.example.partsinventoryservice.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -37,7 +38,7 @@ public class Part {
     private PartInventory inventory;
 
     @OneToMany(mappedBy = "part", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
+    @JsonIgnoreProperties({"part"})
     private List<PartTransaction> transactions = new ArrayList<>();
 
     // Khi set inventory mới, đồng bộ 2 chiều

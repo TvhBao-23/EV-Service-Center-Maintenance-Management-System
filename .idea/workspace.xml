@@ -8,27 +8,11 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/lib/api.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Admin.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Technician.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mysql-init/init.sql" beforeDir="false" afterPath="$PROJECT_DIR$/mysql-init/init.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mysql-init/test_data.sql" beforeDir="false" afterPath="$PROJECT_DIR$/mysql-init/test_data.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/controller/RequestController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/ApproveItemDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/CreateRequestItemDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/request/RejectDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestItemResponseDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/dto/response/RequestResponseDto.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/Part.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartRequestItem.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartInventoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartInventoryRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestItemRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartRequestRepository.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartTransaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/entity/PartTransaction.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartTransactionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/repository/PartTransactionRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/InventoryService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/PartService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/RequestService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/TransactionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/java/org/example/partsinventoryservice/service/TransactionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parts-inventory-service/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/parts-inventory-service/src/main/resources/application.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -169,6 +153,10 @@
       <workItem from="1761803148885" duration="142000" />
       <workItem from="1761877287325" duration="4088000" />
       <workItem from="1761906484857" duration="7302000" />
+      <workItem from="1761994684822" duration="877000" />
+      <workItem from="1762000474204" duration="29000" />
+      <workItem from="1762000521426" duration="2482000" />
+      <workItem from="1762003094826" duration="2085000" />
     </task>
     <servers />
   </component>

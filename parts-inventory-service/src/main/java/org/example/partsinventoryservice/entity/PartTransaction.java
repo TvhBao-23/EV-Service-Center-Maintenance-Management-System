@@ -1,5 +1,7 @@
 package org.example.partsinventoryservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.example.partsinventoryservice.entity.enum_.TransactionType;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ public class PartTransaction {
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "part_id", nullable = false)
+    @JsonIgnoreProperties({"inventory", "transactions"})
     private Part part;
 
     @Enumerated(EnumType.STRING)

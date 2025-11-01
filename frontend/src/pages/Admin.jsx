@@ -18,6 +18,7 @@ function Admin() {
 
   const [loading, setLoading] = useState(false);
   const [showPartModal, setShowPartModal] = useState(null);
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -157,6 +158,7 @@ function Admin() {
   useEffect(() => {
     if (activeTab === "parts") {
       loadParts();
+      loadTransactions();
     }
   }, [activeTab]);
 
@@ -172,6 +174,14 @@ function Admin() {
     }
   };
 
+  const loadTransactions = async () => {
+    try {
+      const res = await partsAPI.getTransactions();
+      setTransactions(res);
+    } catch (err) {
+      console.error("Lỗi tải lịch sử giao dịch:", err);
+    }
+  };
 
   const importStock = async (partId) => {
     const qty = parseInt(prompt("Nhập số lượng nhập kho:"), 10);
@@ -184,6 +194,7 @@ function Admin() {
       await partsAPI.importStock(partId, qty, staffId, "Nhập kho thủ công");
       alert("✅ Nhập kho thành công!");
       await loadParts();
+      await loadTransactions();
     } catch (e) {
       alert("❌ Lỗi khi nhập kho!");
       console.error(e);
@@ -201,6 +212,7 @@ function Admin() {
       await partsAPI.exportStock(partId, qty, staffId, "Xuất kho thủ công");
       alert("✅ Xuất kho thành công!");
       await loadParts();
+      await loadTransactions();
     } catch (e) {
       alert("❌ Lỗi khi xuất kho!");
       console.error(e);
@@ -777,6 +789,51 @@ function Admin() {
                 </tbody>
               </table>
           )}
+          <h3 className="text-lg font-semibold text-gray-900 mt-8 mb-4">
+            Lịch sử nhập / xuất kho
+          </h3>
+
+          {transactions.length === 0 ? (
+              <p className="text-gray-500 text-sm">Chưa có giao dịch nào.</p>
+          ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã phụ tùng</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại giao dịch</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số lượng</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người thực hiện</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ghi chú</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thời gian</th>
+                  </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map(tx => (
+                      <tr key={tx.txnId}>
+                        <td className="px-6 py-4 text-sm">{tx.part?.partCode ?? "—"}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {tx.type === "IMPORT" ? (
+                              <span className="text-green-600 font-medium">Nhập kho</span>
+                          ) : tx.type === "EXPORT" ? (
+                              <span className="text-yellow-600 font-medium">Xuất kho</span>
+                          ) : (
+                              <span className="text-blue-600 font-medium">Điều chỉnh</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm">{tx.quantity}</td>
+                        <td className="px-6 py-4 text-sm">{tx.createdByStaffId ?? "N/A"}</td>
+                        <td className="px-6 py-4 text-sm">{tx.note ?? "—"}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {new Date(tx.createdAt).toLocaleString("vi-VN")}
+                        </td>
+                      </tr>
+                  ))}
+                  </tbody>
+                </table>
+              </div>
+          )}
+
         </div>
 
         {showPartModal && (

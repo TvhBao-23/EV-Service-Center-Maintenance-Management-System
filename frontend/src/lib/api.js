@@ -230,8 +230,10 @@ export const partsAPI = {
   getPart: (id) => apiCall(`${API_BASE_URLS.parts}/parts/${id}`),
 
   getInventories: () => apiCall(`${API_BASE_URLS.parts}/inventory`),
-  getInventoryByPart: (partId) =>
-      apiCall(`${API_BASE_URLS.parts}/inventory/${partId}`),
+  getInventoryByPart: (partId) =>  apiCall(`${API_BASE_URLS.parts}/inventory/${partId}`),
+
+  getTransactions: () => apiCall(`${API_BASE_URLS.parts}/transactions`),
+  getTransactionsByPart: (partId) => apiCall(`${API_BASE_URLS.parts}/transactions/part/${partId}`),
 
   initInventory: (partId, initialQty = 0, minStockLevel = 5) =>
       apiCall(
