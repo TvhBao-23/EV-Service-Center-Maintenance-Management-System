@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.domain.Customer;
 import spring.api.customerservice.domain.CustomerSubscription;
 import spring.api.customerservice.domain.ServicePackage;
 import spring.api.customerservice.domain.User;
+import spring.api.customerservice.repository.CustomerRepository;
 import spring.api.customerservice.service.SubscriptionService;
 
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class SubscriptionController {
     private final SubscriptionService subscriptionService;
+    private final CustomerRepository customerRepository;
     
     @GetMapping("/packages")
     public ResponseEntity<List<ServicePackage>> getAvailablePackages() {
@@ -35,29 +38,37 @@ public class SubscriptionController {
     public ResponseEntity<Map<String, Object>> subscribe(
             @PathVariable Long packageId,
             Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Vui lòng đăng nhập để đăng ký gói dịch vụ");
+        try {
+            // Development mode: use first customer or create new one
+            CustomerSubscription subscription = subscriptionService.subscribeWithoutAuth(packageId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Đăng ký gói dịch vụ thành công");
+            response.put("subscription", subscription);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error subscribing: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(400).body(Map.of(
+                "message", "Lỗi khi đăng ký: " + e.getMessage()
+            ));
         }
-        User user = (User) authentication.getPrincipal();
-        Long customerId = user.getUserId();
-        
-        CustomerSubscription subscription = subscriptionService.subscribe(customerId, packageId);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Đăng ký gói dịch vụ thành công");
-        response.put("subscription", subscription);
-        
-        return ResponseEntity.ok(response);
     }
     
     @GetMapping("/my-subscriptions")
     public ResponseEntity<List<CustomerSubscription>> getMySubscriptions(Authentication authentication) {
+        System.out.println("🔍 GET my-subscriptions - Authentication: " + (authentication != null ? authentication.getName() : "NULL"));
         if (authentication == null) {
+            System.out.println("⚠️ Authentication is null, returning empty list");
             return ResponseEntity.ok(new ArrayList<>());
         }
         User user = (User) authentication.getPrincipal();
         Long customerId = user.getUserId();
-        return ResponseEntity.ok(subscriptionService.getCustomerSubscriptions(customerId));
+        System.out.println("👤 Customer ID: " + customerId);
+        List<CustomerSubscription> subscriptions = subscriptionService.getCustomerSubscriptions(customerId);
+        System.out.println("📋 Found " + subscriptions.size() + " subscriptions");
+        return ResponseEntity.ok(subscriptions);
     }
     
     @GetMapping("/active")
@@ -74,15 +85,22 @@ public class SubscriptionController {
     public ResponseEntity<Map<String, String>> cancelSubscription(
             @PathVariable Long subscriptionId,
             Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Vui lòng đăng nhập để hủy gói dịch vụ");
+        try {
+            // Development mode: allow cancel without auth
+            System.out.println("Cancelling subscription " + subscriptionId);
+            subscriptionService.cancelSubscription(subscriptionId);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Hủy gói dịch vụ thành công");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error cancelling subscription: " + e.getMessage());
+            e.printStackTrace();
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Lỗi khi hủy gói: " + e.getMessage());
+            return ResponseEntity.status(400).body(errorResponse);
         }
-        subscriptionService.cancelSubscription(subscriptionId);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Hủy gói dịch vụ thành công");
-        
-        return ResponseEntity.ok(response);
     }
 }
 

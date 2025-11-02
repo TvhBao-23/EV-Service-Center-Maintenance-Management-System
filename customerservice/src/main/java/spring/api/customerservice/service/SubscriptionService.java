@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import spring.api.customerservice.domain.*;
+import spring.api.customerservice.repository.CustomerRepository;
 import spring.api.customerservice.repository.CustomerSubscriptionRepository;
 import spring.api.customerservice.repository.ServicePackageRepository;
 
@@ -15,6 +16,7 @@ import java.util.List;
 public class SubscriptionService {
     private final ServicePackageRepository packageRepository;
     private final CustomerSubscriptionRepository subscriptionRepository;
+    private final CustomerRepository customerRepository;
     
     public List<ServicePackage> getAllActivePackages() {
         return packageRepository.findByActiveTrue();
@@ -38,6 +40,19 @@ public class SubscriptionService {
         subscription.setStatus(SubscriptionStatus.ACTIVE);
         
         return subscriptionRepository.save(subscription);
+    }
+    
+    @Transactional
+    public CustomerSubscription subscribeWithoutAuth(Long packageId) {
+        // Development mode: use first customer or create new one
+        Customer customer = customerRepository.findAll().stream().findFirst()
+                .orElseGet(() -> {
+                    Customer newCustomer = new Customer();
+                    newCustomer.setUserId(1L);
+                    return customerRepository.save(newCustomer);
+                });
+        
+        return subscribe(customer.getCustomerId(), packageId);
     }
     
     public List<CustomerSubscription> getCustomerSubscriptions(Long customerId) {
