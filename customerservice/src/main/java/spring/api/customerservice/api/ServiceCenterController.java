@@ -9,18 +9,18 @@ import spring.api.customerservice.repository.ServiceCenterRepository;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/customer/service-centers")
+@RequestMapping("/api/customers/service-centers")
 @RequiredArgsConstructor
 public class ServiceCenterController {
 
     private final ServiceCenterRepository serviceCenterRepository;
 
-    @GetMapping
+    @GetMapping(produces = "application/json;charset=UTF-8")
     public ResponseEntity<List<ServiceCenter>> getAllServiceCenters() {
         return ResponseEntity.ok(serviceCenterRepository.findAll());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(value = "/{id}", produces = "application/json;charset=UTF-8")
     public ResponseEntity<?> getServiceCenter(@PathVariable Long id) {
         ServiceCenter center = serviceCenterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Service center not found"));

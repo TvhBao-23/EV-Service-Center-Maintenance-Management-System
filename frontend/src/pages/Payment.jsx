@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { paymentAPI, customerAPI } from '../lib/api.js'
 import { loadList, saveList, upsertItem, loadGlobalList } from '../lib/store.js'
+import { formatDate, toDateObject } from '../utils/dateUtils.js'
 
 function Payment() {
   const { user, isAuthenticated } = useAuth()
@@ -364,7 +365,7 @@ function Payment() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                         <h4 className="font-semibold text-gray-900">{appointment.serviceName}</h4>
-                        <p className="text-sm text-gray-600">Ngày: {new Date(appointment.appointmentDate).toLocaleDateString()}</p>
+                        <p className="text-sm text-gray-600">Ngày: {formatDate(appointment.appointmentDate) || 'N/A'}</p>
                         {appointment.notes && (
                           <p className="text-sm text-gray-600">Ghi chú: {appointment.notes}</p>
                         )}
@@ -419,7 +420,7 @@ function Payment() {
                           <h4 className="font-medium text-green-900">Hóa đơn đã chọn</h4>
                         </div>
                         <p className="text-sm font-semibold text-gray-900 mt-1">{selectedAppointment.serviceName}</p>
-                        <p className="text-sm text-gray-600">{new Date(selectedAppointment.appointmentDate).toLocaleDateString()}</p>
+                        <p className="text-sm text-gray-600">{formatDate(selectedAppointment.appointmentDate) || 'N/A'}</p>
                       </div>
                       
                       <div className="flex justify-between items-center mb-4 bg-gray-50 p-3 rounded-lg">

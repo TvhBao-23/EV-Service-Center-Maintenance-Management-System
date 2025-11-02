@@ -1,8 +1,12 @@
 -- EV Service Center Database Schema
 -- Created for AuthService and CustomerService
 
+-- Set charset to UTF-8
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 -- Create database if not exists
-CREATE DATABASE IF NOT EXISTS ev_service_center;
+CREATE DATABASE IF NOT EXISTS ev_service_center CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE ev_service_center;
 
 -- Users table for authentication
@@ -35,7 +39,7 @@ CREATE TABLE IF NOT EXISTS service_centers (
     phone VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Services table
 CREATE TABLE IF NOT EXISTS services (
@@ -46,7 +50,7 @@ CREATE TABLE IF NOT EXISTS services (
     base_price DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Vehicles table
 CREATE TABLE IF NOT EXISTS vehicles (

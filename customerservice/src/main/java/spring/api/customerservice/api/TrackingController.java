@@ -14,7 +14,7 @@ import spring.api.customerservice.service.AppointmentService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/customer/tracking")
+@RequestMapping("/api/customers/tracking")
 @RequiredArgsConstructor
 public class TrackingController {
 

@@ -9,7 +9,7 @@ import spring.api.customerservice.repository.ServiceRepository;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/customer/services")
+@RequestMapping("/api/customers/services")
 @RequiredArgsConstructor
 public class ServiceController {
 

@@ -30,18 +30,24 @@ function ForgotPassword() {
         return
       }
 
-      // Generate OTP (6 digits)
-      const otp = Math.floor(100000 + Math.random() * 900000).toString()
-      setGeneratedOTP(otp)
+      // Call backend API to send OTP
+      const response = await authAPI.sendOTP(email)
       
-      // Simulate sending email (in real app, backend will send email)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      setStep(2)
-      setMessage(`Mã OTP đã được gửi đến ${email}. Mã OTP: ${otp}`)
-      setMessageType('success')
+      if (response.success) {
+        // Store OTP for demo (backend returns it for testing)
+        if (response.otp) {
+          setGeneratedOTP(response.otp)
+        }
+        
+        setStep(2)
+        setMessage(`Mã OTP đã được gửi đến ${email}${response.otp ? '. Mã OTP: ' + response.otp : ''}`)
+        setMessageType('success')
+      } else {
+        setMessage(response.error || 'Không thể gửi mã OTP')
+        setMessageType('error')
+      }
     } catch (error) {
-      setMessage('Có lỗi xảy ra. Vui lòng thử lại sau.')
+      setMessage(error.message || 'Email không tồn tại trong hệ thống. Vui lòng đăng ký hoặc dùng email đã tạo tài khoản.')
       setMessageType('error')
     } finally {
       setIsLoading(false)
@@ -55,19 +61,19 @@ function ForgotPassword() {
     setMessage('')
     
     try {
-      if (otp !== generatedOTP) {
-        setMessage('Mã OTP không chính xác!')
-        setMessageType('error')
-        setIsLoading(false)
-        return
-      }
+      // Call backend API to verify OTP
+      const response = await authAPI.verifyOTP(email, otp)
       
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setStep(3)
-      setMessage('Xác thực thành công! Vui lòng nhập mật khẩu mới.')
-      setMessageType('success')
+      if (response.success) {
+        setStep(3)
+        setMessage('Xác thực thành công! Vui lòng nhập mật khẩu mới.')
+        setMessageType('success')
+      } else {
+        setMessage(response.error || 'Mã OTP không chính xác!')
+        setMessageType('error')
+      }
     } catch (error) {
-      setMessage('Có lỗi xảy ra. Vui lòng thử lại sau.')
+      setMessage(error.message || 'Mã OTP không chính xác!')
       setMessageType('error')
     } finally {
       setIsLoading(false)
@@ -95,49 +101,22 @@ function ForgotPassword() {
         setIsLoading(false)
         return
       }
-      // Local-first reset: update password in localStorage users by email
-      const users = JSON.parse(localStorage.getItem('users') || '[]')
-      const idx = users.findIndex(u => u.email === email)
-      if (idx === -1) {
-        setMessage('Email không tồn tại trong hệ thống. Vui lòng đăng ký hoặc dùng email đã tạo tài khoản.')
-        setMessageType('error')
-        setIsLoading(false)
-        return
-      }
 
-      // Update password for existing user only (không tạo tài khoản mới)
-      const existingUser = users[idx]
-      users[idx] = { ...existingUser, password: newPassword }
-
-      // Deduplicate any stale duplicates by email, keep the first occurrence (the updated one)
-      const seen = new Set()
-      const deduped = []
-      for (const u of users) {
-        if (!seen.has(u.email)) {
-          seen.add(u.email)
-          deduped.push(u)
-        }
-      }
-      localStorage.setItem('users', JSON.stringify(deduped))
-
-      // Nếu đang đăng nhập đúng email này, đồng bộ mật khẩu trong localStorage.user
-      const storedUser = JSON.parse(localStorage.getItem('user') || 'null')
-      if (storedUser && storedUser.email === email) {
-        // Sync full record from deduped DB to ensure id/customerId remain consistent
-        const db = JSON.parse(localStorage.getItem('users') || '[]')
-        const fresh = db.find(u => u.email === email) || storedUser
-        localStorage.setItem('user', JSON.stringify({ ...storedUser, ...fresh, password: newPassword }))
-      }
-
-      // Bỏ gọi backend ở flow quên mật khẩu để tránh tạo/sai lệch dữ liệu
-
-      setMessage('Đổi mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.')
-      setMessageType('success')
+      // Call backend API to reset password
+      const response = await authAPI.resetPassword(email, otp, newPassword)
       
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        navigate('/login')
-      }, 2000)
+      if (response.success) {
+        setMessage('Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.')
+        setMessageType('success')
+        
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          navigate('/login')
+        }, 2000)
+      } else {
+        setMessage(response.error || 'Không thể đặt lại mật khẩu')
+        setMessageType('error')
+      }
     } catch (error) {
       setMessage(error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.')
       setMessageType('error')

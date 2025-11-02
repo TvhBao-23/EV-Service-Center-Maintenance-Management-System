@@ -1,5 +1,7 @@
 package spring.api.customerservice.domain;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
@@ -36,15 +38,18 @@ public class Vehicle {
     private Integer odometerKm;
 
     @Column(name = "last_service_date")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate lastServiceDate;
 
     @Column(name = "last_service_km")
     private Integer lastServiceKm;
 
     @Column(name = "created_at")
+    @JsonIgnore
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
+    @JsonIgnore
     private LocalDateTime updatedAt;
 }
 

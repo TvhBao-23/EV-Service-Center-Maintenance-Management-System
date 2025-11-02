@@ -5,10 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import spring.api.authservice.api.dto.AuthResponse;
-import spring.api.authservice.api.dto.ChangePasswordRequest;
-import spring.api.authservice.api.dto.LoginRequest;
-import spring.api.authservice.api.dto.RegisterRequest;
+import spring.api.authservice.api.dto.*;
 import spring.api.authservice.service.AuthService;
 
 import java.util.Map;
@@ -62,5 +59,54 @@ public class AuthController {
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "OK", "service", "authservice"));
+    }
+    
+    // Forgot password endpoints
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<?> sendOTP(@RequestBody ForgotPasswordRequest request) {
+        try {
+            String otp = authService.sendOTP(request.email());
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Mã OTP đã được gửi đến email của bạn",
+                "otp", otp  // For demo only, remove in production
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyOTP(@RequestBody VerifyOtpRequest request) {
+        try {
+            boolean isValid = authService.verifyOTP(request.email(), request.otp());
+            if (isValid) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Xác thực OTP thành công"
+                ));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "error", "OTP không chính xác"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        try {
+            authService.resetPasswordWithOTP(request.email(), request.otp(), request.newPassword());
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đặt lại mật khẩu thành công"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "error", e.getMessage()));
+        }
     }
 }

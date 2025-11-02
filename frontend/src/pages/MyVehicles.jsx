@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { customerAPI } from '../lib/api.js'
+import { formatDate } from '../utils/dateUtils.js'
 
 function AddEditVehicleModal({ open, onClose, initial, onSave }) {
   const [form, setForm] = useState(() => initial || { 
@@ -434,7 +435,7 @@ function MyVehicles() {
                     </div>
                   )}
                   {vehicle.lastServiceDate && (
-                    <p><span className="font-medium">Bảo dưỡng cuối:</span> {new Date(vehicle.lastServiceDate).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Bảo dưỡng cuối:</span> {formatDate(vehicle.lastServiceDate) || 'N/A'}</p>
                   )}
                 </div>
                 <div className="flex justify-end space-x-3 mt-4">

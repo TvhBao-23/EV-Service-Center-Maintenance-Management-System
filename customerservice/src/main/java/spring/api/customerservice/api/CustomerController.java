@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/customer")
+@RequestMapping("/api/customers")
 @RequiredArgsConstructor
 public class CustomerController {
 

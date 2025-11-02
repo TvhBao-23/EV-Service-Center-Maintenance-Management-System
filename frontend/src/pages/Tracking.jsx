@@ -3,6 +3,8 @@ import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { customerAPI } from '../lib/api.js'
 import { loadList, loadGlobalList } from '../lib/store.js'
+import MaintenanceTimeline from '../components/MaintenanceTimeline.jsx'
+import { formatDate, toDateObject, isValidDate } from '../utils/dateUtils.js'
 
 function Tracking() {
   const location = useLocation()
@@ -12,8 +14,9 @@ function Tracking() {
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [sortBy, setSortBy] = useState('date')
-  const [editingKm, setEditingKm] = useState(null)
-  const [newKm, setNewKm] = useState('')
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'timeline'
+  const [services, setServices] = useState([])
+  const [serviceCenters, setServiceCenters] = useState([])
 
   const params = new URLSearchParams(location.search)
   const success = params.get('success') === '1'
@@ -48,14 +51,22 @@ function Tracking() {
             const userVehicleIds = localVehicles.map(v => v.vehicleId || v.id)
             return userVehicleIds.includes(booking.vehicleId)
           })
-          const mappedAppointments = userBookings.map(booking => ({
-            ...booking,
-            appointmentId: booking.appointmentId,
-            vehicleId: booking.vehicleId,
-            requestedDateTime: booking.appointmentDate,
-            notes: booking.notes,
-            status: mapAdminStatusToTracking(booking.status)
-          }))
+          const mappedAppointments = userBookings.map(booking => {
+            // Handle date conversion for localStorage bookings
+            const dateValue = booking.appointmentDate || booking.requestedDateTime
+            const parsedDate = toDateObject(dateValue)
+            const finalDateValue = parsedDate ? parsedDate.toISOString() : null
+            
+            return {
+              ...booking,
+              appointmentId: booking.appointmentId,
+              vehicleId: booking.vehicleId,
+              appointmentDate: finalDateValue,
+              requestedDateTime: finalDateValue,
+              notes: booking.notes,
+              status: mapAdminStatusToTracking(booking.status)
+            }
+          })
           setAppointments(mappedAppointments)
           console.log('[Tracking] Updated appointments only, vehicles unchanged')
         }, 100)
@@ -86,19 +97,76 @@ function Tracking() {
       // Load appointments - API only
       const userBookings = await customerAPI.getAppointments()
       console.log('[Tracking] Appointments from API:', userBookings)
+      
+      // Log first appointment in detail to see structure
+      if (userBookings && userBookings.length > 0) {
+        console.log('[Tracking] First appointment detail:', JSON.stringify(userBookings[0], null, 2))
+      }
+      
+      // Load services for timeline
+      const servicesData = await customerAPI.getServices()
+      setServices(servicesData)
+
+      // Load service centers
+      const centersData = await customerAPI.getServiceCenters()
+      console.log('[Tracking] Service centers from API:', centersData)
+      setServiceCenters(centersData)
 
       // Map status from Admin format to Tracking format
-      const mappedAppointments = userBookings.map(booking => ({
-        ...booking,
-        appointmentId: booking.appointmentId,
-        vehicleId: booking.vehicleId,
-        requestedDateTime: booking.appointmentDate || booking.requestedDateTime,
-        notes: booking.notes,
-        status: mapAdminStatusToTracking(booking.status)
-      }))
+      const mappedAppointments = userBookings.map(booking => {
+        // Handle date field - API might return appointmentDate, requestedDateTime, or requested_date_time
+        const dateValue = booking.appointmentDate || booking.requestedDateTime || booking.requested_date_time
+        
+        // Debug logging
+        console.log('[Tracking] Processing appointment:', {
+          appointmentId: booking.appointmentId,
+          dateValue,
+          dateValueType: typeof dateValue,
+          isArray: Array.isArray(dateValue)
+        })
+        
+        // Parse the date to Date object for consistent handling
+        const parsedDate = toDateObject(dateValue)
+        
+        // Log the result
+        if (!parsedDate && dateValue) {
+          console.warn('[Tracking] Invalid date detected for appointment:', {
+            appointmentId: booking.appointmentId,
+            dateValue,
+            willUseNull: true
+          })
+        }
+        
+        // Convert to ISO string for consistent storage
+        // This ensures all date operations work correctly
+        const finalDateValue = parsedDate ? parsedDate.toISOString() : null
+        
+        // Map centerId to centerName
+        const center = centersData.find(c => c.centerId === booking.centerId)
+        const centerName = center ? center.name : 'Trung tâm không xác định'
+        
+        return {
+          ...booking,
+          appointmentId: booking.appointmentId,
+          vehicleId: booking.vehicleId,
+          centerId: booking.centerId,
+          centerName: centerName,
+          // Store both appointmentDate and requestedDateTime for compatibility
+          // Use ISO string format for consistent date handling
+          appointmentDate: finalDateValue,
+          requestedDateTime: finalDateValue,
+          notes: booking.notes,
+          status: mapAdminStatusToTracking(booking.status)
+        }
+      })
 
       setAppointments(mappedAppointments)
       console.log('[Tracking] Mapped appointments set to state:', mappedAppointments)
+      
+      // Log first mapped appointment in detail
+      if (mappedAppointments && mappedAppointments.length > 0) {
+        console.log('[Tracking] First mapped appointment detail:', JSON.stringify(mappedAppointments[0], null, 2))
+      }
     } catch (error) {
       console.error('[Tracking] Error loading data:', error)
     } finally {
@@ -132,9 +200,9 @@ function Tracking() {
     // Find pending or confirmed appointments
     const activeAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed')
     if (activeAppointments.length > 0) {
-      return activeAppointments.sort((a,b)=> new Date(b.requestedDateTime) - new Date(a.requestedDateTime))[0]
+      return activeAppointments.sort((a,b)=> toDateObject(b.requestedDateTime) - toDateObject(a.requestedDateTime))[0]
     }
-    return appointments.sort((a,b)=> new Date(b.requestedDateTime) - new Date(a.requestedDateTime))[0] || null
+    return appointments.sort((a,b)=> toDateObject(b.requestedDateTime) - toDateObject(a.requestedDateTime))[0] || null
   }, [appointments])
 
   const currentVehicle = useMemo(() => {
@@ -159,7 +227,7 @@ function Tracking() {
     filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'date':
-          return new Date(b.requestedDateTime) - new Date(a.requestedDateTime)
+          return toDateObject(b.requestedDateTime) - toDateObject(a.requestedDateTime)
         case 'status':
           const statusOrder = { 'pending': 0, 'confirmed': 1, 'completed': 2, 'cancelled': 3 }
           return statusOrder[a.status] - statusOrder[b.status]
@@ -198,8 +266,7 @@ function Tracking() {
         a.vehicleId === vehicleId && a.status === 'completed'
       )
       if (completedAppointments.length) {
-        const d = new Date(completedAppointments[completedAppointments.length - 1].requestedDateTime)
-        return isNaN(d.getTime()) ? null : d
+        return toDateObject(completedAppointments[completedAppointments.length - 1].requestedDateTime)
       }
       const v = vehicles.find(v => v.vehicleId === vehicleId)
       if (v?.year) {
@@ -319,33 +386,6 @@ function Tracking() {
     return items.sort((a, b) => b.urgencyScore - a.urgencyScore)
   }, [vehicles, appointments])
 
-  // Update vehicle km
-  const handleUpdateKm = (vehicleId) => {
-    const vehicle = vehicles.find(v => v.vehicleId === vehicleId)
-    if (!vehicle) return
-
-    setEditingKm(vehicleId)
-    setNewKm(vehicle.odometerKm || '')
-  }
-
-  const handleSaveKm = async (vehicleId) => {
-    if (!newKm || isNaN(Number(newKm))) return
-
-    try {
-      await customerAPI.updateVehicle(vehicleId, { odometerKm: Number(newKm) })
-      loadData() // Reload data from backend
-    setEditingKm(null)
-    setNewKm('')
-    } catch (error) {
-      console.error('Error updating vehicle km:', error)
-    }
-  }
-
-  const handleCancelKm = () => {
-    setEditingKm(null)
-    setNewKm('')
-  }
-
   // Read-only for customer; statuses are shown but not editable here.
 
   return (
@@ -356,7 +396,7 @@ function Tracking() {
         {success && currentVehicle && (
           <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
             <p className="font-medium">Đặt lịch thành công!</p>
-            <p className="text-sm mt-1">Xe {currentVehicle.model} ({currentVehicle.vin}) đã được đặt lịch vào {new Date(currentAppointment?.requestedDateTime).toLocaleDateString()}.</p>
+            <p className="text-sm mt-1">Xe {currentVehicle.model} ({currentVehicle.vin}) đã được đặt lịch vào {formatDate(currentAppointment?.requestedDateTime) || 'ngày không xác định'}.</p>
           </div>
         )}
 
@@ -476,7 +516,7 @@ function Tracking() {
                     <p className="text-gray-900 font-medium">{v.model}</p>
                     <p className="text-sm text-gray-600">VIN: {v.vin}</p>
                     <p className="text-sm text-gray-600 mt-1">Lịch đặt: #{appointment.appointmentId}</p>
-                    <p className="text-sm text-gray-600">Thời gian: {new Date(appointment.requestedDateTime).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-600">Thời gian: {formatDate(appointment.requestedDateTime) || 'Ngày không xác định'}</p>
                     <span className={`inline-block mt-3 px-2 py-1 text-xs font-semibold rounded-full ${badge}`}>{label}</span>
                   </div>
                 )
@@ -484,6 +524,41 @@ function Tracking() {
             </div>
           )}
         </div>
+
+        {/* Vehicle Information & Km Display (Read-only) - HIDDEN */}
+        {false && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin xe & Cập nhật km</h3>
+          {vehicles.length === 0 ? (
+            <p className="text-gray-600">Chưa có xe nào được đăng ký.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {vehicles.map((vehicle) => (
+                <div key={vehicle.vehicleId} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm text-gray-600">Xe</p>
+                      <p className="font-semibold text-gray-900">{vehicle.brand} {vehicle.model}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Năm sản xuất</p>
+                      <p className="text-gray-900">{vehicle.year || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">VIN</p>
+                      <p className="text-gray-900 font-mono text-sm">{vehicle.vin}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Km hiện tại</p>
+                      <p className="text-gray-900 font-semibold">{Number(vehicle.odometerKm || 0).toLocaleString()} km</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        )}
 
         {/* Vehicle Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -509,75 +584,45 @@ function Tracking() {
           </div>
         </div>
 
-        {/* Vehicle List with KM Update */}
-        {vehicles.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin xe & Cập nhật km</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {vehicles.map((vehicle) => (
-                <div key={vehicle.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium text-gray-900">{vehicle.model}</p>
-                      <p className="text-sm text-gray-600">VIN: {vehicle.vin}</p>
-                    </div>
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {vehicle.year || 'N/A'}
-                    </span>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Km hiện tại
-                    </label>
-                    {editingKm === vehicle.vehicleId ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          value={newKm}
-                          onChange={(e) => setNewKm(e.target.value)}
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="Nhập km"
-                        />
-                        <button
-                          onClick={() => handleSaveKm(vehicle.vehicleId)}
-                          className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700"
-                        >
-                          Lưu
-                        </button>
-                        <button
-                          onClick={handleCancelKm}
-                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600"
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold text-gray-900">
-                          {vehicle.odometerKm ? vehicle.odometerKm.toLocaleString() : 'Chưa cập nhật'} km
-                        </span>
-                        <button
-                          onClick={() => handleUpdateKm(vehicle.vehicleId)}
-                          className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                        >
-                          Cập nhật
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="bg-white rounded-lg shadow-md p-6 mt-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Danh sách lịch đặt</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {viewMode === 'list' ? 'Danh sách lịch đặt' : 'Timeline Bảo Dưỡng'}
+            </h3>
             
             {/* Filters and Sort */}
             <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
+              {/* View Mode Toggle */}
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Xem dạng danh sách"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'timeline'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Xem dạng timeline"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
+              
               <div className="flex gap-2">
                 <select
                   value={filterStatus}
@@ -604,7 +649,17 @@ function Tracking() {
             </div>
           </div>
 
-          {filteredAppointments.length === 0 ? (
+          {viewMode === 'timeline' ? (
+            <MaintenanceTimeline 
+              appointments={filteredAppointments.map(apt => ({
+                ...apt,
+                appointmentDate: apt.requestedDateTime
+              }))}
+              vehicles={vehicles}
+              services={services}
+              serviceCenters={serviceCenters}
+            />
+          ) : filteredAppointments.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-600">
                 {appointments.length === 0 
@@ -643,7 +698,7 @@ function Tracking() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">#{appointment.appointmentId}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {new Date(appointment.requestedDateTime).toLocaleDateString()}
+                          {formatDate(appointment.requestedDateTime) || 'Ngày không xác định'}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{appointment.notes || '-'}</td>
                         <td className="px-4 py-3 text-sm">

@@ -10,6 +10,7 @@ import Tracking from './pages/Tracking.jsx'
 import Booking from './pages/Booking.jsx'
 import Payment from './pages/Payment.jsx'
 import PersonalProfile from './pages/PersonalProfile.jsx'
+import Subscriptions from './pages/Subscriptions.jsx'
 import Technician from './pages/Technician.jsx'
 import Staff from './pages/Staff.jsx'
 import Admin from './pages/Admin.jsx'
@@ -35,6 +36,7 @@ function App() {
           <Route path="/tracking" element={<Tracking />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/payment" element={<Payment />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="/personal-profile" element={<PersonalProfile />} />
         </Route>
         

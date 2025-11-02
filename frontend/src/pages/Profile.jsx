@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { customerAPI, paymentAPI } from '../lib/api.js'
+import { exportPaymentHistoryToPDF, exportServiceHistoryToExcel, exportVehicleMaintenanceToPDF } from '../utils/exportUtils.js'
 
 function Profile() {
   const navigate = useNavigate()
@@ -17,6 +18,34 @@ function Profile() {
 
   const handlePaymentClick = () => {
     navigate('/payment')
+  }
+
+  // Export handlers
+  const handleExportPaymentPDF = () => {
+    const result = exportPaymentHistoryToPDF(payments, user, statistics)
+    if (result.success) {
+      alert(`✅ Xuất PDF thành công: ${result.fileName}`)
+    } else {
+      alert(`❌ Lỗi xuất PDF: ${result.error}`)
+    }
+  }
+
+  const handleExportServiceExcel = () => {
+    const result = exportServiceHistoryToExcel(appointments, payments, user)
+    if (result.success) {
+      alert(`✅ Xuất Excel thành công: ${result.fileName}`)
+    } else {
+      alert(`❌ Lỗi xuất Excel: ${result.error}`)
+    }
+  }
+
+  const handleExportVehiclePDF = () => {
+    const result = exportVehicleMaintenanceToPDF(vehicles, appointments, statistics)
+    if (result.success) {
+      alert(`✅ Xuất báo cáo xe thành công: ${result.fileName}`)
+    } else {
+      alert(`❌ Lỗi xuất báo cáo: ${result.error}`)
+    }
   }
 
   useEffect(() => {
@@ -49,10 +78,32 @@ function Profile() {
   
   const totalServices = payments.filter(p => p.status === 'completed').length
   
+  // Calculate cost by vehicle
+  const costByVehicle = payments
+    .filter(p => p.status === 'completed')
+    .reduce((acc, payment) => {
+      // Group by appointment -> vehicle
+      const appointment = appointments.find(a => a.appointmentId === payment.appointmentId)
+      if (appointment?.vehicleId) {
+        const vehicleId = appointment.vehicleId
+        if (!acc[vehicleId]) {
+          acc[vehicleId] = {
+            vehicleId,
+            totalCost: 0,
+            serviceCount: 0
+          }
+        }
+        acc[vehicleId].totalCost += Number(payment.amount) || 0
+        acc[vehicleId].serviceCount += 1
+      }
+      return acc
+    }, {})
+  
   const statistics = {
     totalCost,
     totalServices,
-    avgCostPerService: totalServices > 0 ? Math.round(totalCost / totalServices) : 0
+    avgCostPerService: totalServices > 0 ? Math.round(totalCost / totalServices) : 0,
+    costByVehicle: Object.values(costByVehicle) || []
   }
 
   if (loading) {
@@ -132,8 +183,45 @@ function Profile() {
 
         {/* Payment History */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Lịch sử thanh toán</h3>
-          
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">Lịch sử thanh toán</h3>
+              <div className="flex gap-2">
+                <button
+                onClick={handleExportPaymentPDF}
+                disabled={payments.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                title="Xuất PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                PDF
+              </button>
+              <button
+                onClick={handleExportServiceExcel}
+                disabled={appointments.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                title="Xuất Excel"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+                </button>
+                <button
+                onClick={handleExportVehiclePDF}
+                disabled={vehicles.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                title="Xuất báo cáo xe"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Báo cáo xe
+                </button>
+            </div>
+          </div>
+
           {payments.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">

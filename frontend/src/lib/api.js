@@ -1,10 +1,11 @@
 // API Service Layer - Kết nối với Backend Services
+// Direct connection to microservices (API Gateway not implemented yet)
 
 const API_BASE_URLS = {
-  auth: 'http://localhost:8081/api/auth',
-  customer: 'http://localhost:8082/api/customer',
-  staff: 'http://localhost:8083/api/staff',
-  payment: 'http://localhost:8084/api/payment'
+  auth: 'http://localhost:8080/api/auth',
+  customer: 'http://localhost:8080/api/customers',
+  staff: 'http://localhost:8080/api/staff',
+  payment: 'http://localhost:8080/api/payments'
 }
 
 // Helper function để lấy token từ localStorage
@@ -144,6 +145,60 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword })
     })
+  },
+  
+  // Forgot password - Send OTP
+  sendOTP: async (email) => {
+    const response = await fetch(`${API_BASE_URLS.auth}/forgot-password/send-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to send OTP')
+    }
+    
+    return await response.json()
+  },
+  
+  // Forgot password - Verify OTP
+  verifyOTP: async (email, otp) => {
+    const response = await fetch(`${API_BASE_URLS.auth}/forgot-password/verify-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, otp })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to verify OTP')
+    }
+    
+    return await response.json()
+  },
+  
+  // Forgot password - Reset password
+  resetPassword: async (email, otp, newPassword) => {
+    const response = await fetch(`${API_BASE_URLS.auth}/forgot-password/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, otp, newPassword })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to reset password')
+    }
+    
+    return await response.json()
   }
 }
 
@@ -175,11 +230,19 @@ export const customerAPI = {
     })
   },
 
-  // Cập nhật xe
+  // Cập nhật xe (toàn bộ)
   updateVehicle: (vehicleId, vehicleData) => {
     return apiCall(`${API_BASE_URLS.customer}/vehicles/${vehicleId}`, {
       method: 'PUT',
       body: JSON.stringify(vehicleData)
+    })
+  },
+
+  // Cập nhật xe (từng phần - dùng cho cập nhật km)
+  patchVehicle: (vehicleId, partialData) => {
+    return apiCall(`${API_BASE_URLS.customer}/vehicles/${vehicleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(partialData)
     })
   },
 

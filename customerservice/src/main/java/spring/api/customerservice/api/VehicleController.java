@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/customer/vehicles")
+@RequestMapping("/api/customers/vehicles")
 @RequiredArgsConstructor
 public class VehicleController {
 
@@ -111,6 +111,40 @@ public class VehicleController {
         vehicle.setLastServiceKm(dto.lastServiceKm());
         vehicle.setUpdatedAt(LocalDateTime.now());
         
+        Vehicle saved = vehicleRepository.save(vehicle);
+        
+        return ResponseEntity.ok(saved);
+    }
+
+    // PATCH endpoint for partial updates (e.g., odometer only)
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> patchVehicle(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> updates) {
+        
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+        
+        // Update only provided fields
+        if (updates.containsKey("odometerKm")) {
+            Object kmValue = updates.get("odometerKm");
+            if (kmValue instanceof Number) {
+                vehicle.setOdometerKm(((Number) kmValue).intValue());
+            }
+        }
+        
+        if (updates.containsKey("lastServiceKm")) {
+            Object kmValue = updates.get("lastServiceKm");
+            if (kmValue instanceof Number) {
+                vehicle.setLastServiceKm(((Number) kmValue).intValue());
+            }
+        }
+        
+        if (updates.containsKey("lastServiceDate")) {
+            // Handle date if needed
+        }
+        
+        vehicle.setUpdatedAt(LocalDateTime.now());
         Vehicle saved = vehicleRepository.save(vehicle);
         
         return ResponseEntity.ok(saved);

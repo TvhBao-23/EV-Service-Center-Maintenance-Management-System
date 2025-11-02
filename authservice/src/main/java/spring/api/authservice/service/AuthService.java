@@ -17,6 +17,9 @@ import spring.api.authservice.repository.CustomerRepository;
 import spring.api.authservice.repository.UserRepository;
 import spring.api.authservice.service.JwtService;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -26,6 +29,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    
+    // In-memory OTP storage (in production, use Redis or database)
+    private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
 
     public AuthResponse register(RegisterRequest request) {
         // Check if user already exists
@@ -91,5 +97,61 @@ public class AuthService {
         // Update to new password
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+    }
+
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
+
+    public void resetPassword(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+    
+    // Forgot password methods
+    public String sendOTP(String email) {
+        // Check if user exists
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
+        
+        // Generate 6-digit OTP
+        String otp = String.format("%06d", (int)(Math.random() * 1000000));
+        
+        // Store OTP (in production, set expiry time and use Redis)
+        otpStorage.put(email, otp);
+        
+        // TODO: Send email with OTP (integrate with email service)
+        System.out.println("OTP for " + email + ": " + otp);
+        
+        return otp; // Return for demo, remove in production
+    }
+    
+    public boolean verifyOTP(String email, String otp) {
+        String storedOtp = otpStorage.get(email);
+        if (storedOtp == null) {
+            throw new RuntimeException("OTP không tồn tại hoặc đã hết hạn");
+        }
+        // Don't remove OTP here - it will be removed after password reset
+        return storedOtp.equals(otp);
+    }
+    
+    public void resetPasswordWithOTP(String email, String otp, String newPassword) {
+        // Verify OTP first
+        if (!verifyOTP(email, otp)) {
+            throw new RuntimeException("OTP không chính xác");
+        }
+        
+        // Reset password
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        // Remove used OTP
+        otpStorage.remove(email);
     }
 }
