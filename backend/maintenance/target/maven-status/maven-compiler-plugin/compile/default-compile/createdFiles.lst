@@ -1,6 +1,5 @@
 spring\api\maintenance\controller\SimpleMaintenanceController$HealthResponse.class
 spring\api\maintenance\controller\ServiceChecklistDirectController$ServiceChecklistUpdateRequest.class
-spring\api\maintenance\service\PartsService.class
 spring\api\maintenance\controller\AppointmentController.class
 spring\api\maintenance\entity\ServiceOrder$ServiceOrderStatus.class
 spring\api\maintenance\entity\Appointment.class
@@ -10,11 +9,14 @@ spring\api\maintenance\controller\VehicleController.class
 spring\api\maintenance\entity\Customer.class
 spring\api\maintenance\controller\ServiceOrderController$TechnicianAssignmentRequest.class
 spring\api\maintenance\controller\ServiceChecklistDirectController.class
+spring\api\maintenance\entity\PaymentStatusConverter$1.class
 spring\api\maintenance\controller\SimpleMaintenanceController.class
 spring\api\maintenance\repository\CustomerRepository.class
+spring\api\maintenance\entity\AppointmentStatusConverter.class
 spring\api\maintenance\controller\DatabaseController$DatabaseInfoResponse.class
 spring\api\maintenance\controller\VehicleController$ServiceInfoUpdateRequest.class
 spring\api\maintenance\controller\VehicleController$VehicleUpdateRequest.class
+spring\api\maintenance\entity\PaymentStatusConverter.class
 spring\api\maintenance\controller\ServiceController.class
 spring\api\maintenance\entity\Vehicle.class
 spring\api\maintenance\controller\SimpleMaintenanceController$DatabaseTestResponse.class
@@ -22,13 +24,14 @@ spring\api\maintenance\entity\Part.class
 spring\api\maintenance\entity\MaintenanceService.class
 spring\api\maintenance\controller\HealthController.class
 spring\api\maintenance\controller\ServiceChecklistController$ChecklistItemUpdateRequest.class
+spring\api\maintenance\entity\ServiceOrderStatusConverter.class
 spring\api\maintenance\controller\ServiceChecklistController$ChecklistCompletionRequest.class
 spring\api\maintenance\entity\OrderItem.class
 spring\api\maintenance\controller\ServiceChecklistDirectController$ServiceChecklistRequest.class
 spring\api\maintenance\service\ServiceService.class
 spring\api\maintenance\dto\ServiceOrderCompletionRequest.class
 spring\api\maintenance\entity\ServiceOrder.class
-spring\api\maintenance\controller\AppointmentController$StatusUpdateRequest.class
+spring\api\maintenance\config\SecurityConfig.class
 spring\api\maintenance\service\ServiceOrderService.class
 spring\api\maintenance\service\ServiceChecklistService.class
 spring\api\maintenance\service\OrderItemService.class
@@ -37,6 +40,7 @@ spring\api\maintenance\controller\ServiceOrderController$AmountUpdateRequest.cla
 spring\api\maintenance\controller\DatabaseController.class
 spring\api\maintenance\dto\AmountUpdateRequest.class
 spring\api\maintenance\repository\ServiceRepository.class
+spring\api\maintenance\controller\PasswordHelperController.class
 spring\api\maintenance\service\VehicleService$VehicleUpdateRequest.class
 spring\api\maintenance\repository\AppointmentRepository.class
 spring\api\maintenance\entity\Appointment$AppointmentStatus.class
@@ -57,6 +61,8 @@ spring\api\maintenance\controller\ServiceChecklistController$ChecklistItemReques
 spring\api\maintenance\entity\ServiceChecklist.class
 spring\api\maintenance\controller\ServiceOrderController$ServiceOrderStatusUpdateRequest.class
 spring\api\maintenance\service\VehicleService.class
+spring\api\maintenance\entity\ServiceOrderStatusConverter$1.class
+spring\api\maintenance\entity\ServiceTypeConverter.class
 spring\api\maintenance\repository\ServiceChecklistRepository.class
 spring\api\maintenance\controller\ServiceOrderController.class
 spring\api\maintenance\controller\ServiceChecklistController.class

@@ -26,4 +26,4 @@ RUN ./mvnw clean package -DskipTests
 EXPOSE 8080
 
 # Run the application
-CMD ["java", "-jar", "target/evservicecenter-0.0.1-SNAPSHOT.war"]
+CMD ["java", "-jar", "target/maintenance-0.0.1-SNAPSHOT.jar"]

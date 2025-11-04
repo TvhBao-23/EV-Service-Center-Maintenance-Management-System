@@ -40,7 +40,7 @@ public class OrderItem {
     @Column(name = "total_price", precision = 10, scale = 2)
     private BigDecimal totalPrice;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ItemTypeConverter.class)
     @Column(name = "type", length = 20)
     private ItemType type;
 
@@ -56,6 +56,20 @@ public class OrderItem {
 
         public String getDescription() {
             return description;
+        }
+
+        // Helper method để convert từ database value
+        public static ItemType fromString(String value) {
+            if (value == null) return SERVICE;
+            
+            switch (value.toLowerCase()) {
+                case "service":
+                    return SERVICE;
+                case "part":
+                    return PART;
+                default:
+                    return SERVICE;
+            }
         }
     }
 

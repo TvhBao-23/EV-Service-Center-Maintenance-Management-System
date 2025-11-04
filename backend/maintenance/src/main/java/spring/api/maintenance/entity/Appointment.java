@@ -34,7 +34,7 @@ public class Appointment {
     @Column(name = "requested_date_time", nullable = false)
     private LocalDateTime requestedDateTime;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = AppointmentStatusConverter.class)
     @Column(name = "status", length = 20)
     private AppointmentStatus status = AppointmentStatus.PENDING;
 

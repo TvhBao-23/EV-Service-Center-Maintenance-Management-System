@@ -192,48 +192,72 @@ function Staff() {
         {activeTab==='schedule' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-3">Lịch hẹn chờ xác nhận</h3>
+              <h3 className="font-semibold mb-3">Lịch hẹn chờ xác nhận <span className="text-gray-500 text-xs font-normal">({pending.length})</span></h3>
               {pending.length===0 ? (
                 <p className="text-gray-600 text-sm">Không có.</p>
               ) : (
                 <ul className="space-y-2">
-                  {pending.map(apt => (
-                    <li key={apt.appointmentId} className="border rounded-md p-3 flex items-center justify-between">
-                      <div className="text-sm">
-                        <div>ID: {apt.appointmentId} • Vehicle: {apt.vehicleId}</div>
-                        <div className="text-gray-500">{new Date(apt.requestedDateTime).toLocaleString('vi-VN')}</div>
-                      </div>
-                      <button 
-                        onClick={()=>confirmAppointment(apt.appointmentId)} 
-                        className="px-3 py-1 rounded-md bg-green-600 text-white text-xs"
-                      >
-                        Xác nhận
-                      </button>
-                    </li>
-                  ))}
+                  {pending.map(apt => {
+                    const vehicle = vehicles.find(v => v.vehicleId === apt.vehicleId)
+                    const vehicleInfo = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || `Vehicle ${apt.vehicleId}` : `Vehicle ${apt.vehicleId}`
+                    
+                    return (
+                      <li key={apt.appointmentId} className="border rounded-md p-3 space-y-2">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900 mb-1">Appointment #{apt.appointmentId}</div>
+                          <div className="text-gray-600 space-y-1">
+                            <div>Xe: {vehicleInfo}</div>
+                            {vehicle?.vin && <div className="text-xs text-gray-500">VIN: {vehicle.vin}</div>}
+                            <div className="text-xs">Thời gian yêu cầu: {new Date(apt.requestedDateTime).toLocaleString('vi-VN')}</div>
+                            {apt.serviceNotes && (
+                              <div className="text-xs text-gray-500">Ghi chú: {apt.serviceNotes}</div>
+                            )}
+                          </div>
+                        </div>
+                        <button 
+                          onClick={()=>confirmAppointment(apt.appointmentId)} 
+                          className="w-full px-3 py-1.5 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
+                        >
+                          Xác nhận
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
             <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold mb-3">Lịch hẹn đã xác nhận</h3>
+              <h3 className="font-semibold mb-3">Lịch hẹn đã xác nhận <span className="text-gray-500 text-xs font-normal">({confirmed.length})</span></h3>
               {confirmed.length===0 ? (
                 <p className="text-gray-600 text-sm">Không có.</p>
               ) : (
                 <ul className="space-y-2">
-                  {confirmed.map(apt => (
-                    <li key={apt.appointmentId} className="border rounded-md p-3">
-                      <div className="text-sm mb-2">
-                        <div>ID: {apt.appointmentId} • Vehicle: {apt.vehicleId}</div>
-                        <div className="text-gray-500">{new Date(apt.requestedDateTime).toLocaleString('vi-VN')}</div>
-                      </div>
-                      <button 
-                        onClick={()=>createServiceOrderFromAppointment(apt.appointmentId)} 
-                        className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs"
-                      >
-                        Tạo phiếu bảo dưỡng
-                      </button>
-                    </li>
-                  ))}
+                  {confirmed.map(apt => {
+                    const vehicle = vehicles.find(v => v.vehicleId === apt.vehicleId)
+                    const vehicleInfo = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || `Vehicle ${apt.vehicleId}` : `Vehicle ${apt.vehicleId}`
+                    
+                    return (
+                      <li key={apt.appointmentId} className="border rounded-md p-3 space-y-2">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900 mb-1">Appointment #{apt.appointmentId}</div>
+                          <div className="text-gray-600 space-y-1">
+                            <div>Xe: {vehicleInfo}</div>
+                            {vehicle?.vin && <div className="text-xs text-gray-500">VIN: {vehicle.vin}</div>}
+                            <div className="text-xs">Thời gian hẹn: {new Date(apt.requestedDateTime).toLocaleString('vi-VN')}</div>
+                            {apt.serviceNotes && (
+                              <div className="text-xs text-gray-500">Ghi chú: {apt.serviceNotes}</div>
+                            )}
+                          </div>
+                        </div>
+                        <button 
+                          onClick={()=>createServiceOrderFromAppointment(apt.appointmentId)} 
+                          className="w-full px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
+                        >
+                          Tạo phiếu bảo dưỡng
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -244,20 +268,28 @@ function Staff() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <StatusColumn 
               title="Chờ xử lý" 
-              data={queuedOrders} 
+              data={queuedOrders}
+              vehicles={vehicles}
               onMove={(id)=>updateServiceOrderStatus(id,'in_progress')} 
-              moveLabel="Bắt đầu" 
+              moveLabel="Bắt đầu"
+              onAssignTechnician={assignTechnician}
+              allowAssign={true}
             />
             <StatusColumn 
               title="Đang bảo dưỡng" 
-              data={inProgressOrders} 
+              data={inProgressOrders}
+              vehicles={vehicles}
               onMove={(id)=>updateServiceOrderStatus(id,'completed')} 
-              moveLabel="Hoàn tất" 
+              moveLabel="Hoàn tất"
+              onAssignTechnician={assignTechnician}
+              allowAssign={true}
             />
             <StatusColumn 
               title="Hoàn tất" 
-              data={completedOrders} 
-              onMove={null} 
+              data={completedOrders}
+              vehicles={vehicles}
+              onMove={null}
+              allowAssign={false}
             />
           </div>
         )}
@@ -298,31 +330,121 @@ function Staff() {
   )
 }
 
-function StatusColumn({ title, data, onMove, moveLabel }) {
+function StatusColumn({ title, data, vehicles = [], onMove, moveLabel, onAssignTechnician, allowAssign = false }) {
+  const [assigningOrderId, setAssigningOrderId] = useState(null)
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState('')
+
+  // Simple list of technicians (IDs starting from 2, assuming ID 1 is staff)
+  const technicians = [
+    { id: 2, name: 'Kỹ thuật viên 1' },
+    // Add more technicians as needed
+  ]
+
+  const handleAssignClick = (orderId) => {
+    setAssigningOrderId(orderId)
+    setSelectedTechnicianId('')
+  }
+
+  const handleAssignConfirm = () => {
+    if (assigningOrderId && selectedTechnicianId) {
+      onAssignTechnician(assigningOrderId, parseInt(selectedTechnicianId))
+      setAssigningOrderId(null)
+      setSelectedTechnicianId('')
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h3 className="font-semibold mb-3">{title}</h3>
+      <h3 className="font-semibold mb-3">{title} <span className="text-gray-500 text-xs font-normal">({data.length})</span></h3>
       {data.length===0 ? (
         <p className="text-gray-600 text-sm">Không có.</p>
       ) : (
         <ul className="space-y-2">
-          {data.map(order => (
-            <li key={order.orderId} className="border rounded-md p-3 flex items-center justify-between text-sm">
-              <div>
-                <div>Order ID: {order.orderId}</div>
-                <div className="text-gray-500">Vehicle: {order.vehicleId}</div>
-                {order.totalAmount && (
-                  <div className="text-gray-500">Tổng: {Number(order.totalAmount).toLocaleString('vi-VN')} VNĐ</div>
-                )}
-              </div>
-              {onMove && (
-                <button onClick={()=>onMove(order.orderId)} className="px-3 py-1 rounded-md border hover:bg-gray-50">
-                  {moveLabel||'Chuyển'}
-                </button>
-              )}
-            </li>
-          ))}
+          {data.map(order => {
+            const vehicle = vehicles.find(v => v.vehicleId === order.vehicleId)
+            const vehicleInfo = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || `Vehicle ${order.vehicleId}` : `Vehicle ${order.vehicleId}`
+            
+            return (
+              <li key={order.orderId} className="border rounded-md p-3 space-y-2 text-sm">
+                <div className="space-y-1">
+                  <div className="font-medium text-gray-900">Order #{order.orderId}</div>
+                  <div className="text-gray-600">
+                    <div>Xe: {vehicleInfo}</div>
+                    {vehicle?.vin && <div className="text-xs text-gray-500">VIN: {vehicle.vin}</div>}
+                  </div>
+                  {order.assignedTechnicianId && (
+                    <div className="text-xs text-blue-600">KT viên ID: {order.assignedTechnicianId}</div>
+                  )}
+                  {order.totalAmount && (
+                    <div className="text-xs text-gray-500">Tổng: {Number(order.totalAmount).toLocaleString('vi-VN')} VNĐ</div>
+                  )}
+                  {order.checkInTime && (
+                    <div className="text-xs text-gray-500">
+                      Vào: {new Date(order.checkInTime).toLocaleString('vi-VN')}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {onMove && (
+                    <button 
+                      onClick={()=>onMove(order.orderId)} 
+                      className="px-3 py-1 rounded-md bg-green-600 text-white text-xs hover:bg-green-700"
+                    >
+                      {moveLabel||'Chuyển'}
+                    </button>
+                  )}
+                  {allowAssign && !order.assignedTechnicianId && (
+                    <button
+                      onClick={()=>handleAssignClick(order.orderId)}
+                      className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700"
+                    >
+                      Phân công KT
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
         </ul>
+      )}
+      
+      {/* Assign Technician Modal */}
+      {assigningOrderId && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h4 className="text-lg font-semibold mb-4">Phân công Kỹ thuật viên</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Chọn kỹ thuật viên</label>
+                <select
+                  value={selectedTechnicianId}
+                  onChange={(e)=>setSelectedTechnicianId(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">-- Chọn kỹ thuật viên --</option>
+                  {technicians.map(tech => (
+                    <option key={tech.id} value={tech.id}>{tech.name} (ID: {tech.id})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button 
+                onClick={()=>{setAssigningOrderId(null); setSelectedTechnicianId('')}} 
+                className="px-3 py-2 rounded-md border hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleAssignConfirm}
+                disabled={!selectedTechnicianId}
+                className="px-3 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -26,13 +26,13 @@ public class Vehicle {
     @Column(name = "customer_id", nullable = false)
     private Integer customerId;
 
-    @Column(name = "vin", length = 17, unique = true)
+    @Column(name = "vin", nullable = false, length = 17, unique = true)
     private String vin;
 
-    @Column(name = "brand", length = 100)
+    @Column(name = "brand", nullable = false, length = 50)
     private String brand;
 
-    @Column(name = "model", length = 100)
+    @Column(name = "model", nullable = false, length = 50)
     private String model;
 
     @Column(name = "year")

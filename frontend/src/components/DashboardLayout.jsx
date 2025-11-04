@@ -7,7 +7,14 @@ function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const navigate = useNavigate()
   const user = React.useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
+    try { 
+      const saved = localStorage.getItem('user')
+      if (saved) return JSON.parse(saved)
+      // Default user for testing
+      return { id: 1, fullName: 'Test User', email: 'test@evservice.com', role: 'staff' }
+    } catch { 
+      return { id: 1, fullName: 'Test User', email: 'test@evservice.com', role: 'staff' }
+    }
   }, [])
   const displayName = user?.fullName || user?.email || 'Khách hàng'
   const initials = (displayName || '').split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase()

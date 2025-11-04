@@ -173,4 +173,33 @@ public class PartController {
                     .body("Error retrieving low stock parts: " + e.getMessage());
         }
     }
+
+    /**
+     * Xóa phụ tùng
+     */
+    @DeleteMapping("/{partId}")
+    public ResponseEntity<?> deletePart(@PathVariable Integer partId) {
+        try {
+            partService.deletePart(partId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error deleting part: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lấy phụ tùng theo khoảng giá
+     */
+    @GetMapping("/price-range")
+    public ResponseEntity<?> getPartsByPriceRange(@RequestParam Double minPrice,
+                                                   @RequestParam Double maxPrice) {
+        try {
+            List<Part> parts = partService.getPartsByPriceRange(minPrice, maxPrice);
+            return ResponseEntity.ok(parts);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error retrieving parts: " + e.getMessage());
+        }
+    }
 }

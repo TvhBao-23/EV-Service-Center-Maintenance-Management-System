@@ -32,7 +32,7 @@ public class ServiceOrder {
     @Column(name = "assigned_technician_id")
     private Integer assignedTechnicianId;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ServiceOrderStatusConverter.class)
     @Column(name = "status", length = 20)
     private ServiceOrderStatus status = ServiceOrderStatus.QUEUED;
 
@@ -45,7 +45,7 @@ public class ServiceOrder {
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = PaymentStatusConverter.class)
     @Column(name = "payment_status", length = 20)
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 

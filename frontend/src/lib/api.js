@@ -1,7 +1,7 @@
 // API Service Layer - Kết nối với Backend Services
 
 const API_BASE_URLS = {
-  auth: 'http://localhost:8081/api/auth',
+  auth: 'http://localhost:8080/api/auth',
   customer: 'http://localhost:8082/api/customer',
   staff: 'http://localhost:8083/api/staff',
   payment: 'http://localhost:8084/api/payment',
@@ -67,16 +67,28 @@ async function apiCall(url, options = {}) {
 export const authAPI = {
   // Đăng nhập
   login: async (email, password) => {
-    const response = await apiCall(`${API_BASE_URLS.auth}/login`, {
-      method: 'POST',
-      body: JSON.stringify({ email, password })
-    })
-    
-    if (response.token) {
-      setAuthToken(response.token)
+    try {
+      const response = await fetch(`${API_BASE_URLS.auth}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
+      
+      const data = await response.json()
+      
+      // Backend returns 200 for success, 401 for failed login
+      // Both cases return JSON with success flag
+      if (response.ok && data.success && data.token) {
+        setAuthToken(data.token)
+      }
+      
+      return data
+    } catch (error) {
+      console.error('Login API error:', error)
+      return { success: false, message: error.message || 'Có lỗi xảy ra khi đăng nhập' }
     }
-    
-    return response
   },
 
   // Đăng ký

@@ -83,6 +83,22 @@ services:
     networks:
       - ev-service-network
 
+  # Maintenance Service
+  maintenance-service:
+    build:
+      context: ./backend/maintenance
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://maintenance-mysql:3306/ev_service_center?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+      - SPRING_DATASOURCE_USERNAME=evsc
+      - SPRING_DATASOURCE_PASSWORD=evsc
+    depends_on:
+      - maintenance-mysql
+    networks:
+      - ev-service-network
+
   # Database
   mysql:
     image: mysql:8.0
@@ -97,8 +113,25 @@ services:
     networks:
       - ev-service-network
 
+  # Maintenance Database (port 3307)
+  maintenance-mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=ev_service_center
+      - MYSQL_USER=evsc
+      - MYSQL_PASSWORD=evsc
+    ports:
+      - "3307:3306"
+    volumes:
+      - maintenance_mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - ev-service-network
+
 volumes:
   mysql_data:
+  maintenance_mysql_data:
 
 
 networks:

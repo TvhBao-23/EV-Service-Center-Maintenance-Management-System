@@ -42,28 +42,25 @@ export function AuthProvider({ children }) {
     try {
       const response = await authAPI.login(email, password)
       
-      if (response.token) {
-        // Get user profile
-        const profile = await customerAPI.getProfile()
-        
+      // Backend returns { success: true, message: "...", user: {...} }
+      if (response.success && response.user) {
         const userData = {
-          id: profile.user_id,
-          fullName: profile.full_name,
-          email: profile.email,
-          phone: profile.phone,
-          role: profile.role,
-          customerId: profile.customer_id,
-          address: profile.address
+          id: response.user.id,
+          fullName: response.user.fullName,
+          email: response.user.email,
+          role: response.user.role
         }
         
         setUser(userData)
         localStorage.setItem('user', JSON.stringify(userData))
         
         return { success: true, user: userData }
+      } else {
+        return { success: false, error: response.message || 'Đăng nhập thất bại' }
       }
     } catch (error) {
       console.error('Login error:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error.message || 'Email hoặc mật khẩu không đúng' }
     }
   }
 

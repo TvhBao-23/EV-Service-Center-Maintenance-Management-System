@@ -68,4 +68,12 @@ public class PartService {
         // For now, return empty list
         return List.of();
     }
+
+    public void deletePart(Integer partId) {
+        partRepository.deleteById(partId);
+    }
+
+    public List<Part> getPartsByPriceRange(Double minPrice, Double maxPrice) {
+        return partRepository.findByUnitPriceBetween(minPrice, maxPrice);
+    }
 }

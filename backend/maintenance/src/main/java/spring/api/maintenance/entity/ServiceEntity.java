@@ -31,7 +31,7 @@ public class ServiceEntity {
     @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal basePrice = BigDecimal.ZERO;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ServiceTypeConverter.class)
     @Column(name = "type", nullable = false)
     private ServiceType type;
 
@@ -46,8 +46,9 @@ public class ServiceEntity {
 
         // Helper method để convert từ database value
         public static ServiceType fromString(String value) {
-            if (value == null) return MAINTENANCE;
-            
+            if (value == null)
+                return MAINTENANCE;
+
             switch (value.toLowerCase()) {
                 case "maintenance":
                     return MAINTENANCE;
