@@ -103,6 +103,19 @@ public class AuthService {
         return userRepository.findByEmail(email).orElse(null);
     }
 
+    public Map<String, Object> getUserInfo(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        return Map.of(
+            "userId", user.getUserId(),
+            "email", user.getEmail(),
+            "fullName", user.getFullName(),
+            "phone", user.getPhone(),
+            "role", user.getRole().toString()
+        );
+    }
+
     public void resetPassword(String email, String newPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));

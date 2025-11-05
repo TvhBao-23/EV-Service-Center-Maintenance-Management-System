@@ -121,12 +121,31 @@ public class GatewayController {
 
     // ==================== STAFF SERVICE ====================
     
+    // Staff registration (no auth required)
+    @PostMapping("/staff/auth/register")
+    public Mono<ResponseEntity<Map<String, Object>>> staffRegister(@RequestBody Map<String, Object> request) {
+        System.out.println("🟢 Gateway: Routing staff registration to staffservice");
+        System.out.println("   Request: " + request);
+        return proxyPostRequest(STAFF_SERVICE_URL + "/api/auth/register", request);
+    }
+    
+    // Staff login (no auth required)
+    @PostMapping("/staff/auth/login")
+    public Mono<ResponseEntity<Map<String, Object>>> staffLogin(@RequestBody Map<String, Object> request) {
+        System.out.println("🔐 Gateway: Routing staff login to staffservice");
+        return proxyPostRequest(STAFF_SERVICE_URL + "/api/auth/login", request);
+    }
+    
     @GetMapping("/staff/**")
     public Mono<ResponseEntity<Map<String, Object>>> getStaff(
             HttpServletRequest servletRequest,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
         String path = servletRequest.getRequestURI().replace("/api", "");
-        return proxyGetRequestWithAuth(STAFF_SERVICE_URL + "/api" + path, authHeader);
+        String targetUrl = STAFF_SERVICE_URL + "/api" + path;
+        System.out.println("🔵 Gateway: Routing GET request to staff service");
+        System.out.println("   Path: " + path);
+        System.out.println("   Target URL: " + targetUrl);
+        return proxyGetRequestWithAuth(targetUrl, authHeader);
     }
 
     @PostMapping("/staff/**")
@@ -136,6 +155,23 @@ public class GatewayController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
         String path = servletRequest.getRequestURI().replace("/api", "");
         return proxyPostRequestWithAuth(STAFF_SERVICE_URL + "/api" + path, request, authHeader);
+    }
+
+    @PutMapping("/staff/**")
+    public Mono<ResponseEntity<Map<String, Object>>> updateStaff(
+            HttpServletRequest servletRequest,
+            @RequestBody Map<String, Object> request,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
+        String path = servletRequest.getRequestURI().replace("/api", "");
+        return proxyPutRequestWithAuth(STAFF_SERVICE_URL + "/api" + path, request, authHeader);
+    }
+
+    @DeleteMapping("/staff/**")
+    public Mono<ResponseEntity<Map<String, Object>>> deleteStaff(
+            HttpServletRequest servletRequest,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
+        String path = servletRequest.getRequestURI().replace("/api", "");
+        return proxyDeleteRequestWithAuth(STAFF_SERVICE_URL + "/api" + path, authHeader);
     }
 
     // ==================== PAYMENT SERVICE ====================

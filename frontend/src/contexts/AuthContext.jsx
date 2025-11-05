@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { authAPI, customerAPI } from '../lib/api.js'
+import { authAPI, customerAPI, staffAPI } from '../lib/api.js'
 
 const AuthContext = createContext()
 
@@ -102,26 +102,33 @@ export function AuthProvider({ children }) {
         const response = await authAPI.login(email, password)
       
         if (response.token) {
-          // For admin users logging via backend, still allow without fetching customer profile
-          if (email === 'admin@gmail.com') {
-            const userData = {
-              id: 'admin-1',
-              fullName: 'Administrator',
-              email: email,
-              phone: '',
-              role: 'admin',
-              customerId: null,
-              address: ''
+          // Get user info from /api/auth/me to determine role
+          try {
+            const userInfo = await authAPI.getMe()
+            
+            // Check if user is staff/technician/admin
+            if (userInfo.role && ['admin', 'staff', 'technician'].includes(userInfo.role.toLowerCase())) {
+              const userData = {
+                id: userInfo.userId,
+                fullName: userInfo.fullName,
+                email: userInfo.email,
+                phone: userInfo.phone || '',
+                role: userInfo.role.toLowerCase(),
+                isStaff: true,
+                isActive: true
+              }
+              
+              setUser(userData)
+              localStorage.setItem('user', JSON.stringify(userData))
+              localStorage.setItem('authToken', response.token)
+              
+              return { success: true, user: userData }
             }
-            
-            setUser(userData)
-            localStorage.setItem('user', JSON.stringify(userData))
-            localStorage.setItem('authToken', response.token)
-            
-            return { success: true, user: userData }
+          } catch (meError) {
+            console.log('Failed to get user info from /me, trying customer profile...', meError)
           }
           
-          // For other users, get user profile
+          // For customer users, get customer profile
           try {
             const profile = await customerAPI.getProfile()
             
@@ -153,6 +160,60 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Login error:', error)
       return { success: false, error: error.message || 'Đăng nhập thất bại' }
+    }
+  }
+
+  const loginStaff = async (email, password) => {
+    try {
+      console.log('Staff login attempt:', email)
+      
+      const response = await staffAPI.login(email, password)
+      
+      if (response.token) {
+        // Get user info from /me endpoint to get correct role
+        try {
+          const userInfo = await staffAPI.getProfile()
+          
+          const userData = {
+            id: userInfo.userId,
+            fullName: userInfo.fullName,
+            email: userInfo.email,
+            phone: userInfo.phone,
+            role: userInfo.role.toLowerCase(), // admin, staff, technician
+            isStaff: true,
+            isActive: true
+          }
+          
+          setUser(userData)
+          localStorage.setItem('user', JSON.stringify(userData))
+          localStorage.setItem('authToken', response.token)
+          
+          return { success: true, user: userData }
+        } catch (profileError) {
+          console.error('Failed to fetch user profile:', profileError)
+          // Fallback: use email to determine basic info
+          const userData = {
+            id: email,
+            fullName: email.split('@')[0],
+            email: email,
+            phone: '',
+            role: 'staff',
+            isStaff: true,
+            isActive: true
+          }
+          
+          setUser(userData)
+          localStorage.setItem('user', JSON.stringify(userData))
+          localStorage.setItem('authToken', response.token)
+          
+          return { success: true, user: userData }
+        }
+      }
+      
+      return { success: false, error: 'Staff login failed' }
+    } catch (error) {
+      console.error('Staff login error:', error)
+      return { success: false, error: error.message || 'Đăng nhập nhân viên thất bại' }
     }
   }
 
@@ -222,6 +283,69 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const registerStaff = async (userData) => {
+    try {
+      console.log('🟢 STAFF REGISTER START - Clearing old data...')
+      
+      // STEP 1: Clear existing auth data
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      setUser(null)
+      
+      console.log('🟢 STAFF REGISTER - Calling API...', { email: userData.email, role: userData.role })
+      
+      // STEP 2: Call staff registration API
+      const response = await fetch('http://localhost:8080/api/staff/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+      })
+      
+      const data = await response.json()
+      
+      console.log('🟢 STAFF REGISTER - Response received:', { 
+        hasToken: !!data.token,
+        hasUser: !!data.user,
+        email: data.user?.email,
+        role: data.user?.role
+      })
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Đăng ký thất bại')
+      }
+      
+      if (data.token && data.user) {
+        // STEP 3: Store token and user data
+        localStorage.setItem('authToken', data.token)
+        
+        const userData = {
+          id: data.user.userId,
+          fullName: data.user.fullName,
+          email: data.user.email,
+          phone: data.user.phone,
+          role: data.user.role,
+          isStaff: true,
+          isActive: true
+        }
+        
+    setUser(userData)
+    localStorage.setItem('user', JSON.stringify(userData))
+        
+        console.log('✅ STAFF REGISTER SUCCESS - User data saved:', userData)
+        
+        return { success: true, user: userData }
+      }
+      
+      console.error('❌ STAFF REGISTER FAILED - No token received')
+      return { success: false, error: 'Đăng ký thất bại' }
+    } catch (error) {
+      console.error('❌ STAFF REGISTER ERROR:', error)
+      return { success: false, error: error.message || 'Đăng ký nhân viên thất bại' }
+    }
+  }
+
   const logout = () => {
     authAPI.logout()
     setUser(null)
@@ -270,7 +394,9 @@ export function AuthProvider({ children }) {
     user,
     setUser,
     login,
+    loginStaff,
     register,
+    registerStaff,
     logout,
     updateUser,
     loading,

@@ -2,10 +2,10 @@
 // Direct connection to microservices (API Gateway not implemented yet)
 
 const API_BASE_URLS = {
-  auth: 'http://localhost:8080/api/auth',
-  customer: 'http://localhost:8080/api/customers',
-  staff: 'http://localhost:8080/api/staff',
-  payment: 'http://localhost:8080/api/payments'
+  auth: 'http://localhost:8081/api/auth',  // AuthService on port 8081
+  customer: 'http://localhost:8082/api/customers',  // CustomerService on port 8082
+  staff: 'http://localhost:8083/api/staff',  // StaffService on port 8083
+  payment: 'http://localhost:8084/api/payments'  // PaymentService on port 8084
 }
 
 // Helper function để lấy token từ localStorage
@@ -132,6 +132,11 @@ export const authAPI = {
     }
     
     return data
+  },
+
+  // Get current user info
+  getMe: async () => {
+    return apiCall(`${API_BASE_URLS.auth}/me`)
   },
 
   // Logout
@@ -325,21 +330,219 @@ export const paymentAPI = {
   }
 }
 
-// Staff Service APIs
+// Staff Service APIs - Expanded for full staff workflow
 export const staffAPI = {
-  // Lấy danh sách appointments (cho staff/admin)
+  // ==================== AUTH ====================
+  // Staff login uses the same AuthService as customers (port 8081)
+  login: async (email, password) => {
+    const response = await fetch(`${API_BASE_URLS.auth}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Staff login failed: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    
+    if (data.token) {
+      setAuthToken(data.token)
+    }
+    
+    return data
+  },
+
+  getProfile: () => {
+    // Staff profile is fetched from the User entity, not a separate staff profile
+    // We'll use the JWT token to get user info
+    return apiCall(`${API_BASE_URLS.auth}/me`)
+  },
+
+  // ==================== APPOINTMENTS ====================
   getAppointments: async () => {
-    // API only - no fallback
     return await apiCall(`${API_BASE_URLS.staff}/appointments`)
   },
 
-  // Cập nhật trạng thái appointment
   updateAppointmentStatus: async (appointmentId, status) => {
-    // API only - no fallback
     return await apiCall(`${API_BASE_URLS.staff}/appointments/${appointmentId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status })
     })
+  },
+
+  // ==================== CUSTOMERS & VEHICLES ====================
+  getCustomers: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/customers`)
+  },
+
+  getCustomer: async (customerId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/customers/${customerId}`)
+  },
+
+  getVehicles: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/vehicles`)
+  },
+
+  getVehicle: async (vehicleId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/vehicles/${vehicleId}`)
+  },
+
+  getVehicleHistory: async (vehicleId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/vehicles/${vehicleId}/history`)
+  },
+
+  // ==================== TECHNICIANS ====================
+  getTechnicians: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/technicians`)
+  },
+
+  // ==================== ASSIGNMENTS ====================
+  createAssignment: async (assignmentData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/assignments`, {
+      method: 'POST',
+      body: JSON.stringify(assignmentData)
+    })
+  },
+
+  getAssignments: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/assignments`)
+  },
+
+  getAssignment: async (assignmentId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/assignments/${assignmentId}`)
+  },
+
+  updateAssignmentStatus: async (assignmentId, status) => {
+    return await apiCall(`${API_BASE_URLS.staff}/assignments/${assignmentId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    })
+  },
+
+  // ==================== SERVICE RECEIPTS ====================
+  createServiceReceipt: async (receiptData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/service-receipts`, {
+      method: 'POST',
+      body: JSON.stringify(receiptData)
+    })
+  },
+
+  getServiceReceipts: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/service-receipts`)
+  },
+
+  getServiceReceipt: async (receiptId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/service-receipts/${receiptId}`)
+  },
+
+  getServiceReceiptByAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/service-receipts/appointment/${appointmentId}`)
+  },
+
+  // ==================== CHECKLISTS ====================
+  createChecklist: async (checklistData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/checklists`, {
+      method: 'POST',
+      body: JSON.stringify(checklistData)
+    })
+  },
+
+  getChecklists: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/checklists`)
+  },
+
+  getChecklist: async (checklistId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/checklists/${checklistId}`)
+  },
+
+  getChecklistsByAssignment: async (assignmentId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/checklists/assignment/${assignmentId}`)
+  },
+
+  updateChecklist: async (checklistId, checklistData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/checklists/${checklistId}`, {
+      method: 'PUT',
+      body: JSON.stringify(checklistData)
+    })
+  },
+
+  // ==================== MAINTENANCE REPORTS ====================
+  createMaintenanceReport: async (reportData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports`, {
+      method: 'POST',
+      body: JSON.stringify(reportData)
+    })
+  },
+
+  getMaintenanceReports: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports`)
+  },
+
+  getMaintenanceReport: async (reportId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports/${reportId}`)
+  },
+
+  getMaintenanceReportsByAssignment: async (assignmentId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports/assignment/${assignmentId}`)
+  },
+
+  updateMaintenanceReport: async (reportId, reportData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports/${reportId}`, {
+      method: 'PUT',
+      body: JSON.stringify(reportData)
+    })
+  },
+
+  approveMaintenanceReport: async (reportId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/maintenance-reports/${reportId}/approve`, {
+      method: 'PUT'
+    })
+  },
+
+  // ==================== PARTS & INVENTORY ====================
+  getParts: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/parts`)
+  },
+
+  getPart: async (partId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/parts/${partId}`)
+  },
+
+  createPart: async (partData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/parts`, {
+      method: 'POST',
+      body: JSON.stringify(partData)
+    })
+  },
+
+  updatePart: async (partId, partData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/parts/${partId}`, {
+      method: 'PUT',
+      body: JSON.stringify(partData)
+    })
+  },
+
+  deletePart: async (partId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/parts/${partId}`, {
+      method: 'DELETE'
+    })
+  },
+
+  // Request parts from inventory
+  createPartRequest: async (requestData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/part-requests`, {
+      method: 'POST',
+      body: JSON.stringify(requestData)
+    })
+  },
+
+  getPartRequests: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/part-requests`)
   }
 }
 

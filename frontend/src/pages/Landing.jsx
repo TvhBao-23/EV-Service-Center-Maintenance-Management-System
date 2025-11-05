@@ -31,12 +31,20 @@ function Landing() {
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               Theo dõi lịch sử bảo dưỡng, đặt lịch dịch vụ và quản lý chi phí cho xe điện của bạn - tất cả trong một nền tảng
             </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link 
               to="/login"
-              className="inline-flex items-center px-8 py-4 bg-green-600 text-white text-lg font-medium rounded-lg hover:bg-green-700 transition-colors"
+              className="inline-flex items-center px-8 py-4 bg-green-600 text-white text-lg font-medium rounded-lg hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl"
             >
               Bắt đầu ngay
             </Link>
+            <Link 
+              to="/register"
+              className="inline-flex items-center px-8 py-4 bg-white border-2 border-green-600 text-green-600 text-lg font-medium rounded-lg hover:bg-green-50 transition-colors"
+            >
+              Đăng ký miễn phí
+            </Link>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-16">
@@ -138,9 +146,26 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t py-8 px-4">
-        <div className="container mx-auto text-center text-sm text-gray-600">
-          <p>© 2025 EV Service Center. Hệ thống quản lý bảo dưỡng xe điện.</p>
+      <footer className="border-t py-8 px-4 bg-gray-50">
+        <div className="container mx-auto">
+          {/* Staff Login Link - Separated */}
+          <div className="flex justify-center mb-6">
+            <Link 
+              to="/staff-login"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <span>Đăng nhập dành cho Nhân viên</span>
+              <span className="px-2 py-0.5 bg-white/20 rounded text-xs">Admin • Staff • Kỹ thuật viên</span>
+            </Link>
+          </div>
+          
+          {/* Copyright */}
+          <div className="text-center text-sm text-gray-600 pt-4 border-t border-gray-200">
+            <p>© 2025 EV Service Center. Hệ thống quản lý bảo dưỡng xe điện.</p>
+          </div>
         </div>
       </footer>
     </div>

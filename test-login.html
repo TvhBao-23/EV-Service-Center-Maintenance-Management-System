@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test Login System - EV Service Center</h1>
+
+    <div class="test-section">
+        <h2>1. Test Customer Login (Role: CUSTOMER)</h2>
+        <p>Email: testuser@example.com | Password: Test123@</p>
+        <button onclick="testCustomerLogin()">Test Customer Login</button>
+        <div id="customer-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test Admin Login (Role: ADMIN)</h2>
+        <p>Email: admin@evservice.com | Password: Admin123@</p>
+        <button onclick="testAdminLogin()">Test Admin Login</button>
+        <div id="admin-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test Staff Login (Role: STAFF)</h2>
+        <p>Email: staff@evservice.com | Password: Staff123@</p>
+        <button onclick="testStaffLogin()">Test Staff Login</button>
+        <div id="staff-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Test Technician Login (Role: TECHNICIAN)</h2>
+        <p>Email: technician@evservice.com | Password: Tech123@</p>
+        <button onclick="testTechnicianLogin()">Test Technician Login</button>
+        <div id="technician-result" class="result"></div>
+    </div>
+
+    <script>
+        async function testLogin(email, password, resultElementId) {
+            const resultDiv = document.getElementById(resultElementId);
+            resultDiv.textContent = '⏳ Testing...';
+            resultDiv.className = 'result';
+
+            try {
+                const response = await fetch('http://localhost:8081/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ SUCCESS!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                    
+                    // Store token for further tests
+                    if (data.token) {
+                        localStorage.setItem(`token_${data.role}`, data.token);
+                        localStorage.setItem(`user_${data.role}`, JSON.stringify(data));
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ FAILED!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ ERROR!\n\n${error.message}\n\nMake sure the backend is running on http://localhost:8081`;
+            }
+        }
+
+        function testCustomerLogin() {
+            testLogin('testuser@example.com', 'Test123@', 'customer-result');
+        }
+
+        function testAdminLogin() {
+            testLogin('admin@evservice.com', 'Admin123@', 'admin-result');
+        }
+
+        function testStaffLogin() {
+            testLogin('staff@evservice.com', 'Staff123@', 'staff-result');
+        }
+
+        function testTechnicianLogin() {
+            testLogin('technician@evservice.com', 'Tech123@', 'technician-result');
+        }
+    </script>
+</body>
+</html>
+

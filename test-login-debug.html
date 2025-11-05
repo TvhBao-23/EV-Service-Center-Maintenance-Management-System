@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login Debug</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .test { margin: 20px 0; padding: 15px; background: #252526; border-left: 3px solid #007acc; }
+        .success { border-color: #4ec9b0; }
+        .error { border-color: #f48771; }
+        button { padding: 10px 20px; background: #007acc; color: white; border: none; cursor: pointer; margin: 5px; }
+        button:hover { background: #005a9e; }
+        pre { background: #1e1e1e; padding: 10px; overflow-x: auto; border: 1px solid #3c3c3c; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Login Test - Debug Mode</h1>
+    
+    <div class="test">
+        <h2>Test 1: Login với staff1@gmail.com / 230305</h2>
+        <button onclick="testLogin1()">Run Test</button>
+        <div id="result1"></div>
+    </div>
+
+    <div class="test">
+        <h2>Test 2: Login với admin@evsc.com / 230305</h2>
+        <button onclick="testLogin2()">Run Test</button>
+        <div id="result2"></div>
+    </div>
+
+    <div class="test">
+        <h2>Test 3: Check AuthService Health</h2>
+        <button onclick="testHealth()">Run Test</button>
+        <div id="result3"></div>
+    </div>
+
+    <script>
+        async function testLogin1() {
+            const result = document.getElementById('result1');
+            result.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'staff1@gmail.com',
+                        password: '230305'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <p style="color: #4ec9b0">✅ SUCCESS!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p style="color: #f48771">❌ FAILED (${response.status})</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <p style="color: #f48771">❌ ERROR</p>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+
+        async function testLogin2() {
+            const result = document.getElementById('result2');
+            result.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@evsc.com',
+                        password: '230305'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <p style="color: #4ec9b0">✅ SUCCESS!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p style="color: #f48771">❌ FAILED (${response.status})</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <p style="color: #f48771">❌ ERROR</p>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+
+        async function testHealth() {
+            const result = document.getElementById('result3');
+            result.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/health');
+                const data = await response.text();
+                
+                result.innerHTML = `
+                    <p style="color: #4ec9b0">✅ AuthService is running!</p>
+                    <pre>${data}</pre>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <p style="color: #f48771">❌ AuthService not reachable</p>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -5,6 +5,8 @@ import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
+import StaffLogin from './pages/StaffLogin.jsx'
+import StaffRegister from './pages/StaffRegister.jsx'
 import MyVehicles from './pages/MyVehicles.jsx'
 import Tracking from './pages/Tracking.jsx'
 import Booking from './pages/Booking.jsx'
@@ -30,6 +32,8 @@ function App() {
         <Route path="/fp" element={<ForgotPassword />} />
         <Route path="/quen-mat-khau" element={<ForgotPassword />} />
         <Route path="/quenmatkhau" element={<ForgotPassword />} />
+        <Route path="/staff-login" element={<StaffLogin />} />
+        <Route path="/staff-register" element={<StaffRegister />} />
 
         <Route element={<DashboardLayout />}> 
           <Route path="/vehicles" element={<MyVehicles />} />

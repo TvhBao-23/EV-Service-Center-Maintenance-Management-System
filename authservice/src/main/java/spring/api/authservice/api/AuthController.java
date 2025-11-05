@@ -1,5 +1,7 @@
 package spring.api.authservice.api;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -7,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import spring.api.authservice.api.dto.*;
 import spring.api.authservice.service.AuthService;
+import spring.api.authservice.service.PasswordResetService;
 
 import java.util.Map;
 
@@ -17,6 +20,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -60,16 +64,32 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "OK", "service", "authservice"));
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        try {
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String email = userDetails.getUsername();
+            
+            // Get user info from service
+            return ResponseEntity.ok(authService.getUserInfo(email));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
     
     // Forgot password endpoints
-    @PostMapping("/forgot-password/send-otp")
-    public ResponseEntity<?> sendOTP(@RequestBody ForgotPasswordRequest request) {
+    @PostMapping("/forgot-password/request")
+    public ResponseEntity<?> requestPasswordReset(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
         try {
-            String otp = authService.sendOTP(request.email());
+            String ipAddress = getClientIP(httpRequest);
+            passwordResetService.requestPasswordReset(request.email(), ipAddress);
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Mã OTP đã được gửi đến email của bạn",
-                "otp", otp  // For demo only, remove in production
+                "message", "Mã xác nhận đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư."
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -77,18 +97,18 @@ public class AuthController {
         }
     }
     
-    @PostMapping("/forgot-password/verify-otp")
-    public ResponseEntity<?> verifyOTP(@RequestBody VerifyOtpRequest request) {
+    @PostMapping("/forgot-password/verify")
+    public ResponseEntity<?> verifyResetToken(@Valid @RequestBody VerifyResetTokenRequest request) {
         try {
-            boolean isValid = authService.verifyOTP(request.email(), request.otp());
+            boolean isValid = passwordResetService.verifyResetToken(request.email(), request.token());
             if (isValid) {
                 return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Xác thực OTP thành công"
+                    "message", "Mã xác nhận hợp lệ"
                 ));
             } else {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("success", false, "error", "OTP không chính xác"));
+                        .body(Map.of("success", false, "error", "Mã xác nhận không hợp lệ hoặc đã hết hạn"));
             }
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -97,16 +117,27 @@ public class AuthController {
     }
     
     @PostMapping("/forgot-password/reset")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         try {
-            authService.resetPasswordWithOTP(request.email(), request.otp(), request.newPassword());
+            passwordResetService.resetPassword(request.email(), request.token(), request.newPassword());
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Đặt lại mật khẩu thành công"
+                "message", "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới."
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("success", false, "error", e.getMessage()));
         }
+    }
+
+    /**
+     * Lấy IP address của client
+     */
+    private String getClientIP(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader == null) {
+            return request.getRemoteAddr();
+        }
+        return xfHeader.split(",")[0];
     }
 }

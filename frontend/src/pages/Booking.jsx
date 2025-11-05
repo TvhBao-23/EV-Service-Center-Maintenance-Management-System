@@ -7,7 +7,7 @@ import { loadList, saveList, loadGlobalList, saveGlobalList } from '../lib/store
 function Booking() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
 
   const searchParams = new URLSearchParams(location.search)
   const vehicleIdFromQuery = searchParams.get('vehicleId') || ''
@@ -16,6 +16,11 @@ function Booking() {
   const [services, setServices] = useState([])
   const [serviceCenters, setServiceCenters] = useState([])
   const [loading, setLoading] = useState(true)
+  
+  // 🆕 STATE MỚI: Phụ tùng được filter theo service
+  const [availableParts, setAvailableParts] = useState([])
+  const [loadingParts, setLoadingParts] = useState(false)
+  const [selectedParts, setSelectedParts] = useState([])
 
   // Dữ liệu dịch vụ xe điện cao cấp
   const premiumEVServices = [
@@ -155,9 +160,38 @@ function Booking() {
     }
   }
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
+    
+    // 🆕 KHI CHỌN SERVICE → TỰ ĐỘNG LOAD PHỤ TÙNG THEO SERVICE ĐÓ
+    if (name === 'serviceId' && value) {
+      const selectedService = services.find(s => s.serviceId === Number(value))
+      if (selectedService && selectedService.category) {
+        await loadPartsForService(selectedService.category)
+      }
+    }
+  }
+  
+  // 🆕 HÀM MỚI: Load phụ tùng theo service category
+  const loadPartsForService = async (category) => {
+    setLoadingParts(true)
+    try {
+      const response = await fetch(`http://localhost:8083/api/staff/parts/for-service/${category}`)
+      if (response.ok) {
+        const parts = await response.json()
+        setAvailableParts(parts)
+        console.log(`✅ Loaded ${parts.length} parts for ${category} service`)
+      } else {
+        setAvailableParts([])
+        console.warn('Failed to load parts for service')
+      }
+    } catch (error) {
+      console.error('Error loading parts:', error)
+      setAvailableParts([])
+    } finally {
+      setLoadingParts(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -271,6 +305,15 @@ function Booking() {
                 name="appointmentDate"
                 value={form.appointmentDate}
                   onChange={handleChange}
+                  min={(() => {
+                    // Giới hạn min date: không được đặt trước năm mua xe
+                    const selectedVehicle = vehicles.find(v => v.vehicleId === Number(form.vehicleId))
+                    if (selectedVehicle && selectedVehicle.year) {
+                      // Chỉ được đặt lịch từ năm mua xe trở đi (bắt đầu từ 01/01 của năm mua xe)
+                      return `${selectedVehicle.year}-01-01`
+                    }
+                    return '' // Không giới hạn nếu không có xe được chọn
+                  })()}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
               />
@@ -346,6 +389,59 @@ function Booking() {
                 </div>
               </div>
               )}
+
+            {/* 🆕 DANH SÁCH PHỤ TÙNG ĐÃ ĐƯỢC FILTER THEO SERVICE - CHỈ CHO STAFF VÀ ADMIN */}
+            {form.serviceId && user?.role && (user.role === 'STAFF' || user.role === 'ADMIN') && (
+              <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
+                <h4 className="font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    🎯 Phụ tùng cho dịch vụ này
+                  </span>
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                    {loadingParts ? '...' : availableParts.length} phụ tùng
+                  </span>
+                </h4>
+                
+                {loadingParts ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-gray-600">Đang tải phụ tùng...</p>
+                  </div>
+                ) : availableParts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                    {availableParts.map((part) => (
+                      <div key={part.partId} className="bg-white p-3 rounded-lg border border-gray-200 hover:border-blue-400 transition-all">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-mono text-xs text-blue-600 font-semibold">{part.partCode}</p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">{part.name}</p>
+                            <p className="text-xs text-gray-500 mt-1">{part.manufacturer}</p>
+                          </div>
+                          <div className="text-right ml-2">
+                            <p className="text-sm font-bold text-green-600">{part.price?.toLocaleString('vi-VN')} ₫</p>
+                            <p className="text-xs text-gray-500">Tồn: {part.stockQuantity}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 py-4">Không có phụ tùng cho dịch vụ này</p>
+                )}
+                
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <div className="flex items-center text-xs text-gray-600">
+                    <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    💡 Danh sách này CHỈ hiển thị phụ tùng phù hợp với dịch vụ bạn đã chọn
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct API Test</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; margin: 5px; cursor: pointer; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Direct API Test - EV Service Center</h1>
+    
+    <h2>Test Staff Login</h2>
+    <button onclick="testStaff()">Test staff1@gmail.com / 230305</button>
+    <div id="staff-result" class="result"></div>
+    
+    <h2>Test Customer Login</h2>
+    <button onclick="testCustomer()">Test tranvohoaibao@gmail.com / 230305</button>
+    <div id="customer-result" class="result"></div>
+    
+    <h2>Test Admin Login</h2>
+    <button onclick="testAdmin()">Test admin@evsc.com / 230305</button>
+    <div id="admin-result" class="result"></div>
+    
+    <script>
+        async function testLogin(email, password, service, port, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.textContent = '⏳ Testing...';
+            resultDiv.className = 'result';
+            
+            const url = `http://localhost:${port}/api/login`;
+            
+            try {
+                console.log(`Testing ${service}: ${url}`);
+                console.log(`Credentials: ${email} / ${password}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = { error: await response.text() };
+                }
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ ${service} LOGIN SUCCESS!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ ${service} LOGIN FAILED\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ ${service} ERROR\n\n${error.message}\n\nMake sure ${service} is running on port ${port}`;
+            }
+        }
+        
+        function testStaff() {
+            testLogin('staff1@gmail.com', '230305', 'AuthService', 8081, 'staff-result');
+        }
+        
+        function testCustomer() {
+            testLogin('tranvohoaibao@gmail.com', '230305', 'AuthService', 8081, 'customer-result');
+        }
+        
+        function testAdmin() {
+            testLogin('admin@evsc.com', '230305', 'AuthService', 8081, 'admin-result');
+        }
+    </script>
+</body>
+</html>
+

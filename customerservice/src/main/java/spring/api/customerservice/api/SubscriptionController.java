@@ -64,7 +64,13 @@ public class SubscriptionController {
             return ResponseEntity.ok(new ArrayList<>());
         }
         User user = (User) authentication.getPrincipal();
-        Long customerId = user.getUserId();
+        System.out.println("👤 User ID: " + user.getUserId());
+        
+        // Get customer from userId
+        Customer customer = customerRepository.findByUserId(user.getUserId())
+            .orElseThrow(() -> new RuntimeException("Customer not found for user: " + user.getUserId()));
+        
+        Long customerId = customer.getCustomerId();
         System.out.println("👤 Customer ID: " + customerId);
         List<CustomerSubscription> subscriptions = subscriptionService.getCustomerSubscriptions(customerId);
         System.out.println("📋 Found " + subscriptions.size() + " subscriptions");
@@ -77,7 +83,12 @@ public class SubscriptionController {
             return ResponseEntity.ok(new ArrayList<>());
         }
         User user = (User) authentication.getPrincipal();
-        Long customerId = user.getUserId();
+        
+        // Get customer from userId
+        Customer customer = customerRepository.findByUserId(user.getUserId())
+            .orElseThrow(() -> new RuntimeException("Customer not found for user: " + user.getUserId()));
+        
+        Long customerId = customer.getCustomerId();
         return ResponseEntity.ok(subscriptionService.getActiveSubscriptions(customerId));
     }
     

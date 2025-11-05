@@ -45,17 +45,17 @@ function Login() {
           localStorage.removeItem('rememberMe')
         }
         
-      // Redirect by role
-        const userRole = result.user.role || 'customer'
+        // Redirect by role (case-insensitive)
+        const userRole = (result.user.role || 'customer').toLowerCase()
         if (userRole === 'admin') {
           navigate('/admin')
         } else if (userRole === 'technician' || userRole === 'technican') {
-        navigate('/technician')
+          navigate('/technician')
         } else if (userRole === 'staff') {
-        navigate('/staff')
-      } else {
-        navigate('/vehicles')
-      }
+          navigate('/staff')
+        } else {
+          navigate('/vehicles')
+        }
       } else {
         alert(result.error || 'Email hoặc mật khẩu không đúng')
     }
