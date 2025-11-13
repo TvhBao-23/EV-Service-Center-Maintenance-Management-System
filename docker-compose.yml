@@ -69,13 +69,62 @@ services:
     networks:
       - ev-service-network
 
-  # API Gateway Service (Simplified for now)
-  api-gateway:
+  # Admin Aggregation Service
+  adminservice:
     build:
-      context: ./evservicecenter
+      context: ./adminservice
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - authservice
+      - customerservice
+      - staffservice
+      - maintenanceservice
+    networks:
+      - ev-service-network
+
+  # Maintenance Service
+  maintenanceservice:
+    build:
+      context: ./backend/maintenance
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mysql
+    networks:
+      - ev-service-network
+
+  # API Gateway Service
+  api-gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - authservice
+      - customerservice
+      - staffservice
+      - paymentservice
+      - maintenanceservice
+      - partsinventoryservice
+    networks:
+      - ev-service-network
+
+  partsinventoryservice:
+    build:
+      context: ./parts-inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "8086:8086"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
     depends_on:
@@ -91,7 +140,7 @@ services:
       - MYSQL_ROOT_PASSWORD=password
       - MYSQL_DATABASE=ev_service_center
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d

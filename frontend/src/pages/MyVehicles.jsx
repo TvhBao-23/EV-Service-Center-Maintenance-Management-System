@@ -49,6 +49,13 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
       return
     }
     
+    // Validate battery capacity
+    const batteryCapacity = Number(form.batteryCapacityKwh)
+    if (batteryCapacity && (batteryCapacity < 0 || batteryCapacity > 999.99)) {
+      setError('Dung lượng pin phải trong khoảng 0-999.99 kWh')
+      return
+    }
+    
     setIsLoading(true)
     setError('')
     
@@ -59,7 +66,7 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
         model: form.model,
         vin: form.vin,
         year: Number(form.year),
-        batteryCapacityKwh: Number(form.batteryCapacityKwh) || null,
+        batteryCapacityKwh: batteryCapacity && batteryCapacity > 0 ? batteryCapacity : null,
         odometerKm: Number(form.odometerKm) || null,
         lastServiceDate: form.lastServiceDate || null,
         lastServiceKm: Number(form.lastServiceKm) || null
@@ -183,9 +190,11 @@ function AddEditVehicleModal({ open, onClose, initial, onSave }) {
                   onChange={(e)=>setForm({ ...form, batteryCapacityKwh: e.target.value })} 
                   step="0.1"
                   min="0"
+                  max="999.99"
                   className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
                   placeholder="VD: 75.0"
                 />
+                <p className="text-xs text-gray-500 mt-1">Tối đa 999.99 kWh</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Tốc độ sạc (kW)</label>

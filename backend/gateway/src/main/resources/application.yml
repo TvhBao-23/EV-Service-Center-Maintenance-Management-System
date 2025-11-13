@@ -1,0 +1,92 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Auth Service
+        - id: auth-service
+          uri: http://authservice:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=2
+
+        # Customer Service
+        - id: customer-service
+          uri: http://customerservice:8082
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - StripPrefix=2
+
+        # Staff Service
+        - id: staff-service
+          uri: http://staffservice:8083
+          predicates:
+            - Path=/api/staff/**
+          filters:
+            - StripPrefix=2
+
+        # Payment Service
+        - id: payment-service
+          uri: http://paymentservice:8084
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=2
+
+        # Admin Aggregation Service
+        - id: admin-service
+          uri: http://adminservice:8085
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            # Note: No StripPrefix needed as controller already has /api/admin mapping
+
+        # Maintenance Service
+        - id: maintenance-service
+          uri: http://maintenanceservice:8080
+          predicates:
+            - Path=/api/maintenance/**
+          filters:
+            - StripPrefix=2
+        # Parts Inventory Service
+        - id: parts-inventory-service
+          uri: http://partsinventoryservice:8086
+          predicates:
+            - Path=/api/parts/**,/api/inventory/**,/api/transactions/**
+      # CORS is now handled by CorsConfig.java (CorsWebFilter)
+      # Keeping globalcors as backup, but CorsWebFilter takes precedence
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          "[/**]":
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
+              - "http://127.0.0.1:3000"
+              - "http://127.0.0.1:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+              - HEAD
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG

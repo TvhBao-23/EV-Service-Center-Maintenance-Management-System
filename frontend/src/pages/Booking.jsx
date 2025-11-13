@@ -17,78 +17,82 @@ function Booking() {
   const [serviceCenters, setServiceCenters] = useState([])
   const [loading, setLoading] = useState(true)
   
+  // 🆕 STATE MỚI: Loại dịch vụ và services theo category
+  const [serviceCategories, setServiceCategories] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState('')
+  
   // 🆕 STATE MỚI: Phụ tùng được filter theo service
   const [availableParts, setAvailableParts] = useState([])
   const [loadingParts, setLoadingParts] = useState(false)
   const [selectedParts, setSelectedParts] = useState([])
 
-  // Dữ liệu dịch vụ xe điện cao cấp
-  const premiumEVServices = [
-    {
-      serviceId: 1,
-      serviceName: "Bảo dưỡng định kỳ",
-      description: "Kiểm tra tổng thể hệ thống điện, pin và các bộ phận chính",
-      basePrice: 500000,
-      estimatedDurationMinutes: 120,
-      category: "maintenance"
-    },
-    {
-      serviceId: 2,
-      serviceName: "Thay pin lithium-ion",
-      description: "Thay thế pin lithium-ion cao cấp cho xe điện",
-      basePrice: 15000000,
-      estimatedDurationMinutes: 480,
-      category: "battery"
-    },
-    {
-      serviceId: 3,
-      serviceName: "Sửa chữa hệ thống sạc",
-      description: "Kiểm tra và sửa chữa hệ thống sạc nhanh DC",
-      basePrice: 2500000,
-      estimatedDurationMinutes: 180,
-      category: "charging"
-    },
-    {
-      serviceId: 4,
-      serviceName: "Thay motor điện",
-      description: "Thay thế motor điện cao cấp cho xe điện",
-      basePrice: 8000000,
-      estimatedDurationMinutes: 360,
-      category: "motor"
-    },
-    {
-      serviceId: 5,
-      serviceName: "Kiểm tra BMS",
-      description: "Kiểm tra và cập nhật hệ thống quản lý pin (Battery Management System)",
-      basePrice: 1200000,
-      estimatedDurationMinutes: 90,
-      category: "software"
-    },
-    {
-      serviceId: 6,
-      serviceName: "Thay inverter",
-      description: "Thay thế bộ chuyển đổi điện DC/AC cao cấp",
-      basePrice: 3500000,
-      estimatedDurationMinutes: 240,
-      category: "electronics"
-    },
-    {
-      serviceId: 7,
-      serviceName: "Bảo dưỡng hệ thống làm mát",
-      description: "Kiểm tra và bảo dưỡng hệ thống làm mát pin và motor",
-      basePrice: 800000,
-      estimatedDurationMinutes: 150,
-      category: "cooling"
-    },
-    {
-      serviceId: 8,
-      serviceName: "Cập nhật phần mềm",
-      description: "Cập nhật phần mềm hệ thống và tối ưu hiệu suất",
-      basePrice: 300000,
-      estimatedDurationMinutes: 60,
-      category: "software"
-    }
-  ]
+  // Dữ liệu dịch vụ xe điện cao cấp - ĐÃ COMMENT, SỬ DỤNG DATA TỪ DATABASE
+  // const premiumEVServices = [
+  //   {
+  //     serviceId: 1,
+  //     serviceName: "Bảo dưỡng định kỳ",
+  //     description: "Kiểm tra tổng thể hệ thống điện, pin và các bộ phận chính",
+  //     basePrice: 500000,
+  //     estimatedDurationMinutes: 120,
+  //     category: "maintenance"
+  //   },
+  //   {
+  //     serviceId: 2,
+  //     serviceName: "Thay pin lithium-ion",
+  //     description: "Thay thế pin lithium-ion cao cấp cho xe điện",
+  //     basePrice: 15000000,
+  //     estimatedDurationMinutes: 480,
+  //     category: "battery"
+  //   },
+  //   {
+  //     serviceId: 3,
+  //     serviceName: "Sửa chữa hệ thống sạc",
+  //     description: "Kiểm tra và sửa chữa hệ thống sạc nhanh DC",
+  //     basePrice: 2500000,
+  //     estimatedDurationMinutes: 180,
+  //     category: "charging"
+  //   },
+  //   {
+  //     serviceId: 4,
+  //     serviceName: "Thay motor điện",
+  //     description: "Thay thế motor điện cao cấp cho xe điện",
+  //     basePrice: 8000000,
+  //     estimatedDurationMinutes: 360,
+  //     category: "motor"
+  //   },
+  //   {
+  //     serviceId: 5,
+  //     serviceName: "Kiểm tra BMS",
+  //     description: "Kiểm tra và cập nhật hệ thống quản lý pin (Battery Management System)",
+  //     basePrice: 1200000,
+  //     estimatedDurationMinutes: 90,
+  //     category: "software"
+  //   },
+  //   {
+  //     serviceId: 6,
+  //     serviceName: "Thay inverter",
+  //     description: "Thay thế bộ chuyển đổi điện DC/AC cao cấp",
+  //     basePrice: 3500000,
+  //     estimatedDurationMinutes: 240,
+  //     category: "electronics"
+  //   },
+  //   {
+  //     serviceId: 7,
+  //     serviceName: "Bảo dưỡng hệ thống làm mát",
+  //     description: "Kiểm tra và bảo dưỡng hệ thống làm mát pin và motor",
+  //     basePrice: 800000,
+  //     estimatedDurationMinutes: 150,
+  //     category: "cooling"
+  //   },
+  //   {
+  //     serviceId: 8,
+  //     serviceName: "Cập nhật phần mềm",
+  //     description: "Cập nhật phần mềm hệ thống và tối ưu hiệu suất",
+  //     basePrice: 300000,
+  //     estimatedDurationMinutes: 60,
+  //     category: "software"
+  //   }
+  // ]
 
   // Dữ liệu trung tâm dịch vụ
   const premiumServiceCenters = [
@@ -116,7 +120,8 @@ function Booking() {
   ]
   const [form, setForm] = useState({
     vehicleId: '',
-    serviceId: '',
+    serviceCategory: '', // Loại dịch vụ (Pin, Motor, Sạc...)
+    serviceId: '', // Service cụ thể trong loại đó
     centerId: '',
     appointmentDate: '',
     notes: ''
@@ -134,29 +139,74 @@ function Booking() {
 
   const loadData = async () => {
     try {
-      // Load vehicles from API
-      const vehiclesData = await customerAPI.getVehicles()
+      // Load vehicles and service categories from API
+      const [vehiclesData, categoriesData] = await Promise.all([
+        customerAPI.getVehicles(),
+        customerAPI.getServiceCategories()
+      ])
       
-      // Use local premium EV services data
-      setServices(premiumEVServices)
+      // Map category codes to Vietnamese names
+      const categoryMap = {
+        'battery': 'Pin',
+        'charging': 'Sạc',
+        'motor': 'Motor',
+        'electronic': 'Điện tử',
+        'cooling': 'Làm mát',
+        'maintenance': 'Bảo dưỡng',
+        'software': 'Phần mềm'
+      }
+      
+      const mappedCategories = (categoriesData || []).map(cat => ({
+        value: cat,
+        label: categoryMap[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)
+      }))
+      
+      setServiceCategories(mappedCategories)
       setServiceCenters(premiumServiceCenters)
-      setVehicles(vehiclesData)
+      setVehicles(vehiclesData || [])
       
       // Set default vehicle if provided in query
-      if (vehicleIdFromQuery && vehiclesData.length > 0) {
+      if (vehicleIdFromQuery && vehiclesData && vehiclesData.length > 0) {
         setForm(prev => ({ ...prev, vehicleId: vehicleIdFromQuery }))
-      } else if (vehiclesData.length > 0) {
+      } else if (vehiclesData && vehiclesData.length > 0) {
         setForm(prev => ({ ...prev, vehicleId: vehiclesData[0].vehicleId }))
       }
     } catch (error) {
-      console.error('Error loading vehicles:', error)
-      // API only - no fallback
+      console.error('[Booking] Error loading data:', error)
       setVehicles([])
-      setServices(premiumEVServices)
+      setServiceCategories([])
       setServiceCenters(premiumServiceCenters)
-      setError('Không thể tải danh sách xe. Vui lòng thêm xe trước khi đặt lịch.')
+      setError('Không thể tải dữ liệu. Vui lòng thử lại.')
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Load services when category is selected
+  const loadServicesByCategory = async (category) => {
+    if (!category) {
+      setServices([])
+      setForm(prev => ({ ...prev, serviceId: '' }))
+      return
+    }
+    
+    try {
+      const servicesData = await customerAPI.getServicesByCategory(category)
+      // Map services from API to format compatible with existing code
+      const mappedServices = (servicesData || []).map(service => ({
+        serviceId: service.serviceId || service.service_id,
+        serviceName: service.name,
+        description: service.description || '',
+        basePrice: service.basePrice || service.base_price || 0,
+        estimatedDurationMinutes: service.estimatedDurationMinutes || service.estimated_duration_minutes || 60,
+        category: service.category || category
+      }))
+      setServices(mappedServices)
+      console.log('[Booking] Loaded services for category:', category, mappedServices.length)
+    } catch (error) {
+      console.error('[Booking] Error loading services by category:', error)
+      setServices([])
+      setError('Không thể tải danh sách dịch vụ. Vui lòng thử lại.')
     }
   }
 
@@ -164,7 +214,14 @@ function Booking() {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     
-    // 🆕 KHI CHỌN SERVICE → TỰ ĐỘNG LOAD PHỤ TÙNG THEO SERVICE ĐÓ
+    // 🆕 KHI CHỌN LOẠI DỊCH VỤ → LOAD CÁC SERVICE TRONG LOẠI ĐÓ
+    if (name === 'serviceCategory') {
+      setSelectedCategory(value)
+      setForm(prev => ({ ...prev, serviceId: '' })) // Reset service selection
+      await loadServicesByCategory(value)
+    }
+    
+    // 🆕 KHI CHỌN SERVICE CỤ THỂ → TỰ ĐỘNG LOAD PHỤ TÙNG THEO SERVICE ĐÓ
     if (name === 'serviceId' && value) {
       const selectedService = services.find(s => s.serviceId === Number(value))
       if (selectedService && selectedService.category) {
@@ -280,23 +337,50 @@ function Booking() {
               </select>
             </div>
 
+            {/* 🆕 DROPDOWN 1: Chọn loại dịch vụ (Pin, Motor, Sạc...) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại dịch vụ</label>
               <select
-                       name="serviceId"
-                       value={form.serviceId}
+                name="serviceCategory"
+                value={form.serviceCategory}
                 onChange={handleChange}
-                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
-                       required
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                required
               >
                 <option value="">-- Chọn loại dịch vụ --</option>
-                       {services.map((service) => (
-                         <option key={service.serviceId} value={service.serviceId}>
-                           {service.serviceName}
-                         </option>
-                       ))}
+                {serviceCategories.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* 🆕 DROPDOWN 2: Chọn dịch vụ cụ thể trong loại đã chọn */}
+            {form.serviceCategory && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dịch vụ cụ thể {services.length > 0 && `(${services.length} dịch vụ)`}
+                </label>
+                <select
+                  name="serviceId"
+                  value={form.serviceId}
+                  onChange={handleChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                  required
+                  disabled={services.length === 0}
+                >
+                  <option value="">
+                    {services.length === 0 ? 'Đang tải...' : '-- Chọn dịch vụ --'}
+                  </option>
+                  {services.map((service) => (
+                    <option key={service.serviceId} value={service.serviceId}>
+                      {service.serviceName} - {service.basePrice?.toLocaleString('vi-VN')} VNĐ
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ngày mong muốn</label>

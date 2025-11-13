@@ -181,15 +181,22 @@ function Tracking() {
     const status = String(adminStatus).toUpperCase()
     const statusMap = {
       'PENDING': 'pending',
-      'RECEIVED': 'confirmed',
+      'RECEIVED': 'confirmed',  // received maps to confirmed for customer view
       'IN_MAINTENANCE': 'in_maintenance',
+      'IN_PROGRESS': 'in_maintenance',  // in_progress maps to in_maintenance
       'DONE': 'completed',
+      'COMPLETED': 'completed',
       'CANCELLED': 'cancelled'
     }
     
     // If it's already in the mapped format, return as is
-    if (['pending', 'confirmed', 'in_maintenance', 'completed', 'cancelled'].includes(adminStatus.toLowerCase())) {
-      return adminStatus.toLowerCase()
+    const lowerStatus = adminStatus.toLowerCase()
+    if (['pending', 'received', 'confirmed', 'in_maintenance', 'in_progress', 'completed', 'done', 'cancelled'].includes(lowerStatus)) {
+      // Map received to confirmed for consistency
+      if (lowerStatus === 'received') return 'confirmed'
+      if (lowerStatus === 'in_progress') return 'in_maintenance'
+      if (lowerStatus === 'done') return 'completed'
+      return lowerStatus
     }
     
     return statusMap[status] || 'pending'
@@ -298,14 +305,18 @@ function Tracking() {
       if (lastDate) {
         const nextDue = lastDate.getTime() + SIX_MONTHS_MS
         const diff = nextDue - now
-        const daysOverdue = Math.abs(diff) / (1000 * 60 * 60 * 24)
+        const daysDiff = diff / (1000 * 60 * 60 * 24) // Convert to days (can be negative)
         
         if (diff <= 0) {
+          // Already overdue - calculate days overdue (positive number)
+          const daysOverdue = Math.abs(daysDiff)
           urgencyScore += Math.min(50, daysOverdue * 2) // Max 50 points for time overdue
           reasons.push(`Quá hạn ${Math.ceil(daysOverdue)} ngày`)
         } else if (diff <= DUE_SOON_MS) {
-          urgencyScore += Math.max(10, 30 - (daysOverdue * 0.5)) // 10-30 points for soon due
-          reasons.push(`Còn ${Math.ceil(daysOverdue)} ngày`)
+          // Due soon - calculate days remaining (positive number)
+          const daysRemaining = daysDiff
+          urgencyScore += Math.max(10, 30 - (daysRemaining * 0.5)) // 10-30 points for soon due
+          reasons.push(`Còn ${Math.ceil(daysRemaining)} ngày`)
         }
       }
 

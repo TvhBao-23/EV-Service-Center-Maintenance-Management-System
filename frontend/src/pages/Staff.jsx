@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { staffAPI } from '../lib/api'
+import { staffAPI, customerAPI, maintenanceAPI } from '../lib/api'
 import VehicleHistory from '../components/VehicleHistory'
 import RoleBasedNav from '../components/RoleBasedNav'
 import { AddPartModal, EditPartModal } from './Staff-PartModals'
@@ -9,17 +9,8 @@ function Staff() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // 🆕 Service catalog để map serviceId → category
-  const serviceCatalog = [
-    { serviceId: 1, serviceName: "Bảo dưỡng định kỳ", category: "maintenance" },
-    { serviceId: 2, serviceName: "Thay pin lithium-ion", category: "battery" },
-    { serviceId: 3, serviceName: "Sửa chữa hệ thống sạc", category: "charging" },
-    { serviceId: 4, serviceName: "Thay motor điện", category: "motor" },
-    { serviceId: 5, serviceName: "Kiểm tra BMS", category: "electronics" },
-    { serviceId: 6, serviceName: "Kiểm tra hệ thống làm mát", category: "cooling" },
-    { serviceId: 7, serviceName: "Bảo dưỡng làm mát", category: "cooling" },
-    { serviceId: 8, serviceName: "Cập nhật phần mềm", category: "software" }
-  ]
+  // Service catalog được load từ database (bảng services)
+  // Không cần hardcode vì đã có trong state 'services'
 
   // Data states
   const [appointments, setAppointments] = useState([])
@@ -31,10 +22,13 @@ function Staff() {
   const [maintenanceReports, setMaintenanceReports] = useState([])
   const [parts, setParts] = useState([])
   const [partRequests, setPartRequests] = useState([])
+  const [services, setServices] = useState([]) // 🆕 Services list
+  const [users, setUsers] = useState([]) // 🆕 Users list for phone numbers
+  const [serviceOrders, setServiceOrders] = useState([]) // 🆕 Service orders from maintenance service
 
   // Search & Filter states
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all') // Mặc định hiển thị tất cả
   const [dateFilter, setDateFilter] = useState('all')
   const [serviceFilter, setServiceFilter] = useState('all') // 🆕 Filter phụ tùng theo dịch vụ
 
@@ -71,6 +65,35 @@ function Staff() {
     return obj
   }
 
+  // Helper function to normalize service order status (handle both uppercase and lowercase)
+  const normalizeServiceOrderStatus = (status) => {
+    if (!status) return ''
+    const normalized = status.toString().toUpperCase()
+    // Map common variations
+    if (normalized === 'QUEUED' || normalized === 'QUEUE') return 'QUEUED'
+    if (normalized === 'IN_PROGRESS' || normalized === 'INPROGRESS' || normalized === 'IN PROGRESS') return 'IN_PROGRESS'
+    if (normalized === 'COMPLETED' || normalized === 'COMPLETE') return 'COMPLETED'
+    if (normalized === 'DELAYED' || normalized === 'DELAY') return 'DELAYED'
+    return normalized
+  }
+
+  // Helper function to get service order status display info
+  const getServiceOrderStatusDisplay = (status) => {
+    const normalized = normalizeServiceOrderStatus(status)
+    switch (normalized) {
+      case 'QUEUED':
+        return { label: '⏳ Chờ', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', display: '⏳ Chờ phân công' }
+      case 'IN_PROGRESS':
+        return { label: '🔧 Đang làm', bgColor: 'bg-blue-100', textColor: 'text-blue-800', display: '🔧 Đang làm' }
+      case 'COMPLETED':
+        return { label: '✅ Hoàn tất', bgColor: 'bg-green-100', textColor: 'text-green-800', display: '✅ Hoàn tất' }
+      case 'DELAYED':
+        return { label: '⚠️ Trễ', bgColor: 'bg-red-100', textColor: 'text-red-800', display: '⚠️ Trễ' }
+      default:
+        return { label: status || 'N/A', bgColor: 'bg-gray-100', textColor: 'text-gray-800', display: status || 'N/A' }
+    }
+  }
+
   // 🆕 Load parts filtered by service category
   const loadPartsForService = async (category) => {
     try {
@@ -102,7 +125,7 @@ function Staff() {
     setLoading(true)
     setError(null)
     try {
-      const [appts, custs, vehs, techs, assigns, receipts, reports, partsData, partReqs] = await Promise.all([
+      const [appts, custs, vehs, techs, assigns, receipts, reports, partsData, partReqs, servicesData, serviceOrders] = await Promise.all([
         staffAPI.getAppointments(),
         staffAPI.getCustomers(),
         staffAPI.getVehicles(),
@@ -111,8 +134,21 @@ function Staff() {
         staffAPI.getServiceReceipts(),
         staffAPI.getMaintenanceReports(),
         staffAPI.getParts(),
-        staffAPI.getPartRequests()
+        staffAPI.getPartRequests(),
+        customerAPI.getServices(), // 🆕 Load services
+        maintenanceAPI.getServiceOrders().catch(err => {
+          console.warn('Maintenance service not available:', err)
+          return [] // Return empty array if service is not available
+        }) // 🆕 Load service orders from maintenance service
       ])
+      
+      // 🆕 Try to get phone numbers by fetching user info from AuthService
+      // Since StaffService doesn't return phone, we'll need to fetch it
+      // For now, we'll enhance getUserPhone to fetch on-demand
+      const mergedCustomers = custs || []
+      
+      // Initialize usersData as empty array (phone is already in customer object from backend)
+      const usersData = []
       
       console.log('[Staff] Data loaded:', {
         appointments: appts?.length || 0,
@@ -135,13 +171,22 @@ function Staff() {
       const transformedAppts = snakeToCamel(appts || []).map(a => ({
         ...a,
         id: a.appointmentId || a.id,
-        appointmentTime: a.appointmentDate ? new Date(a.appointmentDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A'
+        appointmentDate: a.appointmentDate || a.requestedDateTime || a.requested_date_time, // Support multiple field names
+        createdAt: a.createdAt || a.created_at, // Include created_at for filtering
+        appointmentTime: (a.appointmentDate || a.requestedDateTime || a.requested_date_time) ? new Date(a.appointmentDate || a.requestedDateTime || a.requested_date_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A'
       }))
       
-      const transformedCusts = snakeToCamel(custs || []).map(c => ({
+      const transformedCusts = snakeToCamel(mergedCustomers || []).map(c => {
+        const transformed = {
         ...c,
         id: c.customerId || c.id
-      }))
+        }
+        // Debug: Log to see if phone is in the response
+        if (c.phone || c.phoneNumber) {
+          console.log('[Staff] Customer with phone:', { id: transformed.id, phone: c.phone || c.phoneNumber })
+        }
+        return transformed
+      })
       
       const transformedVehs = snakeToCamel(vehs || []).map(v => ({
         ...v,
@@ -149,10 +194,24 @@ function Staff() {
         licensePlate: v.vin // Use VIN as license plate if not available
       }))
       
-      const transformedTechs = snakeToCamel(techs || []).map(t => ({
+      const transformedTechs = snakeToCamel(techs || []).map(t => {
+        // Tìm ID từ nhiều fields có thể có
+        const techId = t.technicianId || t.staffId || t.id || t.userId
+        console.log('[Staff] Transforming technician:', { 
+          original: t, 
+          technicianId: t.technicianId, 
+          staffId: t.staffId, 
+          id: t.id, 
+          userId: t.userId,
+          finalId: techId 
+        })
+        return {
         ...t,
-        id: t.technicianId || t.id
-      }))
+          id: techId,
+          technicianId: techId,
+          staffId: techId
+        }
+      })
       
       const transformedAssigns = snakeToCamel(assigns || []).map(a => ({
         ...a,
@@ -179,10 +238,22 @@ function Staff() {
         id: pr.requestId || pr.id
       }))
       
+      const transformedServices = snakeToCamel(servicesData || []).map(s => ({
+        ...s,
+        id: s.serviceId || s.id
+      }))
+      
+      const transformedUsers = snakeToCamel(usersData.filter(u => u !== null)).map(u => ({
+        ...u,
+        id: u.userId || u.id
+      }))
+      
       console.log('[Staff] Transformed sample:', {
         appointment: transformedAppts[0],
         customer: transformedCusts[0],
-        vehicle: transformedVehs[0]
+        vehicle: transformedVehs[0],
+        services: transformedServices.length,
+        users: transformedUsers.length
       })
       
       setAppointments(transformedAppts)
@@ -194,6 +265,15 @@ function Staff() {
       setMaintenanceReports(transformedReports)
       setParts(transformedParts)
       setPartRequests(transformedPartRequests)
+      setServices(transformedServices) // 🆕 Set services
+      setUsers(transformedUsers) // 🆕 Set users
+      
+      // Transform service orders from maintenance service
+      const transformedServiceOrders = snakeToCamel(serviceOrders || []).map(so => ({
+        ...so,
+        id: so.orderId || so.id
+      }))
+      setServiceOrders(transformedServiceOrders)
     } catch (err) {
       setError('Không thể tải dữ liệu: ' + err.message)
       console.error('Load data error:', err)
@@ -226,12 +306,134 @@ function Staff() {
     return tech ? tech.fullName || tech.email : 'N/A'
   }
 
+  // 🆕 Get service name by ID
+  const getServiceName = (serviceId) => {
+    const service = services.find(s => s.id === serviceId)
+    return service ? service.name : serviceId ? `Dịch vụ #${serviceId}` : 'N/A'
+  }
+
+  // 🆕 Get user phone by customer ID - fetch on demand if not available
+  const getUserPhone = async (customerId) => {
+    const customer = customers.find(c => c.id === customerId)
+    if (!customer || !customer.userId) return 'N/A'
+    
+    // Try to get phone from customer object first
+    if (customer.phone) return customer.phone
+    
+    // Try to get from users list
+    const user = users.find(u => u.id === customer.userId)
+    if (user?.phone) return user.phone
+    
+    // Try to fetch from AuthService on demand
+    try {
+      const response = await fetch(`http://localhost:8081/api/auth/users/${customer.userId}`, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      })
+      if (response.ok) {
+        const userData = await response.json()
+        // Cache it in users list
+        if (userData.phone && !users.find(u => u.id === customer.userId)) {
+          setUsers([...users, { id: customer.userId, phone: userData.phone }])
+        }
+        return userData.phone || 'N/A'
+      }
+    } catch (err) {
+      console.warn('[Staff] Could not fetch user phone:', err)
+    }
+    
+    return 'N/A'
+  }
+  
+  // Synchronous version for display (will show 'N/A' initially, then update)
+  const getUserPhoneSync = (customerId) => {
+    const customer = customers.find(c => c.id === customerId)
+    if (!customer) return 'N/A'
+    if (customer.phone) return customer.phone
+    const user = users.find(u => u.id === customer.userId)
+    return user?.phone || 'N/A'
+  }
+
   // Dashboard Statistics
   const dashboardStats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
+    // Get today's date in local timezone (YYYY-MM-DD format)
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    
+    // Helper function to get date string in local timezone
+    const getLocalDateString = (dateValue) => {
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      // Handle invalid dates
+      if (isNaN(date.getTime())) return null
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+    
     const todayAppointments = appointments.filter(a => {
-      const apptDate = new Date(a.appointmentDate).toISOString().split('T')[0]
-      return apptDate === today
+      // Check both requested_date_time (appointment date) and created_at (when created)
+      const requestedDate = a.appointmentDate || a.requestedDateTime || a.requested_date_time
+      const createdDate = a.createdAt || a.created_at
+      
+      // Helper to check if date is today
+      const isDateToday = (dateValue) => {
+        if (!dateValue) return false
+        const dateStr = getLocalDateString(dateValue)
+        return dateStr === today
+      }
+      
+      // Include appointments that:
+      // 1. Have requested_date_time = today (scheduled for today), OR
+      // 2. Were created today (created_at = today) - for newly created appointments
+      const requestedIsToday = isDateToday(requestedDate)
+      const createdIsToday = isDateToday(createdDate)
+      
+      if (requestedIsToday || createdIsToday) {
+        console.log('[Dashboard] ✅ Today appointment found:', { 
+          appointmentId: a.id, 
+          requestedDate: requestedDate,
+          requestedIsToday: requestedIsToday,
+          createdDate: createdDate,
+          createdIsToday: createdIsToday,
+          today: today,
+          status: a.status
+        })
+        return true
+      }
+      
+      // Log appointments that don't match for debugging
+      if (requestedDate) {
+        const reqDateStr = getLocalDateString(requestedDate)
+        console.log('[Dashboard] Appointment not today:', { 
+          appointmentId: a.id, 
+          requestedDate: requestedDate,
+          requestedDateLocal: reqDateStr,
+          today: today,
+          match: reqDateStr === today
+        })
+      }
+      
+      return false
+    })
+    
+    console.log('[Dashboard] 📊 Today appointments:', {
+      count: todayAppointments.length,
+      total: appointments.length,
+      today: today,
+      appointments: todayAppointments.map(a => ({ id: a.id, date: a.appointmentDate, status: a.status }))
+    })
+
+    // Đếm service orders từ maintenance service
+    // Sử dụng helper function để normalize status
+    const assignedOrders = serviceOrders.filter(so => so.assignedTechnicianId && so.assignedTechnicianId !== null && so.assignedTechnicianId !== 0)
+    const inProgressOrders = serviceOrders.filter(so => {
+      const normalized = normalizeServiceOrderStatus(so.status)
+      return normalized === 'IN_PROGRESS' || normalized === 'QUEUED'
+    })
+    const completedOrders = serviceOrders.filter(so => {
+      const normalized = normalizeServiceOrderStatus(so.status)
+      return normalized === 'COMPLETED'
     })
 
     return {
@@ -240,18 +442,53 @@ function Staff() {
       pendingAppointments: appointments.filter(a => a.status === 'pending').length,
       confirmedAppointments: appointments.filter(a => a.status === 'confirmed').length,
       receivedAppointments: appointments.filter(a => a.status === 'received').length,
-      inProgressAppointments: assignments.filter(a => a.status === 'in_progress').length,
-      completedToday: appointments.filter(a => {
-        const apptDate = new Date(a.appointmentDate).toISOString().split('T')[0]
-        return apptDate === today && a.status === 'completed'
+      // Đang xử lý: đếm từ service orders với status IN_PROGRESS hoặc QUEUED
+      // Chỉ dùng service orders làm nguồn chính xác, không fallback
+      inProgressAppointments: inProgressOrders.length,
+      // Hoàn thành hôm nay: đếm service orders completed hôm nay
+      // Sử dụng completedAt từ service order nếu có, nếu không thì dùng appointment date
+      completedToday: completedOrders.filter(so => {
+        // Helper function to get local date string
+        const getLocalDateString = (dateValue) => {
+          if (!dateValue) return null
+          const date = new Date(dateValue)
+          if (isNaN(date.getTime())) return null
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        }
+        
+        // Nếu có completedAt, dùng nó
+        if (so.completedAt) {
+          const completedDate = getLocalDateString(so.completedAt)
+          return completedDate === today
+        }
+        // Nếu không, tìm appointment và dùng appointment date
+        const apt = appointments.find(a => a.id === so.appointmentId)
+        if (!apt || !apt.appointmentDate) return false
+        const apptDate = getLocalDateString(apt.appointmentDate)
+        return apptDate === today
       }).length,
       totalServiceReceipts: serviceReceipts.length,
-      totalAssignments: assignments.length,
-      pendingReports: maintenanceReports.filter(r => !r.approved).length,
-      approvedReports: maintenanceReports.filter(r => r.approved).length,
-      activeTechnicians: new Set(assignments.filter(a => a.status === 'in_progress').map(a => a.technicianId)).size
+      // Tổng phân công: đếm từ service orders đã được phân công
+      // Chỉ dùng service orders làm nguồn chính xác
+      totalAssignments: assignedOrders.length,
+      // Sửa: dùng status thay vì approved (status: 'draft', 'submitted', 'approved', 'rejected')
+      pendingReports: maintenanceReports.filter(r => 
+        r.status === 'draft' || r.status === 'submitted'
+      ).length,
+      approvedReports: maintenanceReports.filter(r => r.status === 'approved').length,
+      // Kỹ thuật viên đang làm việc: đếm unique technicians từ service orders đã phân công và đang xử lý
+      // Chỉ dùng service orders làm nguồn chính xác
+      activeTechnicians: new Set(
+        assignedOrders
+          .filter(so => {
+            const normalized = normalizeServiceOrderStatus(so.status)
+            return normalized === 'IN_PROGRESS' || normalized === 'QUEUED'
+          })
+          .map(so => so.assignedTechnicianId)
+          .filter(id => id != null && id !== 0)
+      ).size
     }
-  }, [appointments, assignments, serviceReceipts, maintenanceReports])
+  }, [appointments, assignments, serviceReceipts, maintenanceReports, serviceOrders])
 
   // Notifications
   const notifications = useMemo(() => {
@@ -279,8 +516,10 @@ function Staff() {
       })
     }
 
-    // Pending reports
-    const pendingReports = maintenanceReports.filter(r => !r.approved)
+    // Pending reports (status: 'draft' hoặc 'submitted')
+    const pendingReports = maintenanceReports.filter(r => 
+      r.status === 'draft' || r.status === 'submitted'
+    )
     if (pendingReports.length > 0) {
       notifs.push({
         id: 'pending-reports',
@@ -296,8 +535,12 @@ function Staff() {
       })
     }
 
-    // Low stock parts
-    const lowStockParts = parts.filter(p => (p.quantity || 0) < (p.minQuantity || 10))
+    // Low stock parts (sử dụng stockQuantity và minStockLevel sau khi transform)
+    const lowStockParts = parts.filter(p => {
+      const stock = p.stockQuantity || p.quantity || 0
+      const minStock = p.minStockLevel || p.minQuantity || 10
+      return stock < minStock
+    })
     if (lowStockParts.length > 0) {
       notifs.push({
         id: 'low-stock',
@@ -355,7 +598,7 @@ function Staff() {
       })
     }
 
-    // Status filter
+    // Status filter - chỉ có 3 lựa chọn: pending, completed, cancelled
     if (statusFilter !== 'all') {
       filtered = filtered.filter(appt => appt.status === statusFilter)
     }
@@ -364,22 +607,38 @@ function Staff() {
     if (dateFilter !== 'all') {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
+      const todayTime = today.getTime()
 
       filtered = filtered.filter(appt => {
+        // Kiểm tra appointmentDate có tồn tại không
+        if (!appt.appointmentDate) {
+          return false
+        }
+
         const apptDate = new Date(appt.appointmentDate)
+        // Kiểm tra date có hợp lệ không
+        if (isNaN(apptDate.getTime())) {
+          return false
+        }
+        
         apptDate.setHours(0, 0, 0, 0)
+        const apptTime = apptDate.getTime()
 
         switch (dateFilter) {
           case 'today':
-            return apptDate.getTime() === today.getTime()
+            return apptTime === todayTime
           case 'week':
             const weekAgo = new Date(today)
             weekAgo.setDate(today.getDate() - 7)
-            return apptDate >= weekAgo && apptDate <= today
+            weekAgo.setHours(0, 0, 0, 0)
+            const weekAgoTime = weekAgo.getTime()
+            return apptTime >= weekAgoTime && apptTime <= todayTime
           case 'month':
             const monthAgo = new Date(today)
-            monthAgo.setMonth(today.getMonth() - 1)
-            return apptDate >= monthAgo && apptDate <= today
+            monthAgo.setDate(today.getDate() - 30)
+            monthAgo.setHours(0, 0, 0, 0)
+            const monthAgoTime = monthAgo.getTime()
+            return apptTime >= monthAgoTime && apptTime <= todayTime
           default:
             return true
         }
@@ -405,24 +664,108 @@ function Staff() {
     setShowReceiptModal(true)
   }
 
+  // Xác nhận appointment (pending → confirmed)
+  const handleConfirmAppointment = async (appointmentId) => {
+    if (!confirm('Xác nhận lịch hẹn này?')) return
+    
+    try {
+      await maintenanceAPI.confirmAppointment(appointmentId)
+      loadData() // Reload data
+      alert('✅ Đã xác nhận lịch hẹn thành công!')
+    } catch (err) {
+      console.error('Error confirming appointment:', err)
+      alert('❌ Lỗi xác nhận lịch hẹn: ' + (err.message || 'Vui lòng thử lại'))
+    }
+  }
+
   const submitReceipt = async (formData) => {
+    try {
+      // WORKFLOW: Tiếp nhận appointment và tạo phiếu bảo dưỡng (Service Order)
+      // API receiveAppointment tự động:
+      // 1. Chuyển appointment status từ CONFIRMED → RECEIVED
+      // 2. Tạo Service Order từ appointment
+      const response = await maintenanceAPI.receiveAppointment(selectedAppointment.id)
+      
+      // response chứa: { appointment, serviceOrder, message }
+      const serviceOrder = response.serviceOrder
+      if (!serviceOrder) {
+        throw new Error('Không thể tạo phiếu bảo dưỡng từ appointment này')
+      }
+      
+      // Bước 4: Lưu thông tin chi tiết vào service receipt (staff service) để tracking
+      // Service receipt lưu: odometer, condition, complaints, notes
     try {
       await staffAPI.createServiceReceipt({
         appointmentId: selectedAppointment.id,
         vehicleId: selectedAppointment.vehicleId,
         customerId: selectedAppointment.customerId,
-        ...formData
-      })
+          odometerReading: formData.mileage ? parseInt(formData.mileage) : null,
+          fuelLevel: formData.fuelLevel || '50',
+          exteriorCondition: formData.vehicleCondition || 'good',
+          estimatedCompletion: formData.estimatedDuration || null,
+          notes: formData.notes || ''
+        })
+      } catch (receiptErr) {
+        console.warn('Could not create service receipt (optional):', receiptErr)
+        // Continue anyway - service order is created, main workflow continues
+      }
       
-      // Update appointment status to 'received'
-      await staffAPI.updateAppointmentStatus(selectedAppointment.id, 'received')
+      // Bước 5: Cập nhật vehicle odometer nếu có
+      if (formData.mileage) {
+        try {
+          await customerAPI.patchVehicle(selectedAppointment.vehicleId, {
+            odometerKm: parseInt(formData.mileage)
+          })
+        } catch (vehicleErr) {
+          console.warn('Could not update vehicle odometer:', vehicleErr)
+        }
+      }
       
+      // Bước 6: Sau khi tiếp nhận thành công, tự động load technicians từ Maintenance Service và mở modal phân công
+      try {
+        // Load technicians từ Maintenance Service (gọi Staff Service nội bộ)
+        let techs = technicians
+        if (techs.length === 0) {
+          // Gọi Maintenance Service API để lấy technicians (Maintenance Service sẽ gọi Staff Service)
+          techs = await maintenanceAPI.getTechnicians()
+          const transformedTechs = techs.map(t => ({
+            ...t,
+            id: t.technicianId || t.id || t.userId
+          }))
+          setTechnicians(transformedTechs)
+          techs = transformedTechs
+        }
+        
+        if (techs.length === 0) {
+          alert('⚠️ Chưa có kỹ thuật viên nào trong hệ thống. Vui lòng thêm kỹ thuật viên trước khi phân công.')
       setShowReceiptModal(false)
       setSelectedAppointment(null)
-      loadData() // Reload all data
-      alert('✅ Đã tạo phiếu tiếp nhận thành công!')
+          loadData()
+          return
+        }
+        
+        // Đóng modal tiếp nhận
+        setShowReceiptModal(false)
+        setSelectedAppointment(null)
+        
+        // Reload data để cập nhật danh sách
+        loadData()
+        
+        // Tự động chuyển sang tab "Phân công" để phân công technician
+        setActiveTab('assignments')
+        
+        alert('✅ Đã tiếp nhận lịch hẹn và tạo phiếu bảo dưỡng thành công!\n\nVui lòng phân công kỹ thuật viên trong tab "Phân công".')
+      } catch (techErr) {
+        console.error('Error loading technicians:', techErr)
+        // Nếu không load được technicians, vẫn đóng modal và thông báo
+        setShowReceiptModal(false)
+        setSelectedAppointment(null)
+        loadData()
+        alert('✅ Đã tạo phiếu bảo dưỡng thành công!\n\n⚠️ Không thể tải danh sách kỹ thuật viên. Vui lòng phân công thủ công sau.')
+      }
     } catch (err) {
-      alert('❌ Lỗi tạo phiếu tiếp nhận: ' + err.message)
+      console.error('Error creating service order:', err)
+      alert('❌ Lỗi tạo phiếu bảo dưỡng: ' + (err.message || 'Vui lòng thử lại'))
     }
   }
 
@@ -431,11 +774,106 @@ function Staff() {
     const appointment = appointments.find(a => a.id === appointmentId)
     if (!appointment) return
 
+    // Load technicians từ API nếu chưa có (getTechnicians đã được gọi trong loadData, nhưng kiểm tra lại)
+    if (technicians.length === 0) {
+      try {
+        const techs = await staffAPI.getTechnicians()
+        const transformedTechs = techs.map(t => ({
+          ...t,
+          id: t.technicianId || t.id || t.userId
+        }))
+        setTechnicians(transformedTechs)
+      } catch (err) {
+        console.error('Error loading technicians:', err)
+        alert('Không thể tải danh sách kỹ thuật viên: ' + err.message)
+        return
+      }
+    }
+
     setSelectedAppointment(appointment)
     setShowAssignmentModal(true)
   }
 
   const submitAssignment = async (technicianId) => {
+    try {
+      console.log('[Staff] submitAssignment called with technicianId:', technicianId, 'Type:', typeof technicianId)
+      console.log('[Staff] Available technicians:', technicians.map(t => ({ id: t.id, name: t.fullName || t.email })))
+      
+      // Tìm service order từ appointment
+      let serviceOrder
+      
+      // Nếu đã có serviceOrderId từ việc tiếp nhận (receive appointment)
+      if (selectedAppointment.serviceOrderId) {
+        try {
+          serviceOrder = await maintenanceAPI.getServiceOrder(selectedAppointment.serviceOrderId)
+        } catch (err) {
+          console.warn('Could not get service order by ID, trying to find by appointment:', err)
+        }
+      }
+      
+      // Nếu chưa có, tìm service order từ appointment
+      if (!serviceOrder) {
+        try {
+          const serviceOrders = await maintenanceAPI.getServiceOrders()
+          serviceOrder = serviceOrders.find(so => so.appointmentId === selectedAppointment.id)
+        } catch (orderErr) {
+          console.warn('Could not get service orders:', orderErr)
+        }
+      }
+      
+      // Nếu vẫn chưa có service order, tạo mới
+      if (!serviceOrder) {
+        serviceOrder = await maintenanceAPI.createServiceOrderFromAppointment(selectedAppointment.id)
+      }
+      
+      // Phân công technician vào service order (maintenance service)
+      // Đảm bảo technicianId là số hợp lệ
+      const technicianIdInt = typeof technicianId === 'number' ? technicianId : parseInt(technicianId)
+      
+      if (isNaN(technicianIdInt) || technicianIdInt <= 0) {
+        throw new Error(`ID kỹ thuật viên không hợp lệ: ${technicianId}. Vui lòng chọn lại kỹ thuật viên.`)
+      }
+      
+      console.log('[Staff] Assigning technician:', {
+        serviceOrderId: serviceOrder.orderId,
+        technicianId: technicianIdInt,
+        technicianIdOriginal: technicianId,
+        technicianIdType: typeof technicianId
+      })
+      
+      const updatedServiceOrder = await maintenanceAPI.assignTechnician(serviceOrder.orderId, technicianIdInt)
+      
+      console.log('[Staff] API response:', updatedServiceOrder)
+      
+      // Kiểm tra xem assignment có thành công không
+      if (!updatedServiceOrder) {
+        throw new Error('Không thể phân công kỹ thuật viên. API không trả về kết quả.')
+      }
+      
+      // Transform response nếu cần (snake_case -> camelCase)
+      const transformedOrder = snakeToCamel(updatedServiceOrder)
+      const assignedId = transformedOrder.assignedTechnicianId || updatedServiceOrder.assignedTechnicianId
+      
+      if (!assignedId || assignedId === null || assignedId === 0) {
+        console.error('[Staff] Assignment failed - assignedTechnicianId is null/empty:', {
+          original: updatedServiceOrder,
+          transformed: transformedOrder
+        })
+        throw new Error('Không thể phân công kỹ thuật viên. assignedTechnicianId không được cập nhật.')
+      }
+      
+      console.log('[Staff] Assignment successful. Updated service order:', {
+        orderId: transformedOrder.orderId || updatedServiceOrder.orderId,
+        assignedTechnicianId: assignedId
+      })
+      
+      // Cập nhật status service order thành 'in_progress' (nếu chưa có)
+      const currentStatus = normalizeServiceOrderStatus(updatedServiceOrder.status)
+      if (currentStatus === 'QUEUED') {
+        await maintenanceAPI.updateServiceOrderStatus(serviceOrder.orderId, 'in_progress')
+      }
+      
+      // Cũng tạo assignment trong staff service để tracking (optional - có thể bỏ qua nếu lỗi)
     try {
       await staffAPI.createAssignment({
         appointmentId: selectedAppointment.id,
@@ -443,13 +881,33 @@ function Staff() {
         vehicleId: selectedAppointment.vehicleId,
         status: 'assigned'
       })
+      } catch (assignErr) {
+        console.warn('Could not create assignment in staff service (optional):', assignErr)
+        // Continue anyway - technician is assigned in maintenance service
+      }
       
       setShowAssignmentModal(false)
       setSelectedAppointment(null)
-      loadData() // Reload all data
-      alert('Đã phân công kỹ thuật viên thành công!')
+      
+      // Cập nhật state ngay lập tức (optimistic update)
+      setServiceOrders(prev => prev.map(so => 
+        so.id === serviceOrder.orderId || so.orderId === serviceOrder.orderId
+          ? { ...so, assignedTechnicianId: parseInt(technicianId) }
+          : so
+      ))
+      
+      // Reload data để đảm bảo đồng bộ
+      await loadData()
+      
+      // Đảm bảo UI cập nhật ngay lập tức
+      alert('✅ Đã phân công kỹ thuật viên thành công!')
+      
+      // Tự động chuyển sang tab "Phân công" nếu chưa ở đó
+      if (activeTab !== 'assignments') {
+        setActiveTab('assignments')
+      }
     } catch (err) {
-      alert('Lỗi phân công: ' + err.message)
+      alert('❌ Lỗi phân công kỹ thuật viên: ' + err.message)
     }
   }
 
@@ -656,12 +1114,6 @@ function Staff() {
           </div>
         </div>
 
-        ${receipt.customerComplaints ? `
-        <div class="notes-section">
-          <div class="info-label">⚠️ Yêu cầu khách hàng:</div>
-          <div class="info-value">${receipt.customerComplaints}</div>
-        </div>
-        ` : ''}
 
         ${receipt.notes ? `
         <div class="notes-section">
@@ -987,7 +1439,7 @@ function Staff() {
             { key: 'appointments', label: '📅 Lịch hẹn', icon: '📅' },
             { key: 'receipts', label: '📝 Phiếu tiếp nhận', icon: '📝' },
             { key: 'assignments', label: '👷 Phân công', icon: '👷' },
-            { key: 'reports', label: '📋 Báo cáo', icon: '📋' },
+            // { key: 'reports', label: '📋 Báo cáo', icon: '📋' },
             { key: 'parts', label: '🔧 Phụ tùng', icon: '🔧' }
           ].map(tab => (
             <button
@@ -1130,7 +1582,8 @@ function Staff() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                  {/* Báo cáo đã duyệt - ĐÃ COMMENT */}
+                  {/* <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
                         <span className="text-xl">📋</span>
@@ -1140,13 +1593,13 @@ function Staff() {
                         <p className="text-lg font-semibold text-gray-900">{dashboardStats.approvedReports}</p>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
+            {/* Quick Actions - ĐÃ COMMENT */}
+            {/* <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Thao tác nhanh</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
@@ -1190,7 +1643,7 @@ function Staff() {
                   </div>
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
         )}
 
@@ -1218,13 +1671,13 @@ function Staff() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   >
                     <option value="all">Tất cả</option>
-                    <option value="pending">Chờ xác nhận</option>
-                    <option value="confirmed">Đã xác nhận</option>
-                    <option value="received">Đã tiếp nhận</option>
-                    <option value="completed">Hoàn thành</option>
-                    <option value="cancelled">Đã hủy</option>
+                    <option value="pending">⏳ Chờ Xác nhận</option>
+                    <option value="completed">✓ Hoàn thành</option>
+                    <option value="cancelled">❌ Đã hủy</option>
                   </select>
                 </div>
+                {/* Menu Thời gian - Tạm thời comment do chưa hoạt động đúng */}
+                {/*
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">📅 Thời gian</label>
                   <select
@@ -1238,6 +1691,7 @@ function Staff() {
                     <option value="month">30 ngày qua</option>
                   </select>
                 </div>
+                */}
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <p className="text-sm text-gray-600">
@@ -1319,30 +1773,56 @@ function Staff() {
                           >
                             👁️
                           </button>
+                          {appt.status === 'pending' && (
+                            <button
+                              onClick={() => handleConfirmAppointment(appt.id)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs"
+                              title="Xác nhận lịch hẹn"
+                            >
+                              ✅ Xác nhận
+                            </button>
+                          )}
                           {appt.status === 'confirmed' && (
-                            <>
                               <button
                                 onClick={() => handleCreateReceipt(appt.id)}
                                 className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs"
                               >
                                 Tiếp nhận
                               </button>
-                              <button
-                                onClick={() => handleCreateAssignment(appt.id)}
-                                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs"
-                              >
-                                Phân công
-                              </button>
-                            </>
                           )}
-                          {appt.status === 'received' && (
+                          {appt.status === 'received' && (() => {
+                            // Kiểm tra xem appointment đã được phân công chưa
+                            const serviceOrder = serviceOrders.find(so => so.appointmentId === appt.id)
+                            const isAssigned = serviceOrder && serviceOrder.assignedTechnicianId && serviceOrder.assignedTechnicianId !== null && serviceOrder.assignedTechnicianId !== 0
+                            
+                            if (isAssigned) {
+                              return (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-md text-xs font-medium">
+                                  ✅ Đã phân công
+                                </span>
+                              )
+                            } else {
+                              return (
                             <button
-                              onClick={() => handleCreateAssignment(appt.id)}
+                                  onClick={() => {
+                                    // Chuyển sang tab Phân công và tự động mở modal
+                                    setActiveTab('assignments')
+                                    setTimeout(() => {
+                                      const apt = appointments.find(a => a.id === appt.id)
+                                      if (apt) {
+                                        setSelectedAppointment({ ...apt, serviceOrderId: serviceOrder?.orderId })
+                                        setShowAssignmentModal(true)
+                                      }
+                                    }, 100)
+                                  }}
                               className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs"
+                                  title="Chuyển sang tab Phân công để phân công KTV"
                             >
-                              Phân công
+                                  👷 Phân công
                             </button>
-                          )}
+                              )
+                            }
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -1354,19 +1834,171 @@ function Staff() {
           </div>
         )}
 
-        {/* Service Receipts Tab - Enhanced Workflow Center */}
+        {/* Phiếu tiếp nhận Tab - Xác nhận tiếp nhận yêu cầu dịch vụ từ khách hàng */}
         {activeTab === 'receipts' && (
           <div className="bg-white rounded-lg shadow p-6">
-            {/* Header with filters */}
+            {/* Header */}
             <div className="mb-6">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
-                <h3 className="text-xl font-semibold">Danh sách phiếu tiếp nhận</h3>
+                <div>
+                  <h3 className="text-xl font-semibold">Phiếu tiếp nhận</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Lấy thông tin từ khách hàng khi đặt lịch (hẹn thời gian, xe, loại dịch vụ) và xác nhận có tiếp nhận hay không
+                  </p>
+                </div>
                 <button onClick={loadData} className="px-3 py-1 border rounded-md hover:bg-gray-50 text-sm">
                   🔄 Làm mới
                 </button>
               </div>
 
-              {/* Search and Filters */}
+              {/* Danh sách appointments cần tiếp nhận (status = confirmed) */}
+              {appointments.filter(a => a.status === 'confirmed').length > 0 && (
+                <div className="mb-6 border-b pb-4">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 Lịch hẹn cần tiếp nhận</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {appointments.filter(a => a.status === 'confirmed').map(appt => {
+                      const customer = customers.find(c => c.id === appt.customerId)
+                      const vehicle = vehicles.find(v => v.id === appt.vehicleId)
+                      const service = services.find(s => s.id === appt.serviceId)
+                      
+                      return (
+                        <div key={appt.id} className="border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-blue-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="font-semibold text-gray-900">Lịch hẹn #{appt.id}</p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(appt.appointmentDate).toLocaleDateString('vi-VN')} {appt.appointmentTime}
+                              </p>
+                            </div>
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                              ⏳ Chờ tiếp nhận
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2 text-sm mb-4">
+                            <p><span className="font-medium">Khách hàng:</span> {customer?.fullName || 'N/A'}</p>
+                            <p><span className="font-medium">Xe:</span> {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}</p>
+                            <p><span className="font-medium">Dịch vụ:</span> {service?.name || appt.serviceId || 'N/A'}</p>
+                            {appt.notes && (
+                              <p className="text-gray-600 italic">📝 {appt.notes}</p>
+                            )}
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleCreateReceipt(appt.id)}
+                              className="flex-1 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                            >
+                              ✅ Tiếp nhận
+                            </button>
+                            <button
+                              onClick={() => handleViewAppointmentDetails(appt)}
+                              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                            >
+                              👁️ Chi tiết
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Danh sách appointments đã tiếp nhận (status = received) */}
+              {appointments.filter(a => a.status === 'received').length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">✅ Đã tiếp nhận - Chờ phân công</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {appointments.filter(a => a.status === 'received').map(appt => {
+                      const customer = customers.find(c => c.id === appt.customerId)
+                      const vehicle = vehicles.find(v => v.id === appt.vehicleId)
+                      const service = services.find(s => s.id === appt.serviceId)
+                      const serviceOrder = serviceOrders.find(so => so.appointmentId === appt.id)
+                      
+                      return (
+                        <div key={appt.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-green-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="font-semibold text-gray-900">Lịch hẹn #{appt.id}</p>
+                              {serviceOrder && (
+                                <p className="text-xs text-gray-500">Phiếu bảo dưỡng #{serviceOrder.id}</p>
+                              )}
+                            </div>
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                              ✅ Đã tiếp nhận
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2 text-sm mb-4">
+                            <p><span className="font-medium">Khách hàng:</span> {customer?.fullName || 'N/A'}</p>
+                            <p><span className="font-medium">Xe:</span> {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}</p>
+                            <p><span className="font-medium">Dịch vụ:</span> {service?.name || appt.serviceId || 'N/A'}</p>
+                            {serviceOrder && (
+                              <p className="text-xs text-gray-500">
+                                Trạng thái: {getServiceOrderStatusDisplay(serviceOrder.status).display}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleViewAppointmentDetails(appt)}
+                              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                            >
+                              👁️ Chi tiết
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Service Orders đã được tạo (để tham khảo) */}
+              {serviceOrders.length > 0 && appointments.filter(a => a.status === 'received').length === 0 && (
+                <div className="mb-6 border-t pt-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Phiếu bảo dưỡng đã tạo</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {serviceOrders.map(order => {
+                      const appointment = appointments.find(a => a.id === order.appointmentId)
+                      const vehicle = vehicles.find(v => v.id === order.vehicleId)
+                      const customer = customers.find(c => c.id === appointment?.customerId)
+                      const technician = technicians.find(t => t.id === order.assignedTechnicianId)
+                      
+                      return (
+                        <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="font-semibold text-gray-900">Phiếu #{order.id}</p>
+                              <p className="text-xs text-gray-500">Appointment #{order.appointmentId}</p>
+                            </div>
+                            {(() => {
+                              const statusInfo = getServiceOrderStatusDisplay(order.status)
+                              return (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold ${statusInfo.bgColor} ${statusInfo.textColor}`}>
+                                  {statusInfo.label}
+                                </span>
+                              )
+                            })()}
+                          </div>
+                          
+                          <div className="space-y-2 text-sm">
+                            <p><span className="font-medium">Khách hàng:</span> {customer?.fullName || 'N/A'}</p>
+                            <p><span className="font-medium">Xe:</span> {vehicle?.brand} {vehicle?.model}</p>
+                            {technician && (
+                              <p><span className="font-medium">KTV:</span> {technician.fullName || technician.email}</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Search and Filters - Legacy (for service receipts) */}
               {serviceReceipts.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <input
@@ -1408,21 +2040,27 @@ function Staff() {
               )}
             </div>
 
-            {serviceReceipts.length === 0 ? (
+            {/* Empty state - chỉ hiển thị khi không có appointments cần tiếp nhận và không có appointments đã tiếp nhận */}
+            {appointments.filter(a => a.status === 'confirmed' || a.status === 'received').length === 0 && (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📝</div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Chưa có phiếu tiếp nhận nào</h4>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">Chưa có lịch hẹn nào cần tiếp nhận</h4>
                 <p className="text-gray-600 mb-4">
-                  Phiếu tiếp nhận sẽ được tạo khi bạn tiếp nhận khách hàng đến bảo dưỡng
+                  Vào tab "Lịch hẹn" để xem các lịch hẹn đã được xác nhận và thực hiện tiếp nhận
                 </p>
                 <button
                   onClick={() => setActiveTab('appointments')}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
                 >
-                  Xem lịch hẹn để tiếp nhận
+                  Xem lịch hẹn
                 </button>
               </div>
-            ) : (
+            )}
+
+            {/* Legacy service receipts display (nếu có) */}
+            {serviceReceipts.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết phiếu tiếp nhận</h4>
               <div className="space-y-4">
                 {getEnrichedReceipts().map(receipt => (
                   <ReceiptWorkflowCard
@@ -1440,36 +2078,154 @@ function Staff() {
                     onViewTimeline={() => handleViewTimeline(receipt)}
                   />
                 ))}
+                </div>
               </div>
               )}
             </div>
         )}
 
-        {/* Assignments Tab */}
+        {/* Assignments Tab - Phân công technician cho Service Orders */}
         {activeTab === 'assignments' && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Danh sách phân công</h3>
+              <div>
+                <h3 className="text-xl font-semibold">Phân công kỹ thuật viên</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Phân công kỹ thuật viên cho các phiếu bảo dưỡng đã được tiếp nhận
+                </p>
+              </div>
               <button onClick={loadData} className="px-3 py-1 border rounded-md hover:bg-gray-50">
                 🔄 Làm mới
               </button>
             </div>
 
-            {assignments.length === 0 ? (
+            {/* Service Orders chưa được phân công (assignedTechnicianId = null/undefined/0) */}
+            {serviceOrders.filter(so => !so.assignedTechnicianId || so.assignedTechnicianId === null || so.assignedTechnicianId === 0).length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">⏳ Phiếu bảo dưỡng chờ phân công</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {serviceOrders.filter(so => !so.assignedTechnicianId || so.assignedTechnicianId === null || so.assignedTechnicianId === 0).map(order => {
+                    const appointment = appointments.find(a => a.id === order.appointmentId)
+                    const vehicle = vehicles.find(v => v.id === order.vehicleId)
+                    const customer = customers.find(c => c.id === appointment?.customerId)
+                    
+                    return (
+                      <div key={order.id} className="border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-blue-50">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">Phiếu bảo dưỡng #{order.id}</p>
+                            <p className="text-xs text-gray-500">Lịch hẹn #{order.appointmentId}</p>
+                          </div>
+                          <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                            ⏳ Chờ phân công
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm mb-4">
+                          <p><span className="font-medium">Khách hàng:</span> {customer?.fullName || 'N/A'}</p>
+                          <p><span className="font-medium">Xe:</span> {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}</p>
+                          {appointment && (
+                            <p className="text-xs text-gray-500">
+                              Ngày: {new Date(appointment.appointmentDate).toLocaleDateString('vi-VN')} {appointment.appointmentTime}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            // Tìm appointment tương ứng
+                            const apt = appointments.find(a => a.id === order.appointmentId)
+                            if (apt) {
+                              setSelectedAppointment({ ...apt, serviceOrderId: order.orderId })
+                              setShowAssignmentModal(true)
+                            }
+                          }}
+                          className="w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                        >
+                          👷 Phân công KTV
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Service Orders đã được phân công */}
+            {serviceOrders.filter(so => so.assignedTechnicianId && so.assignedTechnicianId !== null && so.assignedTechnicianId !== 0).length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">✅ Phiếu bảo dưỡng đã phân công</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {serviceOrders.filter(so => so.assignedTechnicianId && so.assignedTechnicianId !== null && so.assignedTechnicianId !== 0).map(order => {
+                    const appointment = appointments.find(a => a.id === order.appointmentId)
+                    const vehicle = vehicles.find(v => v.id === order.vehicleId)
+                    const customer = customers.find(c => c.id === appointment?.customerId)
+                    const technician = technicians.find(t => t.id === order.assignedTechnicianId)
+                    
+                    return (
+                      <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-green-50">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">Phiếu bảo dưỡng #{order.id}</p>
+                            <p className="text-xs text-gray-500">Lịch hẹn #{order.appointmentId}</p>
+                          </div>
+                          {(() => {
+                            const statusInfo = getServiceOrderStatusDisplay(order.status)
+                            return (
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${statusInfo.bgColor} ${statusInfo.textColor}`}>
+                                {statusInfo.label}
+                              </span>
+                            )
+                          })()}
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <p><span className="font-medium">Khách hàng:</span> {customer?.fullName || 'N/A'}</p>
+                          <p><span className="font-medium">Xe:</span> {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}</p>
+                          {technician && (
+                            <p><span className="font-medium">Kỹ thuật viên:</span> {technician.fullName || technician.email || 'N/A'}</p>
+                          )}
+                          {!technician && order.assignedTechnicianId && (
+                            <p className="text-xs text-gray-500">
+                              <span className="font-medium">KTV ID:</span> #{order.assignedTechnicianId}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Badge hiển thị trạng thái đã phân công */}
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✅ Đã phân công
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {serviceOrders.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">👷</div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Chưa có phân công nào</h4>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">Chưa có phiếu bảo dưỡng nào</h4>
                 <p className="text-gray-600 mb-4">
-                  Phân công kỹ thuật viên sẽ được tạo sau khi tiếp nhận lịch hẹn
+                  Phiếu bảo dưỡng sẽ được tạo sau khi tiếp nhận lịch hẹn ở tab "Phiếu tiếp nhận"
                 </p>
                 <button
-                  onClick={() => setActiveTab('appointments')}
+                  onClick={() => setActiveTab('receipts')}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Xem lịch hẹn để phân công
+                  Xem phiếu tiếp nhận
                 </button>
               </div>
-            ) : (
+            )}
+
+            {/* Legacy Assignments (hiển thị để tham khảo) */}
+            {assignments.length > 0 && (
+              <div className="mt-6 border-t pt-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 Phân công cũ (Legacy)</h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -1506,13 +2262,14 @@ function Staff() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               )}
           </div>
         )}
 
-        {/* Maintenance Reports Tab */}
-        {activeTab === 'reports' && (
+        {/* Maintenance Reports Tab - Commented out */}
+        {/* {activeTab === 'reports' && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">Báo cáo bảo dưỡng</h3>
@@ -1600,7 +2357,7 @@ function Staff() {
             </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Parts Management Tab */}
         {activeTab === 'parts' && (
@@ -1609,8 +2366,8 @@ function Staff() {
               <div>
                 <h3 className="text-xl font-semibold">Quản lý Phụ tùng</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Hiển thị: <strong>{parts.length}</strong> phụ tùng | 
-                  Yêu cầu chờ xử lý: <strong>{partRequests.filter(pr => pr.status === 'pending').length}</strong>
+                  Hiển thị: <strong>{parts.length}</strong> phụ tùng
+                  {/* Yêu cầu chờ xử lý: {partRequests.filter(pr => pr.status === 'pending').length} */}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1640,9 +2397,14 @@ function Staff() {
                 className="w-full md:w-1/2 px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 <option value="all">Tất cả phụ tùng (không lọc)</option>
-                {serviceCatalog.map(service => (
-                  <option key={service.serviceId} value={service.category}>
-                    {service.serviceName}
+                {/* Hiển thị unique service categories từ services trong database */}
+                {/* API endpoint /api/staff/parts/for-service/{serviceCategory} cần service category, không phải part category */}
+                {Array.from(new Set(services
+                  .filter(service => service.category)
+                  .map(service => service.category)
+                )).sort().map(category => (
+                  <option key={category} value={category}>
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
                   </option>
                 ))}
               </select>
@@ -1775,6 +2537,8 @@ function Staff() {
             )}
 
             {/* Part Requests Section */}
+            {/* Commented out - Yêu cầu phụ tùng từ khách hàng */}
+            {/*
             <div className="mt-8 border-t pt-6">
               <h4 className="text-lg font-semibold mb-4">Yêu cầu phụ tùng từ khách hàng</h4>
               
@@ -1800,7 +2564,47 @@ function Staff() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {partRequests.map((request) => {
-                        const part = parts.find(p => p.id === request.partId)
+                        // Tìm appointment của khách hàng dựa trên customerId và vehicleId (nếu có)
+                        const appointment = appointments.find(apt => 
+                          apt.customerId === request.customerId && 
+                          (request.vehicleId ? apt.vehicleId === request.vehicleId : true)
+                        )
+                        
+                        // Lấy service từ appointment
+                        const service = appointment ? services.find(s => s.id === appointment.serviceId) : null
+                        
+                        // Lấy tên phụ tùng từ dịch vụ bảo dưỡng mà khách hàng đã đặt lịch
+                        let partName = null
+                        let serviceInfo = null
+                        
+                        if (appointment && service) {
+                          serviceInfo = service
+                          // Tìm parts liên quan đến service category
+                          // Sử dụng mapping: service category -> part categories (qua bảng service_part_categories)
+                          // Tạm thời filter trực tiếp theo category, sau có thể dùng API để lấy chính xác hơn
+                          const relatedParts = parts.filter(p => {
+                            // Nếu service category trùng với part category
+                            if (p.category === service.category) return true
+                            // Có thể mở rộng thêm logic mapping ở đây
+                            return false
+                          })
+                          
+                          if (relatedParts.length > 0) {
+                            // Ưu tiên part từ request.partId nếu có trong danh sách related parts
+                            const requestedPart = relatedParts.find(p => p.id === request.partId)
+                            partName = requestedPart ? requestedPart.name : relatedParts[0].name
+                          } else {
+                            // Nếu không có parts liên quan, hiển thị tên service
+                            partName = `Phụ tùng cho ${service.name}`
+                          }
+                        }
+                        
+                        // Fallback: nếu không tìm được appointment/service, dùng part trực tiếp từ request
+                        if (!partName) {
+                          const part = parts.find(p => p.id === request.partId)
+                          partName = part ? part.name : `Part #${request.partId}`
+                        }
+                        
                         return (
                           <tr key={request.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1810,7 +2614,12 @@ function Staff() {
                               {getCustomerName(request.customerId)}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-900">
-                              {part ? part.name : `Part #${request.partId}`}
+                              {partName}
+                              {service && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Dịch vụ: {service.name}
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                               {request.quantity}
@@ -1875,6 +2684,7 @@ function Staff() {
           </div>
         )}
             </div>
+            */}
           </div>
         )}
 
@@ -1927,6 +2737,9 @@ function Staff() {
           appointment={selectedAppointment}
           customer={customers.find(c => c.id === selectedAppointment.customerId)}
           vehicle={vehicles.find(v => v.id === selectedAppointment.vehicleId)}
+          getUserPhone={getUserPhone}
+          getUserPhoneSync={getUserPhoneSync}
+          getServiceName={getServiceName}
           onClose={() => {
             setShowAppointmentDetails(false)
             setSelectedAppointment(null)
@@ -2117,13 +2930,6 @@ function ReceiptWorkflowCard({
         </div>
       </div>
 
-      {/* Customer Complaints */}
-      {receipt.customerComplaints && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-xs font-medium text-yellow-800 mb-1">⚠️ Yêu cầu khách hàng:</p>
-          <p className="text-sm text-gray-700">{receipt.customerComplaints}</p>
-        </div>
-      )}
 
       {/* Notes */}
       {receipt.notes && (
@@ -2180,8 +2986,23 @@ function ReceiptWorkflowCard({
   )
 }
 
+// Phone Number Display Component (async loading)
+function PhoneNumberDisplay({ customerId, getUserPhone, getUserPhoneSync }) {
+  const [phone, setPhone] = useState(() => getUserPhoneSync ? getUserPhoneSync(customerId) : 'N/A')
+  
+  useEffect(() => {
+    if (phone === 'N/A' && getUserPhone && customerId) {
+      getUserPhone(customerId).then(p => {
+        if (p && p !== 'N/A') setPhone(p)
+      }).catch(() => {})
+    }
+  }, [customerId, getUserPhone, phone])
+  
+  return <p className="font-medium text-gray-900">{phone}</p>
+}
+
 // Appointment Details Modal Component
-function AppointmentDetailsModal({ appointment, customer, vehicle, onClose, onCreateReceipt, onCreateAssignment }) {
+function AppointmentDetailsModal({ appointment, customer, vehicle, getUserPhone, getUserPhoneSync, getServiceName, onClose, onCreateReceipt, onCreateAssignment }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 my-8">
@@ -2227,7 +3048,7 @@ function AppointmentDetailsModal({ appointment, customer, vehicle, onClose, onCr
               </div>
               <div>
                 <p className="text-gray-500">Số điện thoại:</p>
-                <p className="font-medium text-gray-900">{customer?.phoneNumber || 'N/A'}</p>
+                <PhoneNumberDisplay customerId={customer?.id} getUserPhone={getUserPhone} getUserPhoneSync={getUserPhoneSync} />
               </div>
               <div>
                 <p className="text-gray-500">Địa chỉ:</p>
@@ -2262,7 +3083,7 @@ function AppointmentDetailsModal({ appointment, customer, vehicle, onClose, onCr
               </div>
               <div>
                 <p className="text-gray-500">Số km hiện tại:</p>
-                <p className="font-medium text-gray-900">{vehicle?.mileage ? `${vehicle.mileage.toLocaleString()} km` : 'N/A'}</p>
+                <p className="font-medium text-gray-900">{vehicle?.odometerKm ? `${vehicle.odometerKm.toLocaleString()} km` : 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -2283,7 +3104,7 @@ function AppointmentDetailsModal({ appointment, customer, vehicle, onClose, onCr
               </div>
               <div className="col-span-2">
                 <p className="text-gray-500">Dịch vụ:</p>
-                <p className="font-medium text-gray-900">{appointment.serviceId || 'N/A'}</p>
+                <p className="font-medium text-gray-900">{getServiceName ? getServiceName(appointment.serviceId) : (appointment.serviceId || 'N/A')}</p>
               </div>
               {appointment.notes && (
                 <div className="col-span-2">
@@ -2333,17 +3154,45 @@ function AppointmentDetailsModal({ appointment, customer, vehicle, onClose, onCr
   )
 }
 
-// Service Receipt Modal Component - Enhanced
+// Service Receipt Modal Component - Enhanced (Xác nhận tiếp nhận)
 function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehicleInfo }) {
+  // Lấy số km hiện tại từ vehicle nếu có
+  const [vehicle, setVehicle] = useState(null)
+  useEffect(() => {
+    if (appointment?.vehicleId) {
+      fetch(`http://localhost:8083/api/staff/vehicles/${appointment.vehicleId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(v => {
+          if (v) {
+            const transformed = Object.keys(v).reduce((acc, key) => {
+              const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+              acc[camelKey] = v[key]
+              return acc
+            }, {})
+            setVehicle(transformed)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [appointment])
+  
   const [formData, setFormData] = useState({
-    mileage: '',
+    mileage: vehicle?.odometerKm || '',
     fuelLevel: '50',
     vehicleCondition: 'good',
     estimatedCost: '',
     estimatedDuration: '',
-    notes: '',
-    customerComplaints: ''
+    notes: ''
   })
+  
+  // Update mileage when vehicle is loaded
+  useEffect(() => {
+    if (vehicle?.odometerKm && !formData.mileage) {
+      setFormData(prev => ({ ...prev, mileage: vehicle.odometerKm }))
+    }
+  }, [vehicle])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -2351,16 +3200,27 @@ function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 my-8">
-        <div className="px-6 py-4 border-b border-gray-200 bg-green-50">
-          <h3 className="text-lg font-semibold text-gray-900">📝 Tạo phiếu tiếp nhận xe</h3>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-xl w-full my-auto">
+        <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
+          <h3 className="text-lg font-semibold text-gray-900">📋 Tiếp nhận yêu cầu dịch vụ</h3>
+          <p className="text-sm text-gray-600 mt-1">Kiểm tra thông tin và quyết định có tiếp nhận hay không</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Appointment Info */}
+          {/* Appointment Info - Thông tin từ khách hàng khi đặt lịch */}
+          <div className="bg-blue-50 p-4 rounded-lg space-y-3 border-2 border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">📅 Thông tin lịch hẹn</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <p className="text-gray-700"><span className="font-medium">Lịch hẹn #:</span> {appointment.id}</p>
+              <p className="text-gray-700"><span className="font-medium">Ngày hẹn:</span> {appointment.appointmentDate ? new Date(appointment.appointmentDate).toLocaleDateString('vi-VN') : 'N/A'}</p>
+              <p className="text-gray-700"><span className="font-medium">Giờ hẹn:</span> {appointment.appointmentTime || 'N/A'}</p>
+              <p className="text-gray-700"><span className="font-medium">Dịch vụ:</span> {appointment.serviceId || 'N/A'}</p>
+            </div>
+          </div>
+
           <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-            <p className="text-sm text-gray-600"><span className="font-medium text-gray-900">Lịch hẹn:</span> #{appointment.id}</p>
+            <h4 className="font-semibold text-gray-900 mb-2">👤 Thông tin khách hàng</h4>
             <p className="text-sm text-gray-600"><span className="font-medium text-gray-900">Khách hàng:</span> {getCustomerName(appointment.customerId)}</p>
             <p className="text-sm text-gray-600"><span className="font-medium text-gray-900">Xe:</span> {getVehicleInfo(appointment.vehicleId)}</p>
           </div>
@@ -2442,20 +3302,6 @@ function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehi
             </div>
           </div>
 
-          {/* Customer Complaints */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Yêu cầu/Khiếu nại của khách hàng
-            </label>
-            <textarea
-              value={formData.customerComplaints}
-              onChange={(e) => setFormData({ ...formData, customerComplaints: e.target.value })}
-              rows={3}
-              className="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="Khách hàng phàn nàn về vấn đề gì..."
-            />
-          </div>
-
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2464,13 +3310,27 @@ function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehi
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
+              rows={2}
               className="w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Ghi chú về tình trạng bên ngoài, đồ trong xe, yêu cầu đặc biệt..."
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          {/* Action Buttons */}
+          <div className="flex justify-between gap-2 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Xác nhận từ chối tiếp nhận yêu cầu này?')) {
+                  // Từ chối: Có thể hủy appointment hoặc đánh dấu cancelled
+                  onClose()
+                }
+              }}
+              className="px-4 py-2 border-2 border-red-300 text-red-700 rounded-md hover:bg-red-50 font-medium"
+            >
+              ❌ Từ chối
+            </button>
+            <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
@@ -2482,8 +3342,9 @@ function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehi
               type="submit"
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
             >
-              ✅ Tạo phiếu tiếp nhận
+                ✅ Tiếp nhận và tạo phiếu bảo dưỡng
             </button>
+            </div>
           </div>
         </form>
       </div>
@@ -2501,7 +3362,15 @@ function AssignmentModal({ appointment, technicians, onClose, onSubmit, getCusto
       alert('Vui lòng chọn kỹ thuật viên')
       return
     }
-    onSubmit(selectedTechId)
+    // Đảm bảo selectedTechId là số, không phải string tên
+    const techId = parseInt(selectedTechId)
+    if (isNaN(techId) || techId <= 0) {
+      alert('Lỗi: ID kỹ thuật viên không hợp lệ. Vui lòng chọn lại.')
+      console.error('[AssignmentModal] Invalid technician ID:', selectedTechId)
+      return
+    }
+    console.log('[AssignmentModal] Submitting technician assignment:', { selectedTechId, techId })
+    onSubmit(techId)
   }
 
   return (
@@ -2527,11 +3396,19 @@ function AssignmentModal({ appointment, technicians, onClose, onSubmit, getCusto
               required
             >
               <option value="">-- Chọn kỹ thuật viên --</option>
-              {technicians.map(tech => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.fullName || tech.email}
+              {technicians.map(tech => {
+                const techId = tech.id || tech.technicianId || tech.staffId
+                console.log('[AssignmentModal] Technician:', { id: tech.id, technicianId: tech.technicianId, staffId: tech.staffId, fullName: tech.fullName, email: tech.email })
+                if (!techId) {
+                  console.warn('[AssignmentModal] Technician missing ID:', tech)
+                  return null
+                }
+                return (
+                  <option key={techId} value={techId}>
+                    {tech.fullName || tech.email || `Technician #${techId}`}
                 </option>
-              ))}
+                )
+              })}
             </select>
           </div>
 

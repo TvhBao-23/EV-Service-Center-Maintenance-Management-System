@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 function Register() {
-  const { register } = useAuth()
+  const { register, registerStaff } = useAuth()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     fullName: '',
@@ -38,14 +38,19 @@ function Register() {
         role: formData.role
       }
       
-      const result = await register(userData)
+      // Gọi đúng hàm dựa trên role
+      // Customer → register (AuthService)
+      // Staff/Technician → registerStaff (StaffService - xử lý cả 2 role)
+      const result = (formData.role === 'staff' || formData.role === 'technician') 
+        ? await registerStaff(userData)
+        : await register(userData)
       
       if (result.success) {
         // Redirect by role
         const userRole = result.user.role || 'customer'
         if (userRole === 'admin') {
           navigate('/admin')
-        } else if (userRole === 'technician' || userRole === 'technican') {
+        } else if (userRole === 'technician') {
           navigate('/technician')
         } else if (userRole === 'staff') {
           navigate('/staff')
@@ -129,7 +134,7 @@ function Register() {
               >
                 <option value="customer">Khách hàng</option>
                 <option value="staff">Nhân viên (Staff)</option>
-                <option value="technican">Kỹ thuật viên (Technican)</option>
+                <option value="technician">Kỹ thuật viên (Technician)</option>
                 {/* Admin không đăng ký tại đây */}
               </select>
             </div>

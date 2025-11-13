@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8080';
+// API Gateway is disabled; call CustomerService directly on 8082
+const API_BASE_URL = 'http://localhost:8082';
 
 const subscriptionAPI = {
   // Get all available service packages

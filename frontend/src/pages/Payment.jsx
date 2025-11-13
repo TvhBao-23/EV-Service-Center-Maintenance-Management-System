@@ -7,7 +7,9 @@ import { formatDate, toDateObject } from '../utils/dateUtils.js'
 function Payment() {
   const { user, isAuthenticated } = useAuth()
   const [appointments, setAppointments] = useState([])
+  const [subscriptionPayments, setSubscriptionPayments] = useState([])
   const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [selectedPayment, setSelectedPayment] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [isProcessing, setIsProcessing] = useState(false)
   const [message, setMessage] = useState('')
@@ -20,6 +22,7 @@ function Payment() {
   useEffect(() => {
     if (!isAuthenticated) return
     loadAppointments()
+    loadPendingPayments()
     // load existing local bills
     setBills(loadList('bills'))
 
@@ -28,6 +31,7 @@ function Payment() {
       console.log('[Payment] Received bookings update event:', event.type, event.detail)
       setTimeout(() => {
         loadAppointments()
+        loadPendingPayments()
       }, 100) // Small delay to ensure localStorage is updated
     }
 
@@ -37,18 +41,29 @@ function Payment() {
         console.log('[Payment] Received storage update for bookings')
         setTimeout(() => {
           loadAppointments()
+          loadPendingPayments()
         }, 100)
       }
     }
 
+    // Listen for subscription updates
+    const handleSubscriptionUpdate = () => {
+      console.log('[Payment] Received subscription update event')
+      setTimeout(() => {
+        loadPendingPayments()
+      }, 100)
+    }
+
     window.addEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
     window.addEventListener('storage', handleStorageUpdate)
+    window.addEventListener('subscription-created', handleSubscriptionUpdate)
     
     console.log('[Payment] Event listeners registered')
 
     return () => {
       window.removeEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
       window.removeEventListener('storage', handleStorageUpdate)
+      window.removeEventListener('subscription-created', handleSubscriptionUpdate)
       console.log('[Payment] Event listeners removed')
     }
   }, [isAuthenticated])
@@ -117,6 +132,39 @@ function Payment() {
     }
   }
 
+  const loadPendingPayments = async () => {
+    try {
+      console.log('[Payment] Loading pending payments...')
+      const payments = await customerAPI.getPendingPayments()
+      console.log('[Payment] Loaded pending payments:', payments)
+      
+      // Filter subscription payments
+      const subscriptionPaymentsList = payments.filter(p => p.subscriptionId != null)
+      
+      // If no subscription payments found, try to sync (create payments for existing subscriptions)
+      if (subscriptionPaymentsList.length === 0) {
+        console.log('[Payment] No subscription payments found, attempting to sync...')
+        try {
+          await customerAPI.syncSubscriptionPayments()
+          // Reload payments after sync
+          const updatedPayments = await customerAPI.getPendingPayments()
+          const updatedSubscriptionPayments = updatedPayments.filter(p => p.subscriptionId != null)
+          setSubscriptionPayments(updatedSubscriptionPayments)
+          console.log('[Payment] After sync, subscription payments:', updatedSubscriptionPayments)
+          return
+        } catch (syncError) {
+          console.warn('[Payment] Sync failed (may be normal if no subscriptions):', syncError)
+        }
+      }
+      
+      setSubscriptionPayments(subscriptionPaymentsList)
+      console.log('[Payment] Subscription payments:', subscriptionPaymentsList)
+    } catch (error) {
+      console.error('[Payment] Error loading pending payments:', error)
+      setSubscriptionPayments([])
+    }
+  }
+
   const handleConfirmOrder = () => {
     if (!selectedAppointment) return
     // Save override status locally
@@ -168,6 +216,38 @@ function Payment() {
       setMessage('Có lỗi xảy ra khi tạo thanh toán')
     } finally {
     setIsProcessing(false)
+    }
+  }
+
+  // Handle subscription payment
+  const handleSubscriptionPayment = async (payment) => {
+    if (!confirm(`Xác nhận thanh toán ${Number(payment.amount).toLocaleString('vi-VN')} VNĐ cho gói dịch vụ?`)) {
+      return
+    }
+    
+    setIsProcessing(true)
+    setMessage('')
+    
+    try {
+      await customerAPI.markPaymentAsPaid(payment.paymentId)
+      console.log('[Payment] ✅ Subscription payment marked as paid')
+      
+      // Remove from list
+      setSubscriptionPayments(prev => prev.filter(p => p.paymentId !== payment.paymentId))
+      
+      setMessage('✅ Thanh toán gói dịch vụ thành công!')
+      setSelectedPayment(null)
+      
+      // Dispatch event for Subscriptions tab
+      window.dispatchEvent(new CustomEvent('subscription-paid', { detail: { paymentId: payment.paymentId } }))
+      
+      // Reload to get updated data
+      await loadPendingPayments()
+    } catch (error) {
+      console.error('[Payment] Error paying subscription:', error)
+      setMessage('❌ Có lỗi xảy ra khi thanh toán: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -281,10 +361,13 @@ function Payment() {
           <div className="bg-white rounded-lg shadow-md p-6 md:col-span-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Tổng cần thanh toán</h3>
               <p className="text-3xl font-bold text-green-600">
-                {appointments.length > 0 ? appointments.reduce((total, apt) => total + (apt.servicePrice || 100000), 0).toLocaleString('vi-VN') : '0'} VNĐ
+                {(appointments.reduce((total, apt) => total + (apt.servicePrice || 100000), 0) + 
+                  subscriptionPayments.reduce((total, p) => total + Number(p.amount || 0), 0)).toLocaleString('vi-VN')} VNĐ
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                {appointments.length > 0 ? `Từ ${appointments.length} lịch đặt chờ thanh toán` : 'Không có lịch đặt nào'}
+                {appointments.length + subscriptionPayments.length > 0 
+                  ? `Từ ${appointments.length} lịch đặt + ${subscriptionPayments.length} gói dịch vụ` 
+                  : 'Không có hóa đơn nào'}
               </p>
           </div>
         </div>
@@ -337,17 +420,63 @@ function Payment() {
           </div>
         )}
 
-        {appointments.length === 0 ? (
+        {/* Subscription Payments Section */}
+        {subscriptionPayments.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Gói dịch vụ cần thanh toán</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {subscriptionPayments.map((payment) => (
+                <div
+                  key={payment.paymentId}
+                  className={`bg-white rounded-lg shadow-md p-4 border-2 cursor-pointer transition-all ${
+                    selectedPayment?.paymentId === payment.paymentId
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedPayment(payment)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-gray-900">Gói dịch vụ</h4>
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      Chờ thanh toán
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{payment.notes || 'Thanh toán cho gói dịch vụ'}</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {Number(payment.amount).toLocaleString('vi-VN')} VNĐ
+                  </p>
+                  {selectedPayment?.paymentId === payment.paymentId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSubscriptionPayment(payment)
+                      }}
+                      disabled={isProcessing}
+                      className="w-full mt-3 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Đang xử lý...' : 'Thanh toán'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Appointments Section */}
+        {appointments.length === 0 && subscriptionPayments.length === 0 && (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Không có lịch đặt nào</h3>
-            <p className="text-gray-600">Bạn chưa có lịch đặt dịch vụ nào.</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Không có hóa đơn nào</h3>
+            <p className="text-gray-600">Bạn chưa có lịch đặt dịch vụ hoặc gói dịch vụ nào cần thanh toán.</p>
           </div>
-        ) : (
+        )}
+
+        {appointments.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Lịch đặt của bạn</h3>

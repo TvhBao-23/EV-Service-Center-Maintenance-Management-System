@@ -26,9 +26,10 @@ function RoleBasedNav() {
   ]
 
   // Filter links based on user role
-  const availableLinks = roleLinks.filter(link => 
+  const availableLinks = roleLinks.filter(link =>
     link.roles.includes(userRole) || userRole === 'admin' // Admin can access all
   )
+  const showRoleSwitcher = availableLinks.length > 1 && !location.pathname.startsWith('/admin')
 
   const handleProfileClick = () => {
     setProfileDropdownOpen(!profileDropdownOpen)
@@ -94,8 +95,8 @@ function RoleBasedNav() {
         </div>
       </div>
 
-      {/* Center: Role Switcher (only if multiple roles available) */}
-      {availableLinks.length > 1 && (
+      {/* Center: Role Switcher - hidden on admin dashboard */}
+      {showRoleSwitcher && (
         <div className="hidden md:flex items-center gap-2">
           {availableLinks.map((link) => {
             const isActive = location.pathname.startsWith(link.path)
@@ -127,7 +128,7 @@ function RoleBasedNav() {
         </div>
 
         {/* Mobile: Role Switcher Dropdown */}
-        {availableLinks.length > 1 && (
+        {showRoleSwitcher && (
           <div className="md:hidden dropdown-container relative">
             <button
               onClick={handleRoleClick}

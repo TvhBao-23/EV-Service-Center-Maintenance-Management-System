@@ -295,7 +295,7 @@ export function AuthProvider({ children }) {
       console.log('🟢 STAFF REGISTER - Calling API...', { email: userData.email, role: userData.role })
       
       // STEP 2: Call staff registration API
-      const response = await fetch('http://localhost:8080/api/staff/auth/register', {
+      const response = await fetch('http://localhost:8083/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

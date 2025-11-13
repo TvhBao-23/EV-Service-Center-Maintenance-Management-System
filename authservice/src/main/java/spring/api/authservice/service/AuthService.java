@@ -29,7 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    
+
     // In-memory OTP storage (in production, use Redis or database)
     private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
 
@@ -39,13 +39,20 @@ public class AuthService {
             throw new RuntimeException("Email đã được sử dụng");
         }
 
+        // Only allow customer registration in AuthService
+        // Staff and technician registration should go through StaffService
+        UserRole requestedRole = request.role() != null ? request.role() : UserRole.customer;
+        if (requestedRole != UserRole.customer) {
+            throw new RuntimeException("Đăng ký nhân viên và kỹ thuật viên phải thực hiện qua trang đăng ký nhân viên");
+        }
+
         // Create new user
         User user = new User();
         user.setEmail(request.email());
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
         user.setPhone(request.phone());
-        user.setRole(request.role() != null ? request.role() : UserRole.customer);
+        user.setRole(UserRole.customer);
 
         User savedUser = userRepository.save(user);
 
@@ -68,9 +75,7 @@ public class AuthService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.email(),
-                            request.password()
-                    )
-            );
+                            request.password()));
         } catch (BadCredentialsException e) {
             throw new RuntimeException("Email hoặc mật khẩu không đúng");
         }
@@ -106,42 +111,41 @@ public class AuthService {
     public Map<String, Object> getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-        
+
         return Map.of(
-            "userId", user.getUserId(),
-            "email", user.getEmail(),
-            "fullName", user.getFullName(),
-            "phone", user.getPhone(),
-            "role", user.getRole().toString()
-        );
+                "userId", user.getUserId(),
+                "email", user.getEmail(),
+                "fullName", user.getFullName(),
+                "phone", user.getPhone(),
+                "role", user.getRole().toString());
     }
 
     public void resetPassword(String email, String newPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-        
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
-    
+
     // Forgot password methods
     public String sendOTP(String email) {
         // Check if user exists
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
-        
+
         // Generate 6-digit OTP
-        String otp = String.format("%06d", (int)(Math.random() * 1000000));
-        
+        String otp = String.format("%06d", (int) (Math.random() * 1000000));
+
         // Store OTP (in production, set expiry time and use Redis)
         otpStorage.put(email, otp);
-        
+
         // TODO: Send email with OTP (integrate with email service)
         System.out.println("OTP for " + email + ": " + otp);
-        
+
         return otp; // Return for demo, remove in production
     }
-    
+
     public boolean verifyOTP(String email, String otp) {
         String storedOtp = otpStorage.get(email);
         if (storedOtp == null) {
@@ -150,20 +154,20 @@ public class AuthService {
         // Don't remove OTP here - it will be removed after password reset
         return storedOtp.equals(otp);
     }
-    
+
     public void resetPasswordWithOTP(String email, String otp, String newPassword) {
         // Verify OTP first
         if (!verifyOTP(email, otp)) {
             throw new RuntimeException("OTP không chính xác");
         }
-        
+
         // Reset password
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-        
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        
+
         // Remove used OTP
         otpStorage.remove(email);
     }

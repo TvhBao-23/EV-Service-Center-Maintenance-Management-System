@@ -14,8 +14,11 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long paymentId;
 
-    @Column(name = "appointment_id", nullable = false)
+    @Column(name = "appointment_id")
     private Long appointmentId;
+
+    @Column(name = "subscription_id")
+    private Long subscriptionId;
 
     @Column(name = "customer_id", nullable = false)
     private Long customerId;

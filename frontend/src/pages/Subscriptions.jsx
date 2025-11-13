@@ -11,6 +11,20 @@ const Subscriptions = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Listen for payment updates
+    const handleSubscriptionPaid = () => {
+      console.log('[Subscriptions] Received subscription paid event')
+      setTimeout(() => {
+        loadData()
+      }, 100)
+    }
+    
+    window.addEventListener('subscription-paid', handleSubscriptionPaid)
+    
+    return () => {
+      window.removeEventListener('subscription-paid', handleSubscriptionPaid)
+    }
   }, []);
 
   const loadData = async () => {
@@ -69,8 +83,11 @@ const Subscriptions = () => {
 
     try {
       await subscriptionAPI.subscribe(packageId);
-      alert('Đăng ký gói dịch vụ thành công!');
+      alert('Đăng ký gói dịch vụ thành công! Vui lòng thanh toán ở tab Thanh toán.');
       loadData(); // Reload data
+      
+      // Dispatch event for Payment tab
+      window.dispatchEvent(new CustomEvent('subscription-created', { detail: { packageId } }))
     } catch (error) {
       console.error('Error subscribing:', error);
       alert('Không thể đăng ký: ' + error.message);

@@ -5,7 +5,11 @@ const API_BASE_URLS = {
   auth: 'http://localhost:8081/api/auth',  // AuthService on port 8081
   customer: 'http://localhost:8082/api/customers',  // CustomerService on port 8082
   staff: 'http://localhost:8083/api/staff',  // StaffService on port 8083
-  payment: 'http://localhost:8084/api/payments'  // PaymentService on port 8084
+  payment: 'http://localhost:8084/api/payments',  // PaymentService on port 8084
+  maintenance: 'http://localhost:8080/api',  // Maintenance Service on port 8080
+  // API Gateway routes (preferred for cross-service access)
+  gateway: 'http://localhost:8090/api',
+  admin: 'http://localhost:8090/api/admin' // Admin aggregation service via gateway
 }
 
 // Helper function để lấy token từ localStorage
@@ -69,7 +73,28 @@ async function apiCall(url, options = {}) {
         }
         throw new Error('Unauthorized')
       }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      
+      // Try to parse error message from response body
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+      try {
+        const errorData = await response.text()
+        if (errorData) {
+          try {
+            const errorJson = JSON.parse(errorData)
+            errorMessage = errorJson.message || errorJson.error || errorData || errorMessage
+          } catch (e) {
+            // If not JSON, use the text as error message
+            errorMessage = errorData || errorMessage
+          }
+        }
+      } catch (e) {
+        // If parsing fails, use default error message
+        console.warn('Could not parse error response:', e)
+      }
+      
+      const error = new Error(errorMessage)
+      error.status = response.status
+      throw error
     }
     
     return await response.json()
@@ -263,6 +288,16 @@ export const customerAPI = {
     return apiCall(`${API_BASE_URLS.customer}/services`)
   },
 
+  // Lấy danh sách loại dịch vụ (categories)
+  getServiceCategories: () => {
+    return apiCall(`${API_BASE_URLS.customer}/services/categories`)
+  },
+
+  // Lấy danh sách dịch vụ theo loại
+  getServicesByCategory: (category) => {
+    return apiCall(`${API_BASE_URLS.customer}/services?category=${encodeURIComponent(category)}`)
+  },
+
   // Lấy danh sách trung tâm dịch vụ
   getServiceCenters: () => {
     return apiCall(`${API_BASE_URLS.customer}/service-centers`)
@@ -298,6 +333,25 @@ export const customerAPI = {
     return apiCall(`${API_BASE_URLS.customer}/appointments/${appointmentId}/mark-paid`, {
       method: 'PATCH'
     })
+  },
+
+  // Get pending payments (both appointment and subscription)
+  getPendingPayments: () => {
+    return apiCall(`${API_BASE_URLS.customer}/payments/pending`)
+  },
+
+  // Mark payment as paid
+  markPaymentAsPaid: (paymentId) => {
+    return apiCall(`${API_BASE_URLS.customer}/payments/${paymentId}/mark-paid`, {
+      method: 'PATCH'
+    })
+  },
+
+  // Sync subscription payments (create payments for existing subscriptions)
+  syncSubscriptionPayments: () => {
+    return apiCall(`${API_BASE_URLS.customer}/payments/sync-subscription-payments`, {
+      method: 'POST'
+    })
   }
 }
 
@@ -327,6 +381,26 @@ export const paymentAPI = {
   // Lấy danh sách payments của user
   getMyPayments: () => {
     return apiCall(`${API_BASE_URLS.payment}/my-payments`)
+  }
+}
+
+// Admin Aggregation APIs (via API Gateway)
+export const adminAPI = {
+  // Get dashboard summary
+  getDashboard: () => {
+    return apiCall(`${API_BASE_URLS.admin}/dashboard`)
+  },
+  // Recent activities (bookings + completed receipts)
+  getActivities: () => {
+    return apiCall(`${API_BASE_URLS.admin}/activities`)
+  },
+  // Staff count (role = staff)
+  getStaffCount: () => {
+    return apiCall(`${API_BASE_URLS.admin}/staff-count`)
+  },
+  // Health check
+  health: () => {
+    return apiCall(`${API_BASE_URLS.admin}/health`)
   }
 }
 
@@ -399,6 +473,26 @@ export const staffAPI = {
   // ==================== TECHNICIANS ====================
   getTechnicians: async () => {
     return await apiCall(`${API_BASE_URLS.staff}/technicians`)
+  },
+
+  // List staff members (role=staff)
+  getStaffMembers: async () => {
+    return await apiCall(`${API_BASE_URLS.staff}/staff-members`)
+  },
+
+  // Update user basic info
+  updateUser: async (userId, payload) => {
+    return await apiCall(`${API_BASE_URLS.staff}/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    })
+  },
+
+  // Delete user
+  deleteUser: async (userId) => {
+    return await apiCall(`${API_BASE_URLS.staff}/users/${userId}`, {
+      method: 'DELETE'
+    })
   },
 
   // ==================== ASSIGNMENTS ====================
@@ -546,9 +640,222 @@ export const staffAPI = {
   }
 }
 
+// Parts Inventory Service APIs (via gateway)
+export const partsInventoryAPI = {
+  getInventory: () => {
+    return apiCall(`${API_BASE_URLS.gateway}/inventory`)
+  },
+  getPart: (partId) => {
+    return apiCall(`${API_BASE_URLS.gateway}/parts/${partId}`)
+  },
+  updatePart: (partId, data) => {
+    return apiCall(`${API_BASE_URLS.gateway}/parts/${partId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  },
+  importStock: (partId, quantity, staffId = 1, note = 'Nhập kho từ dashboard') => {
+    const params = new URLSearchParams({
+      quantity: String(quantity),
+      staffId: String(staffId),
+      note
+    }).toString()
+    return apiCall(`${API_BASE_URLS.gateway}/inventory/${partId}/import?${params}`, {
+      method: 'PUT'
+    })
+  }
+}
+
+// Maintenance Service APIs - Service Orders & Workflow Management
+export const maintenanceAPI = {
+  // ==================== SERVICE ORDERS ====================
+  // Tạo service order từ appointment
+  createServiceOrderFromAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/from-appointment/${appointmentId}`, {
+      method: 'POST'
+    })
+  },
+
+  // Tạo service order trực tiếp
+  createServiceOrder: async (serviceOrderData) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders`, {
+      method: 'POST',
+      body: JSON.stringify(serviceOrderData)
+    })
+  },
+
+  // Lấy service order theo ID
+  getServiceOrder: async (orderId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}`)
+  },
+
+  // Lấy tất cả service orders hoặc theo status
+  getServiceOrders: async (status = null) => {
+    const url = status 
+      ? `${API_BASE_URLS.maintenance}/service-orders?status=${status}`
+      : `${API_BASE_URLS.maintenance}/service-orders`
+    return await apiCall(url)
+  },
+
+  // Cập nhật trạng thái service order (queued, in_progress, completed, delayed)
+  updateServiceOrderStatus: async (orderId, status) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    })
+  },
+
+  // Phân công kỹ thuật viên
+  assignTechnician: async (orderId, technicianId) => {
+    // Đảm bảo technicianId là số hợp lệ
+    const techId = typeof technicianId === 'number' ? technicianId : parseInt(technicianId)
+    if (isNaN(techId) || techId <= 0) {
+      throw new Error(`Invalid technician ID: ${technicianId}`)
+    }
+    
+    console.log('[maintenanceAPI] assignTechnician request:', { orderId, technicianId: techId })
+    
+    try {
+      const response = await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/assign-technician`, {
+        method: 'PUT',
+        body: JSON.stringify({ technicianId: techId })
+      })
+      
+      console.log('[maintenanceAPI] assignTechnician response:', response)
+      return response
+    } catch (error) {
+      console.error('[maintenanceAPI] assignTechnician error:', error)
+      // Extract error message from response if available
+      if (error.message && error.message.includes('HTTP 400')) {
+        // Try to get error message from response body
+        const errorMessage = error.response?.data || error.message || 'Lỗi phân công kỹ thuật viên'
+        throw new Error(errorMessage)
+      }
+      throw error
+    }
+  },
+
+  // Hoàn thành service order
+  completeServiceOrder: async (orderId, completionData) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify(completionData)
+    })
+  },
+
+  // Cập nhật tổng tiền
+  updateServiceOrderAmount: async (orderId, totalAmount) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/amount`, {
+      method: 'PUT',
+      body: JSON.stringify({ totalAmount })
+    })
+  },
+
+  // Lấy service orders của kỹ thuật viên
+  getServiceOrdersByTechnician: async (technicianId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/technician/${technicianId}`)
+  },
+
+  // ==================== APPOINTMENTS (Maintenance Service) ====================
+  // Xác nhận appointment
+  confirmAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/confirm`, {
+      method: 'PUT'
+    })
+  },
+
+  // Hủy appointment
+  cancelAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/cancel`, {
+      method: 'PUT'
+    })
+  },
+
+  // Hoàn thành appointment
+  completeAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/complete`, {
+      method: 'PUT'
+    })
+  },
+
+  // Lấy appointments theo status
+  getAppointmentsByStatus: async (status) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/status/${status}`)
+  },
+
+  // Xác nhận appointment (pending → confirmed)
+  confirmAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/confirm`, {
+      method: 'PUT'
+    })
+  },
+
+  // Tiếp nhận appointment và tạo service order (confirmed → received + tạo service order)
+  receiveAppointment: async (appointmentId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/appointments/${appointmentId}/receive`, {
+      method: 'PUT'
+    })
+  },
+
+  // ==================== TECHNICIANS (Maintenance Service) ====================
+  // Lấy danh sách technicians từ Maintenance Service (gọi Staff Service nội bộ)
+  getTechnicians: async () => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/technicians`)
+  },
+
+  // Lấy technician theo ID
+  getTechnician: async (technicianId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/technicians/${technicianId}`)
+  },
+
+  // ==================== SERVICE CHECKLISTS (Maintenance Service) ====================
+  // Lấy checklist của service order
+  getServiceOrderChecklist: async (orderId) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/checklist`)
+  },
+
+  // Tạo checklist cho service order
+  createServiceOrderChecklist: async (orderId, items) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/checklist`, {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    })
+  },
+
+  // Đánh dấu hoàn thành checklist item
+  completeChecklistItem: async (orderId, checklistId, notes, completedBy) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/checklist/${checklistId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes, completedBy })
+    })
+  },
+
+  // Cập nhật checklist item
+  updateChecklistItem: async (orderId, checklistId, itemName, notes) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-orders/${orderId}/checklist/${checklistId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ itemName, notes })
+    })
+  },
+
+  // Cập nhật checklist item status (bao gồm isCompleted) - sử dụng direct controller
+  updateChecklistItemStatus: async (checklistId, isCompleted, notes, completedBy) => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/service-checklists/${checklistId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ 
+        isCompleted,
+        notes: notes || '',
+        completedBy: completedBy || null
+      })
+    })
+  }
+}
+
 export default {
   authAPI,
   customerAPI,
   paymentAPI,
-  staffAPI
+  staffAPI,
+  maintenanceAPI,
+  partsInventoryAPI
 }

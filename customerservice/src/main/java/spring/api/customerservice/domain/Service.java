@@ -35,6 +35,9 @@ public class Service {
     @Column(name = "estimated_duration_minutes")
     private Integer estimatedDurationMinutes;
 
+    @Column(name = "category", length = 50)
+    private String category;
+
     @CreatedDate
     @Column(name = "created_at")
     private LocalDateTime createdAt;

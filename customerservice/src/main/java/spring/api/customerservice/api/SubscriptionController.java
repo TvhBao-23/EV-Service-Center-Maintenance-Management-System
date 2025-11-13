@@ -39,8 +39,25 @@ public class SubscriptionController {
             @PathVariable Long packageId,
             Authentication authentication) {
         try {
-            // Development mode: use first customer or create new one
-            CustomerSubscription subscription = subscriptionService.subscribeWithoutAuth(packageId);
+            CustomerSubscription subscription;
+            
+            if (authentication == null || authentication.getPrincipal() == null) {
+                // Development mode: use first customer or create new one
+                subscription = subscriptionService.subscribeWithoutAuth(packageId);
+            } else {
+                // Get customer from authentication
+                User user = (User) authentication.getPrincipal();
+                Customer customer = customerRepository.findByUserId(user.getUserId())
+                        .orElseGet(() -> {
+                            Customer newCustomer = new Customer();
+                            newCustomer.setUserId(user.getUserId());
+                            newCustomer.setCreatedAt(java.time.LocalDateTime.now());
+                            newCustomer.setUpdatedAt(java.time.LocalDateTime.now());
+                            return customerRepository.save(newCustomer);
+                        });
+                
+                subscription = subscriptionService.subscribe(customer.getCustomerId(), packageId);
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Đăng ký gói dịch vụ thành công");

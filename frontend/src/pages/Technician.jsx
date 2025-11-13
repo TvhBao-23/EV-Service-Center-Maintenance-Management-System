@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { staffAPI } from '../lib/api'
+import { staffAPI, maintenanceAPI, customerAPI } from '../lib/api'
 import RoleBasedNav from '../components/RoleBasedNav'
 
 function Technician() {
@@ -9,10 +9,16 @@ function Technician() {
 
   // Data states
   const [assignments, setAssignments] = useState([])
+  const [serviceOrders, setServiceOrders] = useState([]) // Service orders từ maintenance service
   const [vehicles, setVehicles] = useState([])
   const [appointments, setAppointments] = useState([])
-  const [checklists, setChecklists] = useState([])
+  const [checklists, setChecklists] = useState([]) // Legacy checklists từ Staff Service
+  const [serviceOrderChecklists, setServiceOrderChecklists] = useState({}) // Service order checklists từ Maintenance Service: {orderId: [checklistItems]}
+  const [checklistErrors, setChecklistErrors] = useState({}) // Lưu lỗi khi load checklist: {orderId: errorMessage}
   const [maintenanceReports, setMaintenanceReports] = useState([])
+  const [customers, setCustomers] = useState([])
+  const [services, setServices] = useState([]) // Services để lấy service name
+  const [staffs, setStaffs] = useState([]) // Staffs để map user_id -> staff_id
 
   // UI states
   const [selectedAssignment, setSelectedAssignment] = useState(null)
@@ -20,7 +26,44 @@ function Technician() {
   const [showReportModal, setShowReportModal] = useState(false)
 
   // Get current user ID from localStorage (tech user)
-  const currentUserId = parseInt(localStorage.getItem('userId')) || null
+  const getCurrentUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        return user?.id ? parseInt(user.id) : null
+      }
+    } catch (e) {
+      console.error('Error parsing user from localStorage:', e)
+    }
+    return null
+  }
+  const currentUserId = getCurrentUserId()
+
+  // Helper function to convert snake_case to camelCase
+  const snakeToCamel = (obj) => {
+    if (Array.isArray(obj)) {
+      return obj.map(v => snakeToCamel(v))
+    } else if (obj !== null && typeof obj === 'object') {
+      const result = {}
+      Object.keys(obj).forEach(key => {
+        const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
+        result[camelKey] = snakeToCamel(obj[key])
+      })
+      return result
+    }
+    return obj
+  }
+
+  // Normalize status from backend (enum IN_PROGRESS -> in_progress)
+  const normalizeStatus = (status) => {
+    if (!status) return 'queued'
+    // Convert enum format (IN_PROGRESS) to lowercase with underscore (in_progress)
+    if (typeof status === 'string') {
+      return status.toLowerCase()
+    }
+    return status
+  }
 
   // Load initial data
   useEffect(() => {
@@ -31,18 +74,107 @@ function Technician() {
     setLoading(true)
     setError(null)
     try {
-      const [assigns, vehs, appts, checks, reports] = await Promise.all([
-        staffAPI.getAssignments(),
-        staffAPI.getVehicles(),
-        staffAPI.getAppointments(),
-        staffAPI.getChecklists(),
-        staffAPI.getMaintenanceReports()
+      // Load service orders assigned to this technician from maintenance service
+      // API already filters by technician, so we don't need to filter again
+      const serviceOrdersData = currentUserId 
+        ? await maintenanceAPI.getServiceOrdersByTechnician(currentUserId).catch(() => [])
+        : []
+      
+      // Debug: Log raw data from API
+      window.debugServiceOrders = serviceOrdersData
+      if (serviceOrdersData && serviceOrdersData.length > 0) {
+        console.warn('[DEBUG] Raw service orders from API:', JSON.stringify(serviceOrdersData, null, 2))
+        serviceOrdersData.forEach(order => {
+          console.warn(`[DEBUG] Order ${order.orderId || order.id} - Status: ${order.status} (type: ${typeof order.status})`)
+        })
+      }
+      
+      // Normalize status for all service orders (convert enum IN_PROGRESS -> in_progress)
+      // Create a new array to ensure React re-renders
+      const normalizedServiceOrders = serviceOrdersData && Array.isArray(serviceOrdersData)
+        ? serviceOrdersData.map(order => {
+            const normalizedOrder = { ...order } // Create new object to avoid mutation
+            if (normalizedOrder.status) {
+              const originalStatus = normalizedOrder.status
+              normalizedOrder.status = normalizeStatus(normalizedOrder.status)
+              console.warn(`[DEBUG] Normalized: Order ${normalizedOrder.orderId || normalizedOrder.id} - ${originalStatus} -> ${normalizedOrder.status}`)
+            }
+            return normalizedOrder
+          })
+        : []
+      
+      console.warn('[DEBUG] Normalized service orders:', JSON.stringify(normalizedServiceOrders, null, 2))
+      
+      // Load other data from staff service
+      const [assigns, vehs, appts, checks, reports, custs, svcs, staffsData] = await Promise.all([
+        staffAPI.getAssignments().catch(() => []),
+        staffAPI.getVehicles().catch(() => []),
+        staffAPI.getAppointments().catch(() => []),
+        staffAPI.getChecklists().catch(() => []),
+        staffAPI.getMaintenanceReports().catch(() => []),
+        staffAPI.getCustomers().catch(() => []), // Fixed: getCustomers instead of getAllCustomers
+        customerAPI.getServices().catch(() => []), // Load services từ Customer Service để lấy service name
+        staffAPI.getTechnicians().catch(() => []) // Load technicians/staffs để map user_id -> staff_id
       ])
-      setAssignments(assigns)
-      setVehicles(vehs)
-      setAppointments(appts)
-      setChecklists(checks)
-      setMaintenanceReports(reports)
+      
+      setServiceOrders(normalizedServiceOrders)
+      setAssignments(assigns || [])
+      setVehicles(vehs || [])
+      setAppointments(appts || [])
+      setChecklists(checks || [])
+      setMaintenanceReports(reports || [])
+      setCustomers(custs || [])
+      setServices(svcs || [])
+      // Normalize staffs data và set
+      const normalizedStaffs = staffsData && Array.isArray(staffsData) 
+        ? snakeToCamel(staffsData)
+        : []
+      setStaffs(normalizedStaffs)
+      
+      // Load service order checklists from maintenance service
+      if (normalizedServiceOrders && normalizedServiceOrders.length > 0) {
+        const checklistPromises = normalizedServiceOrders.map(async (order) => {
+          try {
+            const orderId = order.orderId || order.id
+            const checklist = await maintenanceAPI.getServiceOrderChecklist(orderId)
+            // Normalize checklist data from snake_case to camelCase
+            const normalizedChecklist = Array.isArray(checklist) 
+              ? snakeToCamel(checklist).map(item => ({
+                  ...item,
+                  checklistId: item.checklistId || item.id,
+                  itemName: item.itemName || item.item_name,
+                  isCompleted: item.isCompleted !== undefined ? item.isCompleted : (item.is_completed === 1 || item.is_completed === true)
+                }))
+              : []
+            return { orderId, checklist: normalizedChecklist, error: null }
+          } catch (err) {
+            console.error(`Error loading checklist for order ${order.orderId || order.id}:`, err)
+            // Return error info to distinguish between "no checklist" and "API error"
+            return { 
+              orderId: order.orderId || order.id, 
+              checklist: [], 
+              error: err.message || 'Failed to load checklist' 
+            }
+          }
+        })
+        
+        const checklistResults = await Promise.all(checklistPromises)
+        const checklistMap = {}
+        const errorMap = {}
+        checklistResults.forEach(({ orderId, checklist, error }) => {
+          checklistMap[orderId] = checklist
+          // Lưu error nếu có để hiển thị cho user
+          if (error) {
+            errorMap[orderId] = error
+            console.warn(`[Checklist] Order ${orderId} - ${error}`)
+          } else {
+            // Xóa error nếu load thành công
+            delete errorMap[orderId]
+          }
+        })
+        setServiceOrderChecklists(checklistMap)
+        setChecklistErrors(errorMap)
+      }
     } catch (err) {
       setError('Không thể tải dữ liệu: ' + err.message)
       console.error('Load data error:', err)
@@ -53,17 +185,177 @@ function Technician() {
 
   // Filter assignments for current technician
   const myAssignments = assignments.filter(a => a.technicianId === currentUserId)
+  
+  // Service orders are already filtered by API (getServiceOrdersByTechnician)
+  // API maps userId -> staff_id and returns only service orders for this technician
+  // So we don't need to filter again - just use all service orders returned
+  const myServiceOrders = serviceOrders
 
   // Get vehicle info by ID
   const getVehicleInfo = (vehicleId) => {
     const vehicle = vehicles.find(v => v.id === vehicleId)
     return vehicle ? `${vehicle.model} (${vehicle.licensePlate})` : 'N/A'
   }
+  
+  // Get customer name by ID
+  const getCustomerName = (customerId) => {
+    const customer = customers.find(c => c.id === customerId)
+    return customer ? customer.fullName || customer.email : 'N/A'
+  }
 
   // Get appointment info by ID
   const getAppointmentInfo = (appointmentId) => {
-    const appointment = appointments.find(a => a.id === appointmentId)
+    const appointment = appointments.find(a => 
+      a.id === appointmentId || 
+      a.appointmentId === appointmentId
+    )
     return appointment
+  }
+
+  // Get service name by ID with encoding fix
+  const getServiceName = (serviceId) => {
+    const service = services.find(s => 
+      s.id === serviceId || 
+      s.serviceId === serviceId
+    )
+    if (!service || !service.name) return 'N/A'
+    
+    // Fix encoding issue if present
+    try {
+      let serviceName = service.name
+      
+      // Check if the string appears to be incorrectly encoded (multiple patterns)
+      const hasEncodingIssue = /[ÃÄÅÆÇÈÉÊË]/.test(serviceName) || 
+                               /Ã¡|Ã¢|Ã£|Ã¤|Ã¥|Ã¦|Ã§|Ã¨|Ã©|Ãª|Ã«|Ã¬|Ã­|Ã®|Ã¯|Ã°|Ã±|Ã²|Ã³|Ã´|Ãµ|Ã¶|Ã·|Ã¸|Ã¹|Ãº|Ã»|Ã¼|Ã½|Ã¾|Ã¿/.test(serviceName) ||
+                               /BÃ¡|dÃ|á»|Ä|kÃ|áº|Æ°|á»¡|á»‹|ká»|Báº|dÆ°/.test(serviceName)
+      
+      if (hasEncodingIssue) {
+        // Try multiple decoding methods
+        try {
+          // Method 1: Direct manual fix for the specific pattern "Báº£o dÆ°á»¡ng Ä'á»‹nh ká»³"
+          // This pattern suggests UTF-8 bytes interpreted as Latin1, then encoded again
+          if (serviceName.includes('Báº') || serviceName.includes('dÆ°') || serviceName.includes('á»')) {
+            // Try to decode as if it was UTF-8 bytes read as Latin1
+            const bytes = []
+            for (let i = 0; i < serviceName.length; i++) {
+              bytes.push(serviceName.charCodeAt(i) & 0xFF)
+            }
+            try {
+              serviceName = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes))
+              // If still has issues, try one more decode
+              if (/[ÃÄÅÆÇÈÉÊË]/.test(serviceName) || /áº|Æ°|á»/.test(serviceName)) {
+                const bytes2 = []
+                for (let i = 0; i < serviceName.length; i++) {
+                  bytes2.push(serviceName.charCodeAt(i) & 0xFF)
+                }
+                serviceName = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes2))
+              }
+            } catch (e1) {
+              // If decoding fails, use manual replacement
+              serviceName = serviceName
+                .replace(/Báº£o/g, 'Bảo')
+                .replace(/dÆ°á»¡ng/g, 'dưỡng')
+                .replace(/Ä'/g, 'đ')
+                .replace(/á»‹nh/g, 'ịnh')
+                .replace(/ká»³/g, 'kỳ')
+            }
+          } else {
+            // Method 2: Fix double-encoded UTF-8
+            try {
+              serviceName = decodeURIComponent(escape(serviceName))
+            } catch (e2) {
+              // Method 3: Manual fix for common Vietnamese characters
+              serviceName = serviceName
+                .replace(/BÃ¡/g, 'Bả')
+                .replace(/dÃ/g, 'dưỡ')
+                .replace(/á»/g, '')
+                .replace(/Ä/g, 'đ')
+                .replace(/kÃ/g, 'kỳ')
+                .replace(/áº/g, 'ả')
+                .replace(/Æ°/g, 'ưỡ')
+                .replace(/á»¡/g, 'ỡ')
+                .replace(/á»‹/g, 'ị')
+                .replace(/ká»/g, 'kỳ')
+                .replace(/Ã¡/g, 'á')
+                .replace(/Ã¢/g, 'â')
+                .replace(/Ã£/g, 'ã')
+                .replace(/Ã¤/g, 'ä')
+                .replace(/Ã¥/g, 'å')
+                .replace(/Ã¦/g, 'æ')
+                .replace(/Ã§/g, 'ç')
+                .replace(/Ã¨/g, 'è')
+                .replace(/Ã©/g, 'é')
+                .replace(/Ãª/g, 'ê')
+                .replace(/Ã«/g, 'ë')
+                .replace(/Ã¬/g, 'ì')
+                .replace(/Ã­/g, 'í')
+                .replace(/Ã®/g, 'î')
+                .replace(/Ã¯/g, 'ï')
+                .replace(/Ã°/g, 'ð')
+                .replace(/Ã±/g, 'ñ')
+                .replace(/Ã²/g, 'ò')
+                .replace(/Ã³/g, 'ó')
+                .replace(/Ã´/g, 'ô')
+                .replace(/Ãµ/g, 'õ')
+                .replace(/Ã¶/g, 'ö')
+                .replace(/Ã·/g, '÷')
+                .replace(/Ã¸/g, 'ø')
+                .replace(/Ã¹/g, 'ù')
+                .replace(/Ãº/g, 'ú')
+                .replace(/Ã»/g, 'û')
+                .replace(/Ã¼/g, 'ü')
+                .replace(/Ã½/g, 'ý')
+                .replace(/Ã¾/g, 'þ')
+                .replace(/Ã¿/g, 'ÿ')
+            }
+          }
+          
+          // Final check: if still has encoding issues, apply manual fix
+          if (/[ÃÄÅÆÇÈÉÊË]/.test(serviceName) || /áº|Æ°|á»¡|á»‹|ká»/.test(serviceName)) {
+            serviceName = serviceName
+              .replace(/Báº£o/g, 'Bảo')
+              .replace(/dÆ°á»¡ng/g, 'dưỡng')
+              .replace(/Ä'/g, 'đ')
+              .replace(/á»‹nh/g, 'ịnh')
+              .replace(/ká»³/g, 'kỳ')
+              .replace(/Báº/g, 'Bả')
+              .replace(/dÆ°/g, 'dưỡ')
+              .replace(/á»¡/g, 'ỡ')
+              .replace(/á»‹/g, 'ị')
+              .replace(/ká»/g, 'kỳ')
+          }
+        } catch (e1) {
+          console.warn('Could not decode service name:', serviceName, e1)
+          // Final fallback: manual fix
+          serviceName = serviceName
+            .replace(/Báº£o/g, 'Bảo')
+            .replace(/dÆ°á»¡ng/g, 'dưỡng')
+            .replace(/Ä'/g, 'đ')
+            .replace(/á»‹nh/g, 'ịnh')
+            .replace(/ká»³/g, 'kỳ')
+        }
+      }
+      
+      return serviceName
+    } catch (e) {
+      console.error('Error decoding service name:', e)
+      return service.name
+    }
+  }
+
+  // Handle accept assignment (đồng ý nhận công việc)
+  const handleAcceptAssignment = async (orderId) => {
+    if (!confirm('Xác nhận đồng ý nhận công việc này?')) return
+    
+    try {
+      // Update service order status to 'in_progress' (đang làm)
+      await maintenanceAPI.updateServiceOrderStatus(orderId, 'in_progress')
+      await loadData() // Wait for data reload to ensure UI updates
+      alert('✅ Đã đồng ý nhận công việc!')
+    } catch (err) {
+      alert('❌ Lỗi: ' + err.message)
+      await loadData() // Reload on error to ensure consistency
+    }
   }
 
   // Handle start work on assignment
@@ -74,6 +366,160 @@ function Technician() {
       alert('Đã bắt đầu làm việc!')
     } catch (err) {
       alert('Lỗi: ' + err.message)
+    }
+  }
+
+  // Handle create checklist for service order
+  const handleCreateChecklist = async (orderId) => {
+    // Default checklist items - format theo API: array of strings
+    const defaultItems = [
+      'Kiểm tra pin',
+      'Kiểm tra phanh',
+      'Kiểm tra lốp',
+      'Kiểm tra đèn',
+      'Kiểm tra hệ thống điện',
+      'Kiểm tra hệ thống làm mát'
+    ]
+    
+    try {
+      await maintenanceAPI.createServiceOrderChecklist(orderId, defaultItems)
+      await loadData() // Wait for data reload
+      alert('✅ Đã tạo checklist thành công!')
+    } catch (err) {
+      alert('❌ Lỗi tạo checklist: ' + err.message)
+      await loadData() // Reload on error
+    }
+  }
+
+  // Helper function để lấy staff_id từ user_id
+  const getStaffIdFromUserId = (userId) => {
+    if (!userId) return null
+    // Tìm staff có user_id tương ứng
+    const staff = staffs.find(s => 
+      (s.userId === userId) || 
+      (s.user_id === userId) ||
+      (s.id === userId && s.userId) // Nếu staff object có id = userId
+    )
+    // Trả về staff_id hoặc staffId
+    return staff ? (staff.staffId || staff.staff_id || staff.id) : null
+  }
+
+  // Handle complete/uncomplete checklist item
+  // Sử dụng một API duy nhất để update status (thống nhất logic)
+  const handleCompleteChecklistItem = async (orderId, checklistId, isCompleted, itemName) => {
+    try {
+      // Map user_id sang staff_id để tránh foreign key constraint error
+      // completed_by phải reference đến staff_id trong bảng staffs, không phải user_id
+      const staffId = isCompleted ? getStaffIdFromUserId(currentUserId) : null
+      
+      if (isCompleted && !staffId) {
+        console.warn(`[Checklist] Cannot find staff_id for user_id ${currentUserId}. Staffs data:`, staffs)
+        alert('⚠️ Không tìm thấy thông tin nhân viên. Vui lòng thử lại sau khi tải lại trang.')
+        return
+      }
+      
+      // Sử dụng updateChecklistItemStatus cho cả complete và uncomplete
+      // API này hỗ trợ cả hai trường hợp
+      // Pass staff_id thay vì user_id
+      await maintenanceAPI.updateChecklistItemStatus(
+        checklistId, 
+        isCompleted, 
+        '', 
+        staffId // Sử dụng staff_id thay vì currentUserId
+      )
+      // Reload data để cập nhật UI
+      await loadData()
+    } catch (err) {
+      console.error('Error updating checklist item:', err)
+      const errorMessage = err.message || 'Không thể cập nhật checklist'
+      alert(`❌ Lỗi cập nhật checklist: ${errorMessage}`)
+      // Reload on error to ensure consistency
+      await loadData()
+    }
+  }
+
+  // Handle update service order status (Quản lý tiến trình: chờ - đang làm - hoàn tất)
+  const handleUpdateServiceOrderStatus = async (orderId, newStatus) => {
+    const statusLabels = {
+      'queued': 'Chờ',
+      'in_progress': 'Đang làm',
+      'completed': 'Hoàn tất'
+    }
+    
+    // Normalize orderId to ensure correct comparison
+    const normalizedOrderId = typeof orderId === 'string' ? parseInt(orderId) : orderId
+    
+    // Check if status is already the same (prevent unnecessary API calls)
+    const currentOrder = serviceOrders.find(order => {
+      const orderIdToMatch = order.orderId || order.id
+      return orderIdToMatch === normalizedOrderId || parseInt(orderIdToMatch) === normalizedOrderId
+    })
+    
+    if (currentOrder) {
+      const currentStatus = normalizeStatus(currentOrder.status)
+      if (currentStatus === newStatus) {
+        alert('⚠️ Trạng thái đã là "' + statusLabels[newStatus] + '" rồi!')
+        return
+      }
+    }
+    
+    if (!confirm(`Xác nhận chuyển trạng thái sang "${statusLabels[newStatus] || newStatus}"?`)) return
+    
+    try {
+      console.warn(`[DEBUG] Updating order ${normalizedOrderId} to status: ${newStatus}`)
+      
+      // Optimistic update: Update state immediately for better UX
+      setServiceOrders(prevOrders => {
+        const updated = prevOrders.map(order => {
+          const orderIdToMatch = order.orderId || order.id
+          const orderIdNum = typeof orderIdToMatch === 'string' ? parseInt(orderIdToMatch) : orderIdToMatch
+          if (orderIdNum === normalizedOrderId || orderIdToMatch === normalizedOrderId) {
+            console.warn(`[DEBUG] Optimistic update: order ${orderIdToMatch} status ${order.status} -> ${newStatus}`)
+            return { ...order, status: newStatus }
+          }
+          return order
+        })
+        console.warn('[DEBUG] Updated serviceOrders state:', updated)
+        return updated
+      })
+      
+      const response = await maintenanceAPI.updateServiceOrderStatus(normalizedOrderId, newStatus)
+      console.warn('[DEBUG] API response:', JSON.stringify(response, null, 2))
+      
+      // Normalize status from response if needed
+      if (response && response.status) {
+        const originalResponseStatus = response.status
+        response.status = normalizeStatus(response.status)
+        console.warn(`[DEBUG] Normalized response status: ${originalResponseStatus} -> ${response.status}`)
+      }
+      
+      // Nếu hoàn tất, có thể gọi completeServiceOrder
+      if (newStatus === 'completed') {
+        await maintenanceAPI.completeServiceOrder(normalizedOrderId).catch(() => {})
+      }
+      
+      // Reload data to ensure consistency
+      console.warn('[DEBUG] Reloading data after status update...')
+      await loadData()
+      
+      // Check final state after reload
+      setTimeout(() => {
+        const finalOrders = serviceOrders
+        console.warn('[DEBUG] Final serviceOrders after reload:', JSON.stringify(finalOrders, null, 2))
+        const targetOrder = finalOrders.find(o => (o.orderId || o.id) === normalizedOrderId)
+        if (targetOrder) {
+          console.warn(`[DEBUG] Target order ${normalizedOrderId} final status: ${targetOrder.status}`)
+        } else {
+          console.warn(`[DEBUG] Target order ${normalizedOrderId} not found in final state!`)
+        }
+      }, 1000)
+      
+      alert(`✅ Đã cập nhật trạng thái thành "${statusLabels[newStatus] || newStatus}"!`)
+    } catch (err) {
+      console.error('[handleUpdateServiceOrderStatus] Error:', err)
+      // Revert optimistic update on error
+      await loadData()
+      alert('❌ Lỗi: ' + err.message)
     }
   }
 
@@ -127,18 +573,121 @@ function Technician() {
 
   const submitReport = async (reportData) => {
     try {
-      await staffAPI.createMaintenanceReport({
-        assignmentId: selectedAssignment.id,
+      console.log('[submitReport] Starting with selectedAssignment:', selectedAssignment)
+      console.log('[submitReport] Current assignments count:', assignments.length)
+      console.log('[submitReport] Assignments sample:', assignments.slice(0, 3))
+      
+      // Get vehicleId - required by backend
+      const vehicleId = selectedAssignment.vehicleId || selectedAssignment.order?.vehicleId
+      if (!vehicleId) {
+        alert('❌ Lỗi: Không tìm thấy thông tin xe. Vui lòng thử lại.')
+        return
+      }
+      
+      // Find or create assignmentId
+      let assignmentId = null
+      const appointmentId = selectedAssignment.appointmentId
+      
+      // Always try to find assignment by appointmentId first (most reliable)
+      if (appointmentId) {
+        console.log('[submitReport] Searching for assignment with appointmentId:', appointmentId)
+        
+        // Try multiple ways to find assignment
+        const existingAssignment = assignments.find(a => {
+          const aAppointmentId = a.appointmentId || a.appointment?.id || a.appointment?.appointmentId
+          return aAppointmentId && (
+            aAppointmentId === appointmentId ||
+            aAppointmentId.toString() === appointmentId.toString()
+          )
+        })
+        
+        if (existingAssignment) {
+          assignmentId = existingAssignment.id || existingAssignment.assignmentId || existingAssignment.assignment_id
+          console.log('[submitReport] Found existing assignment:', assignmentId, existingAssignment)
+        } else {
+          console.log('[submitReport] No assignment found, attempting to create...')
+          // Try to create assignment
+          try {
+            const newAssignment = await staffAPI.createAssignment({
+              appointment_id: appointmentId,
+              technician_id: currentUserId
+            })
+            assignmentId = newAssignment.assignment?.assignment_id || newAssignment.assignment?.id || newAssignment.assignmentId || newAssignment.id
+            console.log('[submitReport] Created assignment:', assignmentId, newAssignment)
+          } catch (assignErr) {
+            console.warn('[submitReport] Could not create assignment, reloading and searching again:', assignErr)
+            // Reload assignments and try to find again
+            const reloadedAssignments = await staffAPI.getAssignments()
+            console.log('[submitReport] Reloaded assignments count:', reloadedAssignments.length)
+            
+            const retryAssignment = reloadedAssignments.find(a => {
+              const aAppointmentId = a.appointmentId || a.appointment?.id || a.appointment?.appointmentId
+              return aAppointmentId && (
+                aAppointmentId === appointmentId ||
+                aAppointmentId.toString() === appointmentId.toString()
+              )
+            })
+            
+            if (retryAssignment) {
+              assignmentId = retryAssignment.id || retryAssignment.assignmentId || retryAssignment.assignment_id
+              console.log('[submitReport] Found assignment after reload:', assignmentId, retryAssignment)
+            } else {
+              console.error('[submitReport] Still cannot find assignment after reload')
+              console.error('[submitReport] Reloaded assignments:', reloadedAssignments)
+              alert('❌ Lỗi: Không thể tìm hoặc tạo phân công. Vui lòng thử lại.')
+              return
+            }
+          }
+        }
+      }
+      // Fallback: If we have an id, try to use it directly (for legacy assignments)
+      else if (selectedAssignment.id) {
+        console.log('[submitReport] Using selectedAssignment.id as fallback:', selectedAssignment.id)
+        const existingAssignment = assignments.find(a => 
+          (a.id && a.id === selectedAssignment.id) || 
+          (a.assignmentId && a.assignmentId === selectedAssignment.id) ||
+          (a.assignment_id && a.assignment_id === selectedAssignment.id)
+        )
+        if (existingAssignment) {
+          assignmentId = existingAssignment.id || existingAssignment.assignmentId || existingAssignment.assignment_id
+          console.log('[submitReport] Found assignment by id:', assignmentId)
+        } else {
+          console.error('[submitReport] Assignment id not found in assignments list')
+          alert('❌ Lỗi: Không tìm thấy thông tin phân công. Vui lòng thử lại.')
+          return
+        }
+      }
+      
+      if (!assignmentId) {
+        console.error('[submitReport] Cannot determine assignmentId')
+        console.error('[submitReport] selectedAssignment:', selectedAssignment)
+        console.error('[submitReport] assignments:', assignments)
+        alert('❌ Lỗi: Không thể xác định assignmentId. Vui lòng thử lại.')
+        return
+      }
+      
+      // Prepare report data - Backend requires: assignmentId, vehicleId, technicianId, workPerformed
+      const reportPayload = {
+        assignmentId: assignmentId,
+        vehicleId: vehicleId,
         technicianId: currentUserId,
-        ...reportData
-      })
+        workPerformed: reportData.workPerformed || '',
+        issuesFound: reportData.issuesFound || '',
+        partsUsed: reportData.partsReplaced || '', // Backend uses partsUsed, not partsReplaced
+        recommendations: reportData.recommendations || ''
+      }
+      
+      console.log('[submitReport] Sending report:', reportPayload)
+      await staffAPI.createMaintenanceReport(reportPayload)
       
       setShowReportModal(false)
       setSelectedAssignment(null)
-      loadData() // Reload data
-      alert('Đã gửi báo cáo bảo dưỡng!')
+      await loadData() // Wait for data reload
+      alert('✅ Đã gửi báo cáo bảo dưỡng!')
     } catch (err) {
-      alert('Lỗi gửi báo cáo: ' + err.message)
+      console.error('Error submitting report:', err)
+      alert('❌ Lỗi gửi báo cáo: ' + (err.message || 'Vui lòng thử lại'))
+      await loadData() // Reload on error
     }
   }
 
@@ -161,7 +710,6 @@ function Technician() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">Bảng điều khiển Kỹ thuật viên</h2>
-          <p className="text-gray-600 mt-2">Quản lý công việc, checklist và báo cáo bảo dưỡng</p>
         </div>
 
         {error && (
@@ -175,9 +723,9 @@ function Technician() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-200 pb-2">
           {[
-            { key: 'assignments', label: 'Công việc của tôi' },
+            { key: 'assignments', label: 'Công việc' },
             { key: 'checklists', label: 'Checklists' },
-            { key: 'reports', label: 'Báo cáo của tôi' }
+            { key: 'reports', label: 'Báo cáo' }
           ].map(tab => (
             <button
               key={tab.key}
@@ -203,9 +751,201 @@ function Technician() {
               </button>
             </div>
 
-            {myAssignments.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">Chưa có công việc nào được phân công</p>
-            ) : (
+            {/* Service Orders từ Maintenance Service */}
+            {myServiceOrders.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Phiếu bảo dưỡng được phân công</h4>
+                <div className="space-y-4">
+                  {myServiceOrders.map(order => {
+                    // Find appointment by id or appointmentId
+                    const appointment = appointments.find(a => 
+                      a.id === order.appointmentId || 
+                      a.appointmentId === order.appointmentId ||
+                      a.id === order.appointment?.id ||
+                      a.appointmentId === order.appointment?.appointmentId
+                    )
+                    // Find vehicle by id or vehicleId
+                    const vehicle = vehicles.find(v => 
+                      v.id === order.vehicleId || 
+                      v.vehicleId === order.vehicleId
+                    )
+                    // Try to find customer by customerId or userId
+                    // appointment.customerId could be userId in users table or customerId in customers table
+                    const customer = customers.find(c => 
+                      c.id === appointment?.customerId || 
+                      c.customerId === appointment?.customerId ||
+                      c.userId === appointment?.customerId ||
+                      c.id === appointment?.userId ||
+                      c.userId === appointment?.userId
+                    )
+                    // Find service by id or serviceId
+                    const service = services.find(s => 
+                      s.id === appointment?.serviceId || 
+                      s.serviceId === appointment?.serviceId
+                    )
+                    
+                    return (
+                      <div key={order.orderId || order.id} className="border rounded-lg p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-blue-50 to-white">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-xl font-bold text-gray-900">Phiếu bảo dưỡng #{order.orderId || order.id}</span>
+                            {appointment && (
+                                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                  Lịch hẹn #{appointment.id || appointment.appointmentId}
+                                </span>
+                            )}
+                          </div>
+                            <p className="text-sm text-gray-600 mb-1">
+                              <span className="font-medium">Dịch vụ:</span> {
+                                appointment?.serviceId 
+                                  ? getServiceName(appointment.serviceId) 
+                                  : service 
+                                    ? (service.name || service.serviceName || 'N/A')
+                                    : 'N/A'
+                              }
+                            </p>
+                          </div>
+                          <select
+                            value={normalizeStatus(order.status) || 'queued'}
+                            onChange={(e) => handleUpdateServiceOrderStatus(order.orderId || order.id, e.target.value)}
+                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap border-0 cursor-pointer ${
+                              normalizeStatus(order.status) === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                              normalizeStatus(order.status) === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                              normalizeStatus(order.status) === 'completed' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                            }`}
+                            disabled={normalizeStatus(order.status) === 'completed'}
+                          >
+                            <option value="queued">⏳ Chờ</option>
+                            <option value="in_progress">🔧 Đang làm</option>
+                            <option value="completed">✅ Hoàn tất</option>
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm bg-white p-3 rounded-lg border border-gray-200">
+                          {customer && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">👤 Khách hàng</p>
+                              {(customer.fullName || customer.name || customer.firstName) && (
+                                <p className="font-semibold text-gray-900">
+                                  {customer.fullName || customer.name || 
+                                   (customer.firstName && customer.lastName ? `${customer.firstName} ${customer.lastName}` : customer.firstName || customer.lastName) || 
+                                   'N/A'}
+                                </p>
+                              )}
+                              {customer.email && (
+                                <p className={`text-sm ${(customer.fullName || customer.name) ? 'text-gray-600' : 'font-semibold text-gray-900'}`}>
+                                  {customer.email}
+                                </p>
+                              )}
+                              {customer.phone && (
+                                <p className="text-xs text-gray-500 mt-1">📞 {customer.phone}</p>
+                              )}
+                              {!customer.email && !customer.phone && (
+                                <p className="text-sm text-gray-500">ID: {customer.id || customer.customerId || 'N/A'}</p>
+                              )}
+                            </div>
+                          )}
+                          {vehicle && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">🚗 Xe</p>
+                              <p className="font-semibold text-gray-900">{getVehicleInfo(vehicle.id)}</p>
+                            </div>
+                          )}
+                          {appointment && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">📅 Thời gian hẹn</p>
+                              <p className="font-semibold text-gray-900">
+                                {appointment.appointmentDate 
+                                  ? new Date(appointment.appointmentDate).toLocaleDateString('vi-VN', { 
+                                      weekday: 'short', 
+                                      year: 'numeric', 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    })
+                                  : appointment.requestedDateTime
+                                    ? new Date(appointment.requestedDateTime).toLocaleDateString('vi-VN', { 
+                                        weekday: 'short', 
+                                        year: 'numeric', 
+                                        month: 'short', 
+                                        day: 'numeric' 
+                                      })
+                                    : 'N/A'
+                                }
+                              </p>
+                              {(appointment.appointmentTime || appointment.requestedTime) && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {appointment.appointmentTime || appointment.requestedTime}
+                              </p>
+                              )}
+                            </div>
+                          )}
+                          {order.totalAmount != null && Number(order.totalAmount) > 0 && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">💰 Tổng tiền</p>
+                              <p className="font-semibold text-green-600">{Number(order.totalAmount).toLocaleString('vi-VN')} VNĐ</p>
+                            </div>
+                          )}
+                          {order.paymentStatus && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">💳 Trạng thái thanh toán</p>
+                              <p className={`font-semibold ${
+                                order.paymentStatus === 'paid' ? 'text-green-600' :
+                                order.paymentStatus === 'pending' ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`}>
+                                {order.paymentStatus === 'paid' ? '✅ Đã thanh toán' :
+                                 order.paymentStatus === 'pending' ? '⏳ Chờ thanh toán' :
+                                 '❌ Chưa thanh toán'}
+                              </p>
+                            </div>
+                          )}
+                          {order.createdAt && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">📝 Ngày tạo</p>
+                              <p className="font-semibold text-gray-900 text-xs">
+                                {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {appointment?.notes && (
+                          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-xs text-gray-600 font-medium mb-1">📋 Ghi chú từ khách hàng:</p>
+                            <p className="text-sm text-gray-700">{appointment.notes}</p>
+                          </div>
+                        )}
+
+                        {/* Quản lý tiến trình: chờ - đang làm - hoàn tất */}
+                        <div className="flex gap-2 pt-3 border-t">
+                          {normalizeStatus(order.status) === 'queued' && (
+                            <button
+                              onClick={() => handleAcceptAssignment(order.orderId || order.id)}
+                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                            >
+                              ✅ Đồng ý nhận công việc
+                            </button>
+                          )}
+                          
+                          {normalizeStatus(order.status) === 'completed' && (
+                            <span className="text-sm text-gray-600 italic">✅ Đã hoàn thành công việc</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Legacy Assignments từ Staff Service */}
+            {myAssignments.length > 0 && (
+              <div className={myServiceOrders.length > 0 ? 'mt-6' : ''}>
+                {myServiceOrders.length > 0 && (
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Phân công khác</h4>
+                )}
               <div className="space-y-4">
                 {myAssignments.map(assign => {
                   const appointment = getAppointmentInfo(assign.appointmentId)
@@ -284,6 +1024,11 @@ function Technician() {
                   )
                 })}
               </div>
+              </div>
+            )}
+
+            {myServiceOrders.length === 0 && myAssignments.length === 0 && (
+              <p className="text-gray-600 text-center py-8">Chưa có công việc nào được phân công</p>
             )}
           </div>
         )}
@@ -298,8 +1043,184 @@ function Technician() {
               </button>
             </div>
 
+            {/* Service Order Checklists (from Maintenance Service) */}
+            {myServiceOrders.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Checklists từ Phiếu bảo dưỡng</h4>
+                
+                {/* Hiển thị danh sách service orders với checklist hoặc nút tạo checklist */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {myServiceOrders.map(order => {
+                    const orderId = order.orderId || order.id
+                    const orderChecklist = serviceOrderChecklists[orderId] || []
+                    // Find appointment by id or appointmentId
+                    const appointment = appointments.find(a => 
+                      a.id === order.appointmentId || 
+                      a.appointmentId === order.appointmentId ||
+                      a.id === order.appointment?.id ||
+                      a.appointmentId === order.appointment?.appointmentId
+                    )
+                    // Find vehicle by id or vehicleId
+                    const vehicle = vehicles.find(v => 
+                      v.id === order.vehicleId || 
+                      v.vehicleId === order.vehicleId
+                    )
+                    // Find service by id or serviceId
+                    const service = services.find(s => 
+                      s.id === appointment?.serviceId || 
+                      s.serviceId === appointment?.serviceId
+                    )
+                    const hasChecklist = orderChecklist.length > 0
+                    
+                    return (
+                      <div key={orderId} className="border rounded-lg p-5 bg-gradient-to-br from-blue-50 to-white hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-base font-bold text-gray-900">Phiếu bảo dưỡng #{orderId}</span>
+                              {appointment && (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Lịch hẹn #{appointment.id}</span>
+                              )}
+                            </div>
+                            {(service || appointment?.serviceId) && (
+                              <p className="text-xs text-gray-600 mb-1">
+                                <span className="font-medium">Dịch vụ:</span> {
+                                  appointment?.serviceId 
+                                    ? getServiceName(appointment.serviceId) 
+                                    : service 
+                                      ? (service.name || service.serviceName || 'N/A')
+                                      : 'N/A'
+                                }
+                              </p>
+                            )}
+                            {vehicle && (
+                              <p className="text-xs text-gray-600">🚗 {getVehicleInfo(vehicle.id)}</p>
+                            )}
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                            normalizeStatus(order.status) === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                            normalizeStatus(order.status) === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            normalizeStatus(order.status) === 'completed' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {normalizeStatus(order.status) === 'queued' ? '⏳ Chờ' :
+                             normalizeStatus(order.status) === 'in_progress' ? '🔧 Đang làm' :
+                             normalizeStatus(order.status) === 'completed' ? '✅ Hoàn tất' : normalizeStatus(order.status)}
+                          </span>
+                        </div>
+                        
+                        {!hasChecklist ? (
+                          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-gray-700 mb-3">
+                              {checklistErrors[orderId] 
+                                ? `⚠️ Lỗi tải checklist: ${checklistErrors[orderId]}` 
+                                : 'Chưa có checklist cho phiếu bảo dưỡng này.'}
+                            </p>
+                            {normalizeStatus(order.status) === 'in_progress' && (
+                              <button
+                                onClick={() => handleCreateChecklist(orderId)}
+                                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                              >
+                                ➕ Tạo Checklist
+                              </button>
+                            )}
+                            {normalizeStatus(order.status) === 'queued' && (
+                              <div className="space-y-2">
+                                <p className="text-xs text-gray-600 mb-2">Vui lòng bắt đầu công việc để tạo checklist</p>
+                                <button
+                                  onClick={() => handleAcceptAssignment(orderId)}
+                                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                                >
+                                  🚀 Bắt đầu công việc
+                                </button>
+                              </div>
+                            )}
+                            {normalizeStatus(order.status) !== 'in_progress' && normalizeStatus(order.status) !== 'queued' && (
+                              <p className="text-xs text-gray-500 italic">Vui lòng bắt đầu công việc để tạo checklist</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-4 space-y-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-semibold text-gray-700">Danh sách kiểm tra:</p>
+                              <span className="text-xs text-gray-500">
+                                {orderChecklist.filter(item => item.isCompleted).length} / {orderChecklist.length} hoàn thành
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              {orderChecklist.map(item => {
+                                const itemId = item.checklistId || item.id
+                                const isCompleted = item.isCompleted || false
+                                
+                                return (
+                                  <div 
+                                    key={itemId} 
+                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                                      isCompleted 
+                                        ? 'bg-green-50 border-green-200' 
+                                        : 'bg-white border-gray-200 hover:border-blue-300'
+                                    }`}
+                                  >
+                                    <input 
+                                      type="checkbox" 
+                                      checked={isCompleted} 
+                                      onChange={() => handleCompleteChecklistItem(orderId, itemId, !isCompleted, item.itemName)}
+                                      disabled={normalizeStatus(order.status) === 'completed'}
+                                      className="w-5 h-5 mt-0.5 cursor-pointer"
+                                    />
+                                    <div className="flex-1">
+                                      <span className={`text-sm font-medium ${
+                                        isCompleted ? 'text-green-700 line-through' : 'text-gray-700'
+                                      }`}>
+                                        {item.itemName}
+                                      </span>
+                                      {isCompleted && item.completedAt && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Hoàn thành: {new Date(item.completedAt).toLocaleString('vi-VN')}
+                                        </p>
+                                      )}
+                                      {item.notes && (
+                                        <p className="text-xs text-gray-600 mt-1 italic">
+                                          📝 {item.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            
+                            {/* Progress bar - với guard để tránh chia cho 0 */}
+                            {orderChecklist.length > 0 && (
+                              <div className="mt-4">
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-green-600 h-2 rounded-full transition-all"
+                                    style={{ 
+                                      width: `${(orderChecklist.filter(item => item.isCompleted).length / orderChecklist.length) * 100}%` 
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Legacy Checklists (from Staff Service) */}
+            {myAssignments.length > 0 && (
+              <div className={myServiceOrders.length > 0 ? 'mt-6' : ''}>
+                {myServiceOrders.length > 0 && (
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Checklists từ Phân công</h4>
+                )}
             {checklists.filter(c => myAssignments.some(a => a.id === c.assignmentId)).length === 0 ? (
-              <p className="text-gray-600 text-center py-8">Chưa có checklist nào</p>
+                  <p className="text-gray-500 text-sm">Chưa có checklist nào cho phân công</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {checklists
@@ -349,6 +1270,13 @@ function Technician() {
                     </div>
                   ))}
               </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {myServiceOrders.length === 0 && myAssignments.length === 0 && (
+              <p className="text-gray-600 text-center py-8">Chưa có công việc nào được phân công</p>
             )}
           </div>
         )}
@@ -357,30 +1285,198 @@ function Technician() {
         {activeTab === 'reports' && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Báo cáo bảo dưỡng của tôi</h3>
+              <h3 className="text-xl font-semibold">Báo cáo bảo dưỡng</h3>
               <button onClick={loadData} className="px-3 py-1 border rounded-md hover:bg-gray-50">
                 🔄 Làm mới
               </button>
             </div>
 
-            {maintenanceReports.filter(r => r.technicianId === currentUserId).length === 0 ? (
-              <p className="text-gray-600 text-center py-8">Chưa có báo cáo nào</p>
-            ) : (
+            {/* Service Orders có thể tạo báo cáo */}
+            {myServiceOrders.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Phiếu bảo dưỡng</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {myServiceOrders
+                    .filter(order => normalizeStatus(order.status) === 'in_progress' || normalizeStatus(order.status) === 'completed')
+                    .map(order => {
+                      const orderId = order.orderId || order.id
+                      const appointment = appointments.find(a => 
+                        a.id === order.appointmentId || 
+                        a.appointmentId === order.appointmentId ||
+                        a.id === order.appointment?.id ||
+                        a.appointmentId === order.appointment?.appointmentId
+                      )
+                      const vehicle = vehicles.find(v => 
+                        v.id === order.vehicleId || 
+                        v.vehicleId === order.vehicleId
+                      )
+                      const customer = customers.find(c => 
+                        c.id === appointment?.customerId || 
+                        c.customerId === appointment?.customerId ||
+                        c.userId === appointment?.customerId ||
+                        c.id === appointment?.userId ||
+                        c.userId === appointment?.userId
+                      )
+                      const service = services.find(s => 
+                        s.id === appointment?.serviceId || 
+                        s.serviceId === appointment?.serviceId
+                      )
+                      // Find assignment by appointmentId to check if report exists
+                      const relatedAssignment = assignments.find(a => {
+                        const aAppointmentId = a.appointmentId || a.appointment?.id || a.appointment?.appointmentId
+                        const orderAppointmentId = order.appointmentId
+                        return aAppointmentId && orderAppointmentId && (
+                          aAppointmentId === orderAppointmentId ||
+                          aAppointmentId.toString() === orderAppointmentId.toString()
+                        )
+                      })
+                      
+                      // Check if report exists for this assignment or order
+                      const hasReport = relatedAssignment 
+                        ? maintenanceReports.some(r => {
+                            const rAssignmentId = r.assignmentId || r.assignment_id
+                            const assignmentId = relatedAssignment.id || relatedAssignment.assignmentId || relatedAssignment.assignment_id
+                            return rAssignmentId && assignmentId && (
+                              rAssignmentId === assignmentId ||
+                              rAssignmentId.toString() === assignmentId.toString()
+                            )
+                          })
+                        : maintenanceReports.some(r => 
+                            r.assignmentId === orderId || 
+                            r.serviceOrderId === orderId ||
+                            (r.appointmentId && r.appointmentId === order.appointmentId)
+                          )
+                      
+                      return (
+                        <div key={orderId} className="border rounded-lg p-5 bg-gradient-to-br from-blue-50 to-white hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-base font-bold text-gray-900">Phiếu bảo dưỡng #{orderId}</span>
+                                {appointment && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Lịch hẹn #{appointment.id || appointment.appointmentId}</span>
+                                )}
+                              </div>
+                              {(service || appointment?.serviceId) && (
+                                <p className="text-xs text-gray-600 mb-1">
+                                  <span className="font-medium">Dịch vụ:</span> {
+                                    appointment?.serviceId 
+                                      ? getServiceName(appointment.serviceId) 
+                                      : service 
+                                        ? (service.name || service.serviceName || 'N/A')
+                                        : 'N/A'
+                                  }
+                                </p>
+                              )}
+                              {vehicle && (
+                                <p className="text-xs text-gray-600">🚗 {getVehicleInfo(vehicle.id)}</p>
+                              )}
+                              {customer && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  👤 {customer.fullName || customer.name || customer.email || 'N/A'}
+                                </p>
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                              normalizeStatus(order.status) === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                              normalizeStatus(order.status) === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {normalizeStatus(order.status) === 'in_progress' ? '🔧 Đang làm' :
+                               normalizeStatus(order.status) === 'completed' ? '✅ Hoàn tất' : normalizeStatus(order.status)}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-4">
+                            {hasReport ? (
+                              <button
+                                disabled
+                                className="w-full px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed text-sm font-medium"
+                              >
+                                ✅ Đã báo cáo
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenReport({ 
+                                  id: orderId, 
+                                  orderId: orderId,
+                                  appointmentId: order.appointmentId,
+                                  vehicleId: order.vehicleId,
+                                  // Pass order data for vehicle lookup
+                                  order: order
+                                })}
+                                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                              >
+                                📝 Tạo báo cáo
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Báo cáo đã tạo */}
+            {maintenanceReports.filter(r => r.technicianId === currentUserId).length > 0 && (
+              <div className={myServiceOrders.length > 0 ? 'mt-6' : ''}>
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Báo cáo đã tạo</h4>
               <div className="space-y-4">
                 {maintenanceReports
                   .filter(r => r.technicianId === currentUserId)
-                  .map(report => (
-                    <div key={report.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    .map(report => {
+                      // Tìm service order liên quan
+                      const relatedOrder = myServiceOrders.find(o => 
+                        (o.orderId || o.id) === report.assignmentId || 
+                        (o.orderId || o.id) === report.serviceOrderId
+                      )
+                      const appointment = relatedOrder ? appointments.find(a => 
+                        a.id === relatedOrder.appointmentId || 
+                        a.appointmentId === relatedOrder.appointmentId
+                      ) : null
+                      const vehicle = relatedOrder ? vehicles.find(v => 
+                        v.id === relatedOrder.vehicleId || 
+                        v.vehicleId === relatedOrder.vehicleId
+                      ) : null
+                      
+                      return (
+                        <div key={report.id} className="border rounded-lg p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-gray-50 to-white">
                       <div className="flex justify-between items-start mb-3">
-                        <div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
                           <span className="text-lg font-medium text-gray-900">Báo cáo #{report.id}</span>
-                          <span className="ml-3 text-sm text-gray-500">Phân công #{report.assignmentId}</span>
+                                {relatedOrder && (
+                                  <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                    Phiếu bảo dưỡng #{relatedOrder.orderId || relatedOrder.id}
+                                  </span>
+                                )}
+                                {report.assignmentId && !relatedOrder && (
+                                  <span className="text-sm text-gray-500">Phân công #{report.assignmentId}</span>
+                                )}
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          report.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {report.approved ? '✓ Đã phê duyệt' : '⏳ Chờ phê duyệt'}
+                              {vehicle && (
+                                <p className="text-xs text-gray-600">🚗 {getVehicleInfo(vehicle.id)}</p>
+                              )}
+                              {appointment && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  📅 {appointment.appointmentDate 
+                                    ? new Date(appointment.appointmentDate).toLocaleDateString('vi-VN')
+                                    : 'N/A'}
+                                </p>
+                              )}
+                        </div>
+                        {/* Only show status if report is submitted and awaiting approval */}
+                        {report.status === 'submitted' && !report.approved && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⏳ Chờ phê duyệt
                         </span>
+                        )}
+                        {report.approved && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✓ Đã phê duyệt
+                          </span>
+                        )}
                       </div>
 
                       <div className="space-y-3 text-sm">
@@ -417,8 +1513,16 @@ function Technician() {
                         </p>
                       </div>
                   </div>
-              ))}
+                      )
+                    })}
+                </div>
               </div>
+          )}
+
+            {/* Empty state */}
+            {myServiceOrders.filter(o => normalizeStatus(o.status) === 'in_progress' || normalizeStatus(o.status) === 'completed').length === 0 && 
+             maintenanceReports.filter(r => r.technicianId === currentUserId).length === 0 && (
+              <p className="text-gray-600 text-center py-8">Chưa có báo cáo nào</p>
           )}
         </div>
         )}
@@ -442,6 +1546,7 @@ function Technician() {
       {showReportModal && selectedAssignment && (
         <ReportModal
           assignment={selectedAssignment}
+          vehicles={vehicles}
           onClose={() => {
             setShowReportModal(false)
             setSelectedAssignment(null)
@@ -557,7 +1662,7 @@ function ChecklistModal({ assignment, existingChecklist, onClose, onSubmit, getV
 }
 
 // Maintenance Report Modal Component
-function ReportModal({ assignment, onClose, onSubmit, getVehicleInfo }) {
+function ReportModal({ assignment, vehicles, onClose, onSubmit, getVehicleInfo }) {
   const [formData, setFormData] = useState({
     issuesFound: '',
     workPerformed: '',
@@ -574,6 +1679,32 @@ function ReportModal({ assignment, onClose, onSubmit, getVehicleInfo }) {
     onSubmit(formData)
   }
 
+  // Get vehicle info - support both assignment.vehicleId and order.vehicleId
+  const vehicleId = assignment.vehicleId || (assignment.order?.vehicleId) || (assignment.orderId ? assignment.vehicleId : null)
+  let vehicle = null
+  let vehicleInfo = 'N/A'
+  
+  // Find vehicle from vehicles array
+  if (vehicleId && vehicles && vehicles.length > 0) {
+    vehicle = vehicles.find(v => {
+      const vId = v.id || v.vehicleId
+      const vIdStr = vId ? vId.toString() : ''
+      const searchIdStr = vehicleId ? vehicleId.toString() : ''
+      return vIdStr === searchIdStr || 
+             (v.id && v.id.toString() === searchIdStr) ||
+             (v.vehicleId && v.vehicleId.toString() === searchIdStr)
+    })
+  }
+  
+  if (vehicle) {
+    vehicleInfo = `${vehicle.model || 'N/A'} (${vehicle.licensePlate || 'N/A'})`
+  } else if (vehicleId) {
+    vehicleInfo = getVehicleInfo(vehicleId)
+  }
+  
+  // Get assignment/order ID
+  const assignmentId = assignment.orderId || assignment.id
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 my-8">
@@ -583,8 +1714,10 @@ function ReportModal({ assignment, onClose, onSubmit, getVehicleInfo }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <p className="text-sm text-gray-600"><span className="font-medium">Phân công:</span> #{assignment.id}</p>
-            <p className="text-sm text-gray-600"><span className="font-medium">Xe:</span> {getVehicleInfo(assignment.vehicleId)}</p>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">{assignment.orderId ? 'Phiếu bảo dưỡng' : 'Phân công'}:</span> #{assignmentId}
+            </p>
+            <p className="text-sm text-gray-600"><span className="font-medium">Xe:</span> {vehicleInfo}</p>
           </div>
 
           <div>

@@ -49,7 +49,7 @@ function Login() {
         const userRole = (result.user.role || 'customer').toLowerCase()
         if (userRole === 'admin') {
           navigate('/admin')
-        } else if (userRole === 'technician' || userRole === 'technican') {
+        } else if (userRole === 'technician') {
           navigate('/technician')
         } else if (userRole === 'staff') {
           navigate('/staff')

@@ -37,7 +37,7 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
     ...baseItems // Admin can also access customer pages for testing
   ]
   const navItems = (role === 'admin') ? adminItems : 
-                   (role === 'technican' || role === 'technician') ? techItems : 
+                   (role === 'technician') ? techItems : 
                    (role === 'staff') ? staffItems : baseItems
 
   const containerBase = `bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-40 transition-all duration-200`
