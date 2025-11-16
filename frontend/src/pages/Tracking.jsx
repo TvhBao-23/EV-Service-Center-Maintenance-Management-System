@@ -17,6 +17,8 @@ function Tracking() {
   const [viewMode, setViewMode] = useState('list') // 'list' or 'timeline'
   const [services, setServices] = useState([])
   const [serviceCenters, setServiceCenters] = useState([])
+  const [selectedNote, setSelectedNote] = useState(null) // For note detail modal
+  const [showNoteModal, setShowNoteModal] = useState(false) // For note detail modal
 
   const params = new URLSearchParams(location.search)
   const success = params.get('success') === '1'
@@ -259,96 +261,312 @@ function Tracking() {
   }, [appointments])
 
   // AI-powered Smart reminders: periodic maintenance by km or time
+  // Improved algorithm with better KM calculation, EV support, and historical analysis
   const reminders = useMemo(() => {
     if (!vehicles.length) return []
-    const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6
-    const DUE_SOON_MS = 1000 * 60 * 60 * 24 * 30 // 1 month
-    const KM_INTERVAL = 10000
-    const KM_SOON = 9000
+    
+    // Configuration constants
+    const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6 // 6 months
+    const DUE_SOON_MS = 1000 * 60 * 60 * 24 * 30 // 1 month warning
+    const DUE_VERY_SOON_MS = 1000 * 60 * 60 * 24 * 7 // 1 week warning
+    
+    // KM intervals - EV typically needs less frequent maintenance
+    const KM_INTERVAL_STANDARD = 10000 // Standard vehicle: 10,000 km
+    const KM_INTERVAL_EV = 15000 // EV: 15,000 km (less maintenance needed)
+    const KM_WARNING_THRESHOLD = 0.9 // Warn at 90% of interval
+    const KM_OVERDUE_THRESHOLD = 1.0 // Overdue at 100% of interval
 
     const now = Date.now()
 
-    const getLastMaintenanceDate = (vehicleId) => {
+    // Get last maintenance information (date and km if available)
+    const getLastMaintenanceInfo = (vehicleId) => {
       const completedAppointments = appointments.filter(a => 
         a.vehicleId === vehicleId && a.status === 'completed'
-      )
-      if (completedAppointments.length) {
-        return toDateObject(completedAppointments[completedAppointments.length - 1].requestedDateTime)
+      ).sort((a, b) => {
+        const dateA = toDateObject(a.requestedDateTime)
+        const dateB = toDateObject(b.requestedDateTime)
+        return (dateB || 0) - (dateA || 0) // Most recent first
+      })
+      
+      if (completedAppointments.length > 0) {
+        const lastAppointment = completedAppointments[0]
+        const lastDate = toDateObject(lastAppointment.requestedDateTime)
+        // Try to get km from appointment notes or metadata (if available)
+        // For now, we'll use the date and calculate km from current odometer
+        return {
+          date: lastDate,
+          km: lastAppointment.odometerKm || lastAppointment.kmAtService || null
+        }
       }
+      
+      // Fallback: use vehicle year as first registration
       const v = vehicles.find(v => v.vehicleId === vehicleId)
       if (v?.year) {
         const d = new Date(v.year, 0, 1)
-        return isNaN(d.getTime()) ? null : d
+        return {
+          date: isNaN(d.getTime()) ? null : d,
+          km: null
+        }
       }
-      return null
+      
+      return { date: null, km: null }
     }
 
-    // Check if vehicle has active appointments (pending, confirmed)
+    // Check if vehicle has active appointments (pending, confirmed, in_maintenance)
     const hasActiveAppointment = (vehicleId) => {
       return appointments.some(a => 
         a.vehicleId === vehicleId && 
-        ['pending', 'confirmed'].includes(a.status)
+        ['pending', 'confirmed', 'in_maintenance'].includes(a.status)
+      )
+    }
+
+    // Detect if vehicle is EV based on brand/model (heuristic)
+    const isElectricVehicle = (vehicle) => {
+      if (!vehicle) return false
+      const model = (vehicle.model || '').toLowerCase()
+      const brand = (vehicle.brand || '').toLowerCase()
+      const type = (vehicle.type || vehicle.vehicleType || '').toLowerCase()
+      
+      // Common EV indicators
+      const evKeywords = ['ev', 'electric', 'tesla', 'ioniq', 'leaf', 'id.', 'e-tron', 'eq', 'i3', 'i4', 'i8', 'zoe', 'bolt', 'volt']
+      return evKeywords.some(keyword => 
+        model.includes(keyword) || brand.includes(keyword) || type.includes(keyword)
       )
     }
 
     // AI Analysis: Calculate maintenance urgency based on multiple factors
     const calculateMaintenanceUrgency = (vehicle) => {
-      const lastDate = getLastMaintenanceDate(vehicle.vehicleId)
-      const km = Number(vehicle.odometerKm || 0)
+      const maintenanceInfo = getLastMaintenanceInfo(vehicle.vehicleId)
+      const lastDate = maintenanceInfo.date
+      const lastMaintenanceKm = maintenanceInfo.km
+      // Handle both odometerKm and currentKm field names
+      const currentKm = Number(vehicle.odometerKm || vehicle.currentKm || 0)
       const hasAppointment = hasActiveAppointment(vehicle.vehicleId)
+      const isEV = isElectricVehicle(vehicle)
+      
+      // Debug: Log vehicle data for troubleshooting
+      if (!vehicle.odometerKm && !vehicle.currentKm) {
+        console.warn('[Tracking] Vehicle missing km data:', {
+          vehicleId: vehicle.vehicleId,
+          model: vehicle.model,
+          hasOdometerKm: !!vehicle.odometerKm,
+          hasCurrentKm: !!vehicle.currentKm
+        })
+      }
+      
+      // Determine KM interval based on vehicle type
+      const KM_INTERVAL = isEV ? KM_INTERVAL_EV : KM_INTERVAL_STANDARD
+      const KM_WARNING = KM_INTERVAL * KM_WARNING_THRESHOLD
       
       // Base urgency score (0-100)
       let urgencyScore = 0
       let reasons = []
+      let kmSinceLastMaintenance = null
 
-      // Time-based analysis
-      if (lastDate) {
+      // Calculate KM since last maintenance
+      if (lastMaintenanceKm !== null && lastMaintenanceKm > 0) {
+        kmSinceLastMaintenance = Math.max(0, currentKm - lastMaintenanceKm)
+      } else if (lastDate && currentKm > 0) {
+        // Estimate km based on time if we don't have exact km
+        // Only calculate if lastDate is in the past
+        if (lastDate.getTime() <= now) {
+          // Assume average 1,500 km/month (18,000 km/year) - typical urban usage
+          const monthsSinceLast = (now - lastDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+          const estimatedKm = Math.max(0, monthsSinceLast * 1500)
+          kmSinceLastMaintenance = estimatedKm
+        } else {
+          // If lastDate is in the future (data inconsistency), ignore it
+          // This can happen if appointment date is set incorrectly
+          // Only log once per vehicle to reduce console noise
+          if (!vehicle._futureDateLogged) {
+            console.debug('[Tracking] Last maintenance date is in the future, ignoring:', {
+              vehicleId: vehicle.vehicleId,
+              lastDate: lastDate,
+              now: new Date(now)
+            })
+            vehicle._futureDateLogged = true
+          }
+        }
+      }
+
+      // Time-based analysis (weight: 50 points max)
+      // Only analyze if lastDate is valid and in the past
+      if (lastDate && lastDate.getTime() <= now) {
         const nextDue = lastDate.getTime() + SIX_MONTHS_MS
         const diff = nextDue - now
         const daysDiff = diff / (1000 * 60 * 60 * 24) // Convert to days (can be negative)
         
         if (diff <= 0) {
-          // Already overdue - calculate days overdue (positive number)
+          // Already overdue - calculate days overdue
           const daysOverdue = Math.abs(daysDiff)
-          urgencyScore += Math.min(50, daysOverdue * 2) // Max 50 points for time overdue
+          const timeScore = Math.min(50, 20 + (daysOverdue * 0.5)) // 20-50 points
+          urgencyScore += timeScore
           reasons.push(`Quá hạn ${Math.ceil(daysOverdue)} ngày`)
-        } else if (diff <= DUE_SOON_MS) {
-          // Due soon - calculate days remaining (positive number)
+        } else if (diff <= DUE_VERY_SOON_MS) {
+          // Due very soon (within 1 week)
           const daysRemaining = daysDiff
-          urgencyScore += Math.max(10, 30 - (daysRemaining * 0.5)) // 10-30 points for soon due
+          urgencyScore += Math.max(25, 35 - (daysRemaining * 1.5)) // 25-35 points
           reasons.push(`Còn ${Math.ceil(daysRemaining)} ngày`)
+        } else if (diff <= DUE_SOON_MS) {
+          // Due soon (within 1 month)
+          const daysRemaining = daysDiff
+          urgencyScore += Math.max(10, 20 - (daysRemaining * 0.3)) // 10-20 points
+          reasons.push(`Còn ${Math.ceil(daysRemaining)} ngày`)
+        }
+      } else if (lastDate && lastDate.getTime() > now) {
+        // Last maintenance date is in the future - data inconsistency
+        // Don't penalize, but also don't give points
+        // Only log once per vehicle to reduce console noise
+        if (!vehicle._timeAnalysisSkippedLogged) {
+          console.debug('[Tracking] Skipping time-based analysis - lastDate in future:', {
+            vehicleId: vehicle.vehicleId,
+            lastDate: lastDate
+          })
+          vehicle._timeAnalysisSkippedLogged = true
         }
       }
 
-      // KM-based analysis
-      const kmModulo = km % KM_INTERVAL
-      if (kmModulo >= KM_INTERVAL - 1) {
-        urgencyScore += Math.min(40, (kmModulo - KM_INTERVAL + 1) * 0.1) // Max 40 points for km overdue
-        reasons.push(`Vượt ${(kmModulo - KM_INTERVAL + 1).toLocaleString()} km`)
-      } else if (kmModulo >= KM_SOON) {
-        urgencyScore += Math.max(5, 20 - ((KM_INTERVAL - kmModulo) * 0.01)) // 5-20 points for km soon
-        reasons.push(`Còn ${(KM_INTERVAL - kmModulo).toLocaleString()} km`)
+      // KM-based analysis (weight: 40 points max)
+      if (kmSinceLastMaintenance !== null && kmSinceLastMaintenance > 0) {
+        const kmRatio = kmSinceLastMaintenance / KM_INTERVAL
+        
+        if (kmRatio >= KM_OVERDUE_THRESHOLD) {
+          // Overdue by km
+          const kmOverdue = kmSinceLastMaintenance - KM_INTERVAL
+          const kmScore = Math.min(40, 20 + (kmOverdue / 100)) // 20-40 points
+          urgencyScore += kmScore
+          reasons.push(`Vượt ${Math.ceil(kmOverdue).toLocaleString()} km (${(kmRatio * 100).toFixed(0)}% interval)`)
+        } else if (kmRatio >= KM_WARNING_THRESHOLD) {
+          // Approaching due by km
+          const kmRemaining = KM_INTERVAL - kmSinceLastMaintenance
+          const kmScore = Math.max(10, 25 - (kmRemaining / 200)) // 10-25 points
+          urgencyScore += kmScore
+          reasons.push(`Còn ${Math.ceil(kmRemaining).toLocaleString()} km (${(kmRatio * 100).toFixed(0)}% interval)`)
+        }
+      } else if (currentKm > 0 && !lastDate) {
+        // Fallback: use total km modulo only if we don't have last maintenance date
+        // This is for vehicles with no maintenance history
+        const kmModulo = currentKm % KM_INTERVAL
+        const kmRatio = kmModulo / KM_INTERVAL
+        
+        if (kmRatio >= KM_OVERDUE_THRESHOLD) {
+          const kmOverdue = kmModulo - KM_INTERVAL
+          urgencyScore += Math.min(30, 15 + (Math.abs(kmOverdue) / 100))
+          reasons.push(`Ước tính vượt ${Math.ceil(Math.abs(kmOverdue)).toLocaleString()} km`)
+        } else if (kmRatio >= KM_WARNING_THRESHOLD) {
+          const kmRemaining = KM_INTERVAL - kmModulo
+          urgencyScore += Math.max(5, 15 - (kmRemaining / 200))
+          reasons.push(`Ước tính còn ${Math.ceil(kmRemaining).toLocaleString()} km`)
+        }
       }
 
       // Vehicle age factor (older vehicles need more frequent maintenance)
+      // Weight: 15 points max
       if (vehicle.year) {
         const age = new Date().getFullYear() - vehicle.year
-        if (age > 5) urgencyScore += 10
-        if (age > 10) urgencyScore += 15
+        if (age > 10) {
+          urgencyScore += 15
+          reasons.push(`Xe trên 10 năm tuổi`)
+        } else if (age > 5) {
+          urgencyScore += 8
+          reasons.push(`Xe trên 5 năm tuổi`)
+        }
       }
 
-      // Usage frequency analysis (if we have maintenance history)
-      const maintenanceCount = appointments.filter(a => a.vehicleId === vehicle.vehicleId).length
-      if (maintenanceCount > 0) {
-        const avgInterval = km / Math.max(1, maintenanceCount)
-        if (avgInterval > KM_INTERVAL * 1.5) urgencyScore += 15 // Heavy usage
+      // Usage frequency analysis based on maintenance history
+      // Weight: 10 points max
+      const vehicleAppointments = appointments.filter(a => 
+        a.vehicleId === vehicle.vehicleId && a.status === 'completed'
+      )
+      if (vehicleAppointments.length > 0 && currentKm > 0) {
+        const avgInterval = currentKm / vehicleAppointments.length
+        // If average interval is much higher than recommended, it's heavy usage
+        if (avgInterval > KM_INTERVAL * 1.5) {
+          urgencyScore += 10
+          reasons.push(`Sử dụng nhiều (TB ${Math.ceil(avgInterval).toLocaleString()} km/lần)`)
+        }
+      }
+
+      // First-time maintenance reminder (if no history or invalid history)
+      const hasValidMaintenanceHistory = lastDate && lastDate.getTime() <= now && vehicleAppointments.length > 0
+      
+      if (!hasValidMaintenanceHistory && currentKm > 0) {
+        if (currentKm >= KM_INTERVAL * 0.8) {
+          // Vehicle has reached 80% of maintenance interval
+          urgencyScore += 25
+          reasons.push(`Lần bảo dưỡng đầu tiên - đã đi ${currentKm.toLocaleString()} km`)
+        } else if (currentKm >= KM_INTERVAL * 0.5) {
+          // Vehicle has reached 50% of maintenance interval
+          urgencyScore += 20
+          reasons.push(`Xe đã đi ${currentKm.toLocaleString()} km - nên bảo dưỡng sớm`)
+        } else if (currentKm >= KM_INTERVAL * 0.3) {
+          // Vehicle has reached 30% of maintenance interval
+          urgencyScore += 15
+          reasons.push(`Xe đã đi ${currentKm.toLocaleString()} km - nên bảo dưỡng định kỳ`)
+        } else if (currentKm >= KM_INTERVAL * 0.1) {
+          // Vehicle has reached 10% of maintenance interval (1000 km for standard, 1500 km for EV)
+          urgencyScore += 12
+          reasons.push(`Xe mới - đã đi ${currentKm.toLocaleString()} km`)
+        } else if (currentKm >= 500) {
+          // Vehicle has 500-999 km
+          urgencyScore += 8
+          reasons.push(`Xe mới - đã đi ${currentKm.toLocaleString()} km`)
+        } else if (currentKm >= 200) {
+          // Vehicle has 200-499 km
+          urgencyScore += 6
+          reasons.push(`Xe mới - đã đi ${currentKm.toLocaleString()} km`)
+        } else if (currentKm >= 100) {
+          // Vehicle has 100-199 km
+          urgencyScore += 5
+          reasons.push(`Xe mới - đã đi ${currentKm.toLocaleString()} km`)
+        } else if (currentKm > 0) {
+          // Very new vehicle with minimal km (1-99 km)
+          urgencyScore += 4
+          reasons.push(`Xe mới - đã đi ${currentKm.toLocaleString()} km`)
+        }
+      }
+      
+      // Additional boost for vehicles with significant km but no history
+      if (!hasValidMaintenanceHistory && currentKm > 0 && currentKm < KM_INTERVAL * 0.5) {
+        // Add proportional score based on km (0-3 points) for fine-tuning
+        const kmRatio = currentKm / (KM_INTERVAL * 0.5)
+        urgencyScore += Math.floor(kmRatio * 3)
+      }
+      
+      // Special case: If lastDate is in future (data inconsistency), still show reminder based on km
+      if (lastDate && lastDate.getTime() > now && currentKm > 0) {
+        // Ignore invalid future date, use km-based analysis instead
+        if (currentKm >= KM_INTERVAL * 0.8) {
+          urgencyScore += 12
+          if (!reasons.some(r => r.includes('km'))) {
+            reasons.push(`Xe đã đi ${currentKm.toLocaleString()} km - cần bảo dưỡng`)
+          }
+        }
+      }
+
+      // EV adjustment: reduce urgency slightly (EVs need less maintenance)
+      // But don't reduce if score is already very low (< 10)
+      if (isEV && urgencyScore > 10) {
+        urgencyScore = urgencyScore * 0.85 // Reduce by 15% for EVs
+        reasons.push(`(Xe điện - ít bảo dưỡng hơn)`)
+      }
+
+      // Ensure minimum score for vehicles with km but no valid history
+      // This helps show reminders even when data is incomplete
+      // Note: hasValidMaintenanceHistory is already declared above (line 489)
+      // Only apply minimum boost if score is still too low after all calculations
+      if (!hasValidMaintenanceHistory && currentKm > 0 && urgencyScore < 10) {
+        // Ensure minimum visibility, but score should already be calculated above
+        urgencyScore = Math.max(10, urgencyScore)
       }
 
       return {
-        score: Math.min(100, urgencyScore),
+        score: Math.min(100, Math.round(urgencyScore)),
         reasons,
         hasAppointment,
-        priority: urgencyScore > 70 ? 'high' : urgencyScore > 40 ? 'medium' : 'low'
+        priority: urgencyScore >= 70 ? 'high' : urgencyScore >= 40 ? 'medium' : 'low',
+        isEV,
+        kmSinceLastMaintenance
       }
     }
 
@@ -356,8 +574,67 @@ function Tracking() {
     for (const v of vehicles) {
       const analysis = calculateMaintenanceUrgency(v)
       
-      // Skip if urgency is too low or already has appointment
-      if (analysis.score < 10) continue
+      // Debug logging
+      console.log('[Tracking] Vehicle analysis:', {
+        vehicleId: v.vehicleId,
+        model: v.model,
+        odometerKm: v.odometerKm,
+        currentKm: Number(v.odometerKm || 0),
+        score: analysis.score,
+        reasons: analysis.reasons,
+        hasAppointment: analysis.hasAppointment,
+        kmSinceLastMaintenance: analysis.kmSinceLastMaintenance
+      })
+      
+      // Special case: If vehicle has no km data or no maintenance history, 
+      // show a reminder to update data (even if score is low)
+      const currentKm = Number(v.odometerKm || v.currentKm || 0)
+      const vehicleAppointments = appointments.filter(a => 
+        a.vehicleId === v.vehicleId && a.status === 'completed'
+      )
+      // Check if vehicle needs data update (no km or km is 0, and no maintenance history)
+      const hasKmData = v.odometerKm !== null && v.odometerKm !== undefined && currentKm > 0
+      const needsDataUpdate = !hasKmData && vehicleAppointments.length === 0
+      
+      // Check if vehicle has low km but no valid maintenance history
+      // This happens when appointments have invalid dates (future dates) or no history
+      const hasValidHistory = analysis.kmSinceLastMaintenance !== null || 
+        (vehicleAppointments.length > 0 && vehicleAppointments.some(a => {
+          const aptDate = toDateObject(a.requestedDateTime)
+          return aptDate && aptDate.getTime() <= Date.now()
+        }))
+      const hasLowKmNoHistory = currentKm > 0 && currentKm < 5000 && !hasValidHistory
+      
+      // Skip if urgency is too low AND not needing data update AND not has active appointment AND not has low km without history
+      if (analysis.score < 10 && !needsDataUpdate && !analysis.hasAppointment && !hasLowKmNoHistory) continue
+      
+      // If needs data update, create a special reminder
+      if (needsDataUpdate && analysis.score < 10) {
+        items.push({
+          vehicleId: v.vehicleId,
+          vehicleModel: v.model || v.brand || 'Xe',
+          type: 'ai_analysis',
+          label: 'Cần cập nhật thông tin',
+          status: 'suggested',
+          detail: 'Vui lòng cập nhật km hiện tại của xe trong tab "Xe của tôi" để AI có thể phân tích chính xác',
+          urgencyScore: 5, // Low score but still show
+          priority: 'low',
+          hasAppointment: analysis.hasAppointment,
+          isEV: analysis.isEV,
+          kmSinceLastMaintenance: null,
+          needsDataUpdate: true
+        })
+        continue
+      }
+      
+      // If has low km but no valid history, ensure minimum score to show
+      if (hasLowKmNoHistory && analysis.score < 10) {
+        // Boost score to ensure it's shown
+        analysis.score = Math.max(10, analysis.score + 5)
+        if (analysis.reasons.length === 0) {
+          analysis.reasons.push(`Xe có ${currentKm.toLocaleString()} km - nên bảo dưỡng định kỳ`)
+        }
+      }
 
       // Determine status based on analysis and existing appointments
       let status, label, detail
@@ -389,7 +666,9 @@ function Tracking() {
         detail,
         urgencyScore: analysis.score,
         priority: analysis.priority,
-        hasAppointment: analysis.hasAppointment
+        hasAppointment: analysis.hasAppointment,
+        isEV: analysis.isEV,
+        kmSinceLastMaintenance: analysis.kmSinceLastMaintenance
       })
     }
 
@@ -711,7 +990,29 @@ function Tracking() {
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {formatDate(appointment.requestedDateTime) || 'Ngày không xác định'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{appointment.notes || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <div className="flex items-center gap-2">
+                            <span className={appointment.notes ? '' : 'text-gray-400'}>
+                              {appointment.notes ? (
+                                appointment.notes.length > 50 
+                                  ? `${appointment.notes.substring(0, 50)}...` 
+                                  : appointment.notes
+                              ) : '-'}
+                            </span>
+                            {appointment.notes && (
+                              <button
+                                onClick={() => {
+                                  setSelectedNote(appointment.notes)
+                                  setShowNoteModal(true)
+                                }}
+                                className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                                title="Xem chi tiết ghi chú"
+                              >
+                                Xem chi tiết
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-sm">
                           {(() => {
                             let statusText = 'Chờ xác nhận'
@@ -746,6 +1047,44 @@ function Tracking() {
             </div>
           )}
         </div>
+
+        {/* Note Detail Modal */}
+        {showNoteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowNoteModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Chi tiết ghi chú</h3>
+                  <button
+                    onClick={() => setShowNoteModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Đóng"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">Nội dung ghi chú:</p>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-gray-900 whitespace-pre-wrap break-words">
+                      {selectedNote || 'Không có ghi chú'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowNoteModal(false)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

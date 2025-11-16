@@ -1,13 +1,14 @@
 // API Service Layer - Kết nối với Backend Services
-// Direct connection to microservices (API Gateway not implemented yet)
+// All services now use API Gateway for centralized routing
 
 const API_BASE_URLS = {
-  auth: 'http://localhost:8081/api/auth',  // AuthService on port 8081
-  customer: 'http://localhost:8082/api/customers',  // CustomerService on port 8082
-  staff: 'http://localhost:8083/api/staff',  // StaffService on port 8083
-  payment: 'http://localhost:8084/api/payments',  // PaymentService on port 8084
-  maintenance: 'http://localhost:8080/api',  // Maintenance Service on port 8080
-  // API Gateway routes (preferred for cross-service access)
+  // All services via API Gateway (port 8090)
+  auth: 'http://localhost:8090/api/auth',  // AuthService via Gateway
+  customer: 'http://localhost:8090/api/customers',  // CustomerService via Gateway
+  staff: 'http://localhost:8090/api/staff',  // StaffService via Gateway
+  payment: 'http://localhost:8090/api/payment',  // PaymentService via Gateway (singular to match controller)
+  maintenance: 'http://localhost:8090/api/maintenance',  // Maintenance Service via Gateway
+  // API Gateway base URL
   gateway: 'http://localhost:8090/api',
   admin: 'http://localhost:8090/api/admin' // Admin aggregation service via gateway
 }
@@ -340,6 +341,11 @@ export const customerAPI = {
     return apiCall(`${API_BASE_URLS.customer}/payments/pending`)
   },
 
+  // Get all payments (for admin)
+  getAllPayments: () => {
+    return apiCall(`${API_BASE_URLS.customer}/payments/all`)
+  },
+
   // Mark payment as paid
   markPaymentAsPaid: (paymentId) => {
     return apiCall(`${API_BASE_URLS.customer}/payments/${paymentId}/mark-paid`, {
@@ -478,6 +484,14 @@ export const staffAPI = {
   // List staff members (role=staff)
   getStaffMembers: async () => {
     return await apiCall(`${API_BASE_URLS.staff}/staff-members`)
+  },
+
+  // Create new user (staff or technician)
+  createUser: async (userData) => {
+    return await apiCall(`${API_BASE_URLS.staff}/users`, {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    })
   },
 
   // Update user basic info
@@ -648,10 +662,21 @@ export const partsInventoryAPI = {
   getPart: (partId) => {
     return apiCall(`${API_BASE_URLS.gateway}/parts/${partId}`)
   },
+  createPart: (data) => {
+    return apiCall(`${API_BASE_URLS.gateway}/parts`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  },
   updatePart: (partId, data) => {
     return apiCall(`${API_BASE_URLS.gateway}/parts/${partId}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    })
+  },
+  deletePart: (partId) => {
+    return apiCall(`${API_BASE_URLS.gateway}/parts/${partId}`, {
+      method: 'DELETE'
     })
   },
   importStock: (partId, quantity, staffId = 1, note = 'Nhập kho từ dashboard') => {
@@ -661,6 +686,16 @@ export const partsInventoryAPI = {
       note
     }).toString()
     return apiCall(`${API_BASE_URLS.gateway}/inventory/${partId}/import?${params}`, {
+      method: 'PUT'
+    })
+  },
+  exportStock: (partId, quantity, staffId = 1, note = 'Xuất kho từ dashboard') => {
+    const params = new URLSearchParams({
+      quantity: String(quantity),
+      staffId: String(staffId),
+      note
+    }).toString()
+    return apiCall(`${API_BASE_URLS.gateway}/inventory/${partId}/export?${params}`, {
       method: 'PUT'
     })
   }
@@ -806,6 +841,19 @@ export const maintenanceAPI = {
   // Lấy technician theo ID
   getTechnician: async (technicianId) => {
     return await apiCall(`${API_BASE_URLS.maintenance}/technicians/${technicianId}`)
+  },
+
+  // ==================== STAFF RECORDS (Maintenance DB) ====================
+  getStaffRecords: async () => {
+    return await apiCall(`${API_BASE_URLS.maintenance}/staffs`)
+  },
+
+  getStaffRecordByUserId: async (userId) => {
+    const id = typeof userId === 'number' ? userId : parseInt(userId, 10)
+    if (Number.isNaN(id) || id <= 0) {
+      throw new Error(`Invalid userId: ${userId}`)
+    }
+    return await apiCall(`${API_BASE_URLS.maintenance}/staffs/user/${id}`)
   },
 
   // ==================== SERVICE CHECKLISTS (Maintenance Service) ====================

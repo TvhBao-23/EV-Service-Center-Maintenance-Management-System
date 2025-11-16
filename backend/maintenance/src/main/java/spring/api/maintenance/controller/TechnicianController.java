@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/technicians")
-@CrossOrigin(origins = "*")
+@RequestMapping("/technicians")
+// CORS is handled by API Gateway
 public class TechnicianController {
 
     @Autowired

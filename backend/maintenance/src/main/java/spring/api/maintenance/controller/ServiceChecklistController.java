@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/service-orders/{orderId}/checklist")
-@CrossOrigin(origins = "*")
+@RequestMapping("/service-orders/{orderId}/checklist")
+// CORS is handled by API Gateway
 public class ServiceChecklistController {
 
     @Autowired

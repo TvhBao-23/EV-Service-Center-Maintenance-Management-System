@@ -102,7 +102,7 @@ export function ServicePartsFilterExample() {
     try {
       // 🔥 API MỚI: Lấy parts theo service category
       const response = await fetch(
-        `http://localhost:8083/api/staff/parts/for-service/${service.category}`
+        `http://localhost:8090/api/staff/parts/for-service/${service.category}`
       )
       
       if (!response.ok) {

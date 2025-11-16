@@ -104,7 +104,7 @@ function Staff() {
           id: p.partId || p.id
         })))
       } else {
-        const response = await fetch(`http://localhost:8083/api/staff/parts/for-service/${category}`)
+        const response = await fetch(`http://localhost:8090/api/staff/parts/for-service/${category}`)
         if (response.ok) {
           const filteredParts = await response.json()
           setParts(snakeToCamel(filteredParts || []).map(p => ({
@@ -326,7 +326,7 @@ function Staff() {
     
     // Try to fetch from AuthService on demand
     try {
-      const response = await fetch(`http://localhost:8081/api/auth/users/${customer.userId}`, {
+      const response = await fetch(`http://localhost:8090/api/auth/users/${customer.userId}`, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json; charset=utf-8'
@@ -1255,7 +1255,7 @@ function Staff() {
     }
     
     try {
-      const response = await fetch(`http://localhost:8083/api/staff/parts/${partId}`, {
+      const response = await fetch(`http://localhost:8090/api/staff/parts/${partId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -1277,7 +1277,7 @@ function Staff() {
 
   const handleSubmitAddPart = async (partData) => {
     try {
-      const response = await fetch('http://localhost:8083/api/staff/parts', {
+      const response = await fetch('http://localhost:8090/api/staff/parts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1301,7 +1301,7 @@ function Staff() {
 
   const handleSubmitEditPart = async (partData) => {
     try {
-      const response = await fetch(`http://localhost:8083/api/staff/parts/${selectedPart.id}`, {
+      const response = await fetch(`http://localhost:8090/api/staff/parts/${selectedPart.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -3160,7 +3160,7 @@ function ReceiptModal({ appointment, onClose, onSubmit, getCustomerName, getVehi
   const [vehicle, setVehicle] = useState(null)
   useEffect(() => {
     if (appointment?.vehicleId) {
-      fetch(`http://localhost:8083/api/staff/vehicles/${appointment.vehicleId}`, {
+      fetch(`http://localhost:8090/api/staff/vehicles/${appointment.vehicleId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
       })
         .then(r => r.ok ? r.json() : null)

@@ -13,7 +13,7 @@ spring:
           predicates:
             - Path=/api/auth/**
           filters:
-            - StripPrefix=2
+            # Note: No StripPrefix needed as controller already has /api/auth mapping
 
         # Customer Service
         - id: customer-service
@@ -21,7 +21,7 @@ spring:
           predicates:
             - Path=/api/customers/**
           filters:
-            - StripPrefix=2
+            # Note: No StripPrefix needed as controller already has /api/customers mapping
 
         # Staff Service
         - id: staff-service
@@ -29,15 +29,15 @@ spring:
           predicates:
             - Path=/api/staff/**
           filters:
-            - StripPrefix=2
+            # Note: No StripPrefix needed as controller already has /api/staff mapping
 
         # Payment Service
         - id: payment-service
           uri: http://paymentservice:8084
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/payment/**
           filters:
-            - StripPrefix=2
+            # Note: No StripPrefix needed as controller already has /api/payment mapping
 
         # Admin Aggregation Service
         - id: admin-service
@@ -54,6 +54,9 @@ spring:
             - Path=/api/maintenance/**
           filters:
             - StripPrefix=2
+            # Strip /api/maintenance to forward remaining path to service
+            # Example: /api/maintenance/service-orders -> /service-orders
+            # Service controllers need to match /service-orders (without /api/maintenance)
         # Parts Inventory Service
         - id: parts-inventory-service
           uri: http://partsinventoryservice:8086

@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/services")
-@CrossOrigin(origins = "*")
+// CORS is handled by API Gateway
 public class ServiceController {
 
     @Autowired

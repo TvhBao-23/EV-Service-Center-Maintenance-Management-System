@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/service-orders/{orderId}/items")
-@CrossOrigin(origins = "*")
+@RequestMapping("/service-orders/{orderId}/items")
+// CORS is handled by API Gateway
 public class OrderItemController {
 
     @Autowired

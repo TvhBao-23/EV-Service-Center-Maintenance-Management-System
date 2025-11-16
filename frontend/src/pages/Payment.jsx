@@ -17,11 +17,24 @@ function Payment() {
   const [showVerification, setShowVerification] = useState(false)
   const [currentPayment, setCurrentPayment] = useState(null)
   const [bills, setBills] = useState([])
+  const [services, setServices] = useState([]) // Services từ API
+  const [payments, setPayments] = useState([]) // Payments để lấy amount từ database
   const isStaff = (user?.role === 'admin' || user?.role === 'staff')
 
   useEffect(() => {
     if (!isAuthenticated) return
-    loadAppointments()
+    
+    // Load data in sequence: services and payments first, then appointments
+    const loadDataSequentially = async () => {
+      await loadServices() // Load services từ API
+      await loadPayments() // Load payments để lấy amount từ database
+      // Wait a bit to ensure payments are set in state
+      setTimeout(() => {
+        loadAppointments() // Load appointments after payments are loaded
+      }, 100)
+    }
+    
+    loadDataSequentially()
     loadPendingPayments()
     // load existing local bills
     setBills(loadList('bills'))
@@ -68,22 +81,54 @@ function Payment() {
     }
   }, [isAuthenticated])
 
+  const loadServices = async () => {
+    try {
+      console.log('[Payment] Loading services from API...')
+      const apiServices = await customerAPI.getServices()
+      console.log('[Payment] Loaded services from API:', apiServices)
+      if (Array.isArray(apiServices)) {
+        setServices(apiServices)
+        console.log('[Payment] Services loaded:', apiServices.length, 'services')
+        // Debug: log first few services
+        if (apiServices.length > 0) {
+          console.log('[Payment] Sample service:', {
+            serviceId: apiServices[0].serviceId || apiServices[0].id || apiServices[0].service_id,
+            name: apiServices[0].name,
+            basePrice: apiServices[0].basePrice || apiServices[0].base_price || apiServices[0].price
+          })
+        }
+      } else {
+        console.warn('[Payment] Services API response is not an array:', apiServices)
+        setServices([])
+      }
+    } catch (error) {
+      console.error('[Payment] Error loading services:', error)
+      setServices([])
+    }
+  }
+
+  const loadPayments = async () => {
+    try {
+      console.log('[Payment] Loading all payments from API...')
+      const allPayments = await customerAPI.getAllPayments()
+      console.log('[Payment] Loaded all payments from API:', allPayments)
+      if (Array.isArray(allPayments)) {
+        setPayments(allPayments)
+        console.log('[Payment] Payments loaded:', allPayments.length, 'payments')
+      } else {
+        console.warn('[Payment] Payments API response is not an array:', allPayments)
+        setPayments([])
+      }
+    } catch (error) {
+      console.error('[Payment] Error loading payments:', error)
+      setPayments([])
+    }
+  }
+
   const loadAppointments = async () => {
     try {
       console.log('[Payment] Loading appointments...')
       
-      // Map appointments with service prices from our premium EV services
-      const premiumEVServices = [
-        { serviceId: 1, serviceName: "Bảo dưỡng định kỳ", basePrice: 500000 },
-        { serviceId: 2, serviceName: "Thay pin lithium-ion", basePrice: 15000000 },
-        { serviceId: 3, serviceName: "Sửa chữa hệ thống sạc", basePrice: 2500000 },
-        { serviceId: 4, serviceName: "Thay motor điện", basePrice: 8000000 },
-        { serviceId: 5, serviceName: "Kiểm tra BMS", basePrice: 1200000 },
-        { serviceId: 6, serviceName: "Thay inverter", basePrice: 3500000 },
-        { serviceId: 7, serviceName: "Bảo dưỡng hệ thống làm mát", basePrice: 800000 },
-        { serviceId: 8, serviceName: "Cập nhật phần mềm", basePrice: 300000 }
-      ]
-
       let userBookings = []
       
       // Try backend API first
@@ -111,16 +156,69 @@ function Payment() {
       // Backend should filter, but double-check here for safety
       const enhancedAppointments = userBookings
         .filter(appointment => {
-          // Only show appointments that are NOT completed (completed = paid)
+          // Check if appointment has a payment record with status 'completed'
+          const appointmentId = appointment.appointmentId || appointment.appointment_id || appointment.id
+          const relatedPayment = payments.find(p => 
+            (p.appointmentId || p.appointment_id) === appointmentId
+          )
+          
+          // If there's a payment record with status 'completed', consider it paid
+          if (relatedPayment) {
+            const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+            if (paymentStatus === 'completed' || paymentStatus === 'paid') {
+              console.log('[Payment] Filtering out paid appointment:', appointmentId, 'Payment status:', paymentStatus)
+              return false // Don't show this appointment
+            }
+          }
+          
+          // Also check appointment status
           const isPaid = appointment.status === 'completed' || appointment.status === 'PAID' || appointment.paymentStatus === 'completed'
           return !isPaid
         })
         .map(appointment => {
-          const service = premiumEVServices.find(s => s.serviceId === appointment.serviceId)
+          // Priority 1: Tìm payment record cho appointment này (nếu đã có payment, dùng amount từ payment)
+          const relatedPayment = payments.find(p => 
+            (p.appointmentId || p.appointment_id) === (appointment.appointmentId || appointment.appointment_id || appointment.id)
+          )
+          
+          // Priority 2: Tìm service từ API để lấy basePrice
+          const appointmentServiceId = appointment.serviceId || appointment.service_id
+          const service = services.find(s => {
+            const sId = s.serviceId || s.id || s.service_id
+            return sId && appointmentServiceId && String(sId) === String(appointmentServiceId)
+          })
+          
+          // Debug log
+          if (!service && appointmentServiceId) {
+            console.warn('[Payment] Service not found for serviceId:', appointmentServiceId, 'Available services:', services.map(s => s.serviceId || s.id || s.service_id))
+          }
+          
+          // Determine service name
+          const serviceName = service?.name 
+            || service?.serviceName 
+            || appointment.serviceName 
+            || (appointmentServiceId ? `Dịch vụ #${appointmentServiceId}` : 'Dịch vụ không xác định')
+          
+          // Determine service price (Priority: payment amount > service basePrice > fallback)
+          let servicePrice = null
+          if (relatedPayment && relatedPayment.amount) {
+            servicePrice = Number(relatedPayment.amount)
+            console.log('[Payment] Using amount from payment record:', servicePrice, 'for appointment:', appointment.appointmentId || appointment.id)
+          } else if (service) {
+            servicePrice = Number(service.basePrice || service.base_price || service.price || 0)
+            console.log('[Payment] Using basePrice from service:', servicePrice, 'for serviceId:', appointmentServiceId)
+          } else if (appointment.amount) {
+            servicePrice = Number(appointment.amount)
+            console.log('[Payment] Using amount from appointment:', servicePrice)
+          } else {
+            servicePrice = 100000 // Fallback
+            console.warn('[Payment] Using fallback price 100000 for appointment:', appointment.appointmentId || appointment.id, 'serviceId:', appointmentServiceId)
+          }
+          
           return {
             ...appointment,
-            serviceName: service?.serviceName || 'Dịch vụ không xác định',
-            servicePrice: service?.basePrice || 100000
+            serviceName,
+            servicePrice
           }
         })
       
@@ -131,6 +229,19 @@ function Payment() {
       setAppointments([])
     }
   }
+
+  // Reload appointments when services or payments are loaded
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Wait a bit for both services and payments to be loaded
+      // Note: payments.length >= 0 means we wait even if payments array is empty (after API call)
+      const timer = setTimeout(() => {
+        loadAppointments()
+      }, 200) // Increased delay to ensure payments are loaded
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services.length, payments.length, isAuthenticated])
 
   const loadPendingPayments = async () => {
     try {

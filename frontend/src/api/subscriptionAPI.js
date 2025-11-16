@@ -1,11 +1,11 @@
-// API Gateway is disabled; call CustomerService directly on 8082
-const API_BASE_URL = 'http://localhost:8082';
+// Using API Gateway for CustomerService
+const API_BASE_URL = 'http://localhost:8090/api/customers';
 
 const subscriptionAPI = {
   // Get all available service packages
   getPackages: async () => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/packages`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/packages`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ const subscriptionAPI = {
   // Get package details
   getPackageDetails: async (packageId) => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/packages/${packageId}`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/packages/${packageId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -39,7 +39,7 @@ const subscriptionAPI = {
   // Subscribe to a package
   subscribe: async (packageId) => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/subscribe/${packageId}`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/subscribe/${packageId}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -58,7 +58,7 @@ const subscriptionAPI = {
   // Get user's subscriptions
   getMySubscriptions: async () => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/my-subscriptions`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/my-subscriptions`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ const subscriptionAPI = {
   // Get active subscriptions
   getActiveSubscriptions: async () => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/active`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/active`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ const subscriptionAPI = {
   // Cancel a subscription
   cancelSubscription: async (subscriptionId) => {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/customers/subscriptions/${subscriptionId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/subscriptions/${subscriptionId}/cancel`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

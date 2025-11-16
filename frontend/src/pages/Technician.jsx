@@ -19,6 +19,8 @@ function Technician() {
   const [customers, setCustomers] = useState([])
   const [services, setServices] = useState([]) // Services để lấy service name
   const [staffs, setStaffs] = useState([]) // Staffs để map user_id -> staff_id
+  const [staffRecords, setStaffRecords] = useState([]) // Staff records từ maintenance DB
+  const [staffIdMap, setStaffIdMap] = useState({}) // Map userId -> staffId
 
   // UI states
   const [selectedAssignment, setSelectedAssignment] = useState(null)
@@ -55,7 +57,7 @@ function Technician() {
     return obj
   }
 
-  // Normalize status from backend (enum IN_PROGRESS -> in_progress)
+  // Normalize service order status from backend (enum IN_PROGRESS -> in_progress)
   const normalizeStatus = (status) => {
     if (!status) return 'queued'
     // Convert enum format (IN_PROGRESS) to lowercase with underscore (in_progress)
@@ -63,6 +65,18 @@ function Technician() {
       return status.toLowerCase()
     }
     return status
+  }
+
+  // Normalize payment status from backend (enum UNPAID -> unpaid)
+  const normalizePaymentStatus = (status) => {
+    if (!status) return 'unpaid'
+    const normalized = String(status).toLowerCase()
+    if (normalized === 'unpaid' || normalized === 'pending') return normalized
+    if (normalized === 'paid') return 'paid'
+    if (normalized === 'partially_paid' || normalized === 'partial' || normalized === 'partially paid') {
+      return 'partially_paid'
+    }
+    return normalized
   }
 
   // Load initial data
@@ -106,7 +120,7 @@ function Technician() {
       console.warn('[DEBUG] Normalized service orders:', JSON.stringify(normalizedServiceOrders, null, 2))
       
       // Load other data from staff service
-      const [assigns, vehs, appts, checks, reports, custs, svcs, staffsData] = await Promise.all([
+      const [assigns, vehs, appts, checks, reports, custs, svcs, staffUsersData, maintenanceStaffRecords] = await Promise.all([
         staffAPI.getAssignments().catch(() => []),
         staffAPI.getVehicles().catch(() => []),
         staffAPI.getAppointments().catch(() => []),
@@ -114,7 +128,8 @@ function Technician() {
         staffAPI.getMaintenanceReports().catch(() => []),
         staffAPI.getCustomers().catch(() => []), // Fixed: getCustomers instead of getAllCustomers
         customerAPI.getServices().catch(() => []), // Load services từ Customer Service để lấy service name
-        staffAPI.getTechnicians().catch(() => []) // Load technicians/staffs để map user_id -> staff_id
+        staffAPI.getTechnicians().catch(() => []), // Load technicians (user-level) từ Staff Service
+        maintenanceAPI.getStaffRecords().catch(() => []) // Load staff records (staff_id, user_id) từ Maintenance DB
       ])
       
       setServiceOrders(normalizedServiceOrders)
@@ -125,11 +140,47 @@ function Technician() {
       setMaintenanceReports(reports || [])
       setCustomers(custs || [])
       setServices(svcs || [])
-      // Normalize staffs data và set
-      const normalizedStaffs = staffsData && Array.isArray(staffsData) 
-        ? snakeToCamel(staffsData)
-        : []
-      setStaffs(normalizedStaffs)
+      // Merge staff info từ Staff Service (user account) và Maintenance DB (staff_id)
+      const staffUsers = Array.isArray(staffUsersData) ? snakeToCamel(staffUsersData) : []
+      const staffRecordsArray = Array.isArray(maintenanceStaffRecords) ? maintenanceStaffRecords : []
+
+      // Build quick lookup map userId -> staffId từ maintenance records
+      const staffLookup = {}
+      staffRecordsArray.forEach(record => {
+        if (record && record.userId !== undefined && record.staffId !== undefined && record.staffId !== null) {
+          const numericUserId = Number(record.userId)
+          const numericStaffId = Number(record.staffId)
+          if (!Number.isNaN(numericUserId) && !Number.isNaN(numericStaffId)) {
+            staffLookup[numericUserId] = numericStaffId
+          }
+        }
+      })
+
+      const mergedStaffs = staffUsers.map(user => {
+        const candidateIds = [
+          user.userId,
+          user.user_id,
+          user.id
+        ].map(val => Number(val)).filter(val => !Number.isNaN(val))
+        const matchedUserId = candidateIds.length > 0 ? candidateIds[0] : null
+        const matchedStaffRecord = matchedUserId != null
+          ? staffRecordsArray.find(record => Number(record.userId) === matchedUserId)
+          : null
+        const staffId = matchedUserId != null
+          ? (matchedStaffRecord?.staffId ?? staffLookup[matchedUserId])
+          : null
+
+        return {
+          ...user,
+          staffId: staffId ?? user.staffId ?? user.staff_id ?? null,
+          maintenanceStaffId: staffId ?? null,
+          maintenanceStaffRecord: matchedStaffRecord ?? null
+        }
+      })
+
+      setStaffRecords(staffRecordsArray)
+      setStaffIdMap(staffLookup)
+      setStaffs(mergedStaffs)
       
       // Load service order checklists from maintenance service
       if (normalizedServiceOrders && normalizedServiceOrders.length > 0) {
@@ -393,15 +444,94 @@ function Technician() {
 
   // Helper function để lấy staff_id từ user_id
   const getStaffIdFromUserId = (userId) => {
-    if (!userId) return null
-    // Tìm staff có user_id tương ứng
-    const staff = staffs.find(s => 
-      (s.userId === userId) || 
-      (s.user_id === userId) ||
-      (s.id === userId && s.userId) // Nếu staff object có id = userId
-    )
-    // Trả về staff_id hoặc staffId
-    return staff ? (staff.staffId || staff.staff_id || staff.id) : null
+    if (userId === null || userId === undefined) return null
+    const numericUserId = Number(userId)
+    if (!Number.isFinite(numericUserId)) return null
+
+    if (staffIdMap[numericUserId]) {
+      return staffIdMap[numericUserId]
+    }
+
+    const maintenanceRecord = staffRecords.find(record => Number(record.userId) === numericUserId)
+    if (maintenanceRecord?.staffId !== undefined && maintenanceRecord?.staffId !== null) {
+      const recordStaffId = Number(maintenanceRecord.staffId)
+      if (Number.isFinite(recordStaffId)) {
+        return recordStaffId
+      }
+    }
+
+    const staff = staffs.find(s => {
+      const candidateIds = [s.userId, s.user_id, s.id]
+        .map(val => Number(val))
+        .filter(val => Number.isFinite(val))
+      return candidateIds.includes(numericUserId)
+    })
+
+    if (staff?.staffId !== undefined && staff?.staffId !== null) {
+      const resolvedStaffId = Number(staff.staffId)
+      if (Number.isFinite(resolvedStaffId)) {
+        return resolvedStaffId
+      }
+    }
+
+    return null
+  }
+
+  const ensureStaffIdForUser = async (userId) => {
+    if (userId === null || userId === undefined) return null
+    const numericUserId = Number(userId)
+    if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
+      return null
+    }
+
+    const existingStaffId = getStaffIdFromUserId(numericUserId)
+    if (existingStaffId) {
+      return existingStaffId
+    }
+
+    try {
+      const record = await maintenanceAPI.getStaffRecordByUserId(numericUserId)
+      if (record && record.staffId !== undefined && record.staffId !== null) {
+        const staffIdNumber = Number(record.staffId)
+        if (Number.isFinite(staffIdNumber)) {
+          setStaffRecords(prev => {
+            const exists = prev.some(r => Number(r.staffId) === staffIdNumber)
+            if (exists) {
+              return prev
+            }
+            return [...prev, record]
+          })
+          setStaffIdMap(prev => ({
+            ...prev,
+            [numericUserId]: staffIdNumber
+          }))
+          setStaffs(prev => {
+            const index = prev.findIndex(s => {
+              const candidateIds = [s.userId, s.user_id, s.id]
+                .map(val => Number(val))
+                .filter(val => Number.isFinite(val))
+              return candidateIds.includes(numericUserId)
+            })
+            if (index >= 0) {
+              const updated = [...prev]
+              updated[index] = {
+                ...updated[index],
+                staffId: staffIdNumber,
+                maintenanceStaffId: staffIdNumber,
+                maintenanceStaffRecord: record
+              }
+              return updated
+            }
+            return prev
+          })
+          return staffIdNumber
+        }
+      }
+    } catch (err) {
+      console.warn('[Checklist] Failed to fetch staff record for user', numericUserId, err)
+    }
+
+    return null
   }
 
   // Handle complete/uncomplete checklist item
@@ -410,7 +540,13 @@ function Technician() {
     try {
       // Map user_id sang staff_id để tránh foreign key constraint error
       // completed_by phải reference đến staff_id trong bảng staffs, không phải user_id
-      const staffId = isCompleted ? getStaffIdFromUserId(currentUserId) : null
+      let staffId = null
+      if (isCompleted) {
+        staffId = getStaffIdFromUserId(currentUserId)
+        if (!staffId) {
+          staffId = await ensureStaffIdForUser(currentUserId)
+        }
+      }
       
       if (isCompleted && !staffId) {
         console.warn(`[Checklist] Cannot find staff_id for user_id ${currentUserId}. Staffs data:`, staffs)
@@ -425,7 +561,7 @@ function Technician() {
         checklistId, 
         isCompleted, 
         '', 
-        staffId // Sử dụng staff_id thay vì currentUserId
+        staffId ?? null // Sử dụng staff_id thay vì currentUserId
       )
       // Reload data để cập nhật UI
       await loadData()
@@ -578,83 +714,110 @@ function Technician() {
       console.log('[submitReport] Assignments sample:', assignments.slice(0, 3))
       
       // Get vehicleId - required by backend
-      const vehicleId = selectedAssignment.vehicleId || selectedAssignment.order?.vehicleId
+      const vehicleId = selectedAssignment.vehicleId
+        || selectedAssignment.order?.vehicleId
+        || selectedAssignment.vehicle?.vehicleId
+        || selectedAssignment.vehicle?.id
       if (!vehicleId) {
         alert('❌ Lỗi: Không tìm thấy thông tin xe. Vui lòng thử lại.')
         return
       }
       
       // Find or create assignmentId
-      let assignmentId = null
-      const appointmentId = selectedAssignment.appointmentId
+      // IMPORTANT: assignmentId must be from assignments table, not orderId
+      // Priority: Find by appointmentId first, then try to create if not found
       
-      // Always try to find assignment by appointmentId first (most reliable)
+      // Get appointmentId from selectedAssignment
+      const appointmentId = selectedAssignment.appointmentId
+        || selectedAssignment.appointment_id
+        || selectedAssignment.appointment?.id
+        || selectedAssignment.appointment?.appointmentId
+        || selectedAssignment.order?.appointmentId
+        || selectedAssignment.order?.appointment_id
+        || selectedAssignment.order?.appointment?.id
+        || selectedAssignment.order?.appointment?.appointmentId
+      
+      let assignmentId = null
+      
+      // First, try to find existing assignment by appointmentId
       if (appointmentId) {
-        console.log('[submitReport] Searching for assignment with appointmentId:', appointmentId)
-        
-        // Try multiple ways to find assignment
         const existingAssignment = assignments.find(a => {
-          const aAppointmentId = a.appointmentId || a.appointment?.id || a.appointment?.appointmentId
-          return aAppointmentId && (
-            aAppointmentId === appointmentId ||
-            aAppointmentId.toString() === appointmentId.toString()
-          )
+          const aAppointmentId = a.appointmentId || a.appointment_id || a.appointment?.id || a.appointment?.appointmentId
+          return aAppointmentId && String(aAppointmentId) === String(appointmentId)
         })
         
         if (existingAssignment) {
-          assignmentId = existingAssignment.id || existingAssignment.assignmentId || existingAssignment.assignment_id
-          console.log('[submitReport] Found existing assignment:', assignmentId, existingAssignment)
-        } else {
-          console.log('[submitReport] No assignment found, attempting to create...')
-          // Try to create assignment
-          try {
-            const newAssignment = await staffAPI.createAssignment({
-              appointment_id: appointmentId,
-              technician_id: currentUserId
+          assignmentId = existingAssignment.assignment_id || existingAssignment.assignmentId || existingAssignment.id
+          console.log('[submitReport] Found existing assignment by appointmentId:', appointmentId, '-> assignmentId:', assignmentId)
+        }
+      }
+      
+      // If not found, try to find by assignment_id directly (in case selectedAssignment already has it)
+      if (!assignmentId) {
+        const directAssignmentId = selectedAssignment.assignmentId || selectedAssignment.assignment_id
+        if (directAssignmentId) {
+          const exists = assignments.some(a => {
+            const aId = a.assignment_id || a.assignmentId || a.id
+            return aId && String(aId) === String(directAssignmentId)
+          })
+          if (exists) {
+            assignmentId = directAssignmentId
+            console.log('[submitReport] Using direct assignmentId from selectedAssignment:', assignmentId)
+          }
+        }
+      }
+      
+      // If still not found, try to create assignment
+      if (!assignmentId && appointmentId) {
+        console.log('[submitReport] No assignment found, attempting to create for appointment:', appointmentId)
+        try {
+          const newAssignment = await staffAPI.createAssignment({
+            appointment_id: appointmentId,
+            technician_id: currentUserId
+          })
+          assignmentId = newAssignment.assignment?.assignment_id
+            || newAssignment.assignment?.id
+            || newAssignment.assignmentId
+            || newAssignment.id
+            || newAssignment.assignment_id
+          console.log('[submitReport] Created assignment:', assignmentId, newAssignment)
+          if (assignmentId) {
+            setAssignments(prev => {
+              const updated = Array.isArray(prev) ? [...prev] : []
+              if (newAssignment.assignment) {
+                updated.push(newAssignment.assignment)
+              } else if (newAssignment) {
+                updated.push(newAssignment)
+              }
+              return updated
             })
-            assignmentId = newAssignment.assignment?.assignment_id || newAssignment.assignment?.id || newAssignment.assignmentId || newAssignment.id
-            console.log('[submitReport] Created assignment:', assignmentId, newAssignment)
-          } catch (assignErr) {
-            console.warn('[submitReport] Could not create assignment, reloading and searching again:', assignErr)
-            // Reload assignments and try to find again
+          } else {
+            console.error('[submitReport] Created assignment but no assignment_id returned:', newAssignment)
+          }
+        } catch (assignErr) {
+          console.warn('[submitReport] Could not create assignment, fetching latest list:', assignErr)
+          try {
             const reloadedAssignments = await staffAPI.getAssignments()
             console.log('[submitReport] Reloaded assignments count:', reloadedAssignments.length)
-            
-            const retryAssignment = reloadedAssignments.find(a => {
-              const aAppointmentId = a.appointmentId || a.appointment?.id || a.appointment?.appointmentId
-              return aAppointmentId && (
-                aAppointmentId === appointmentId ||
-                aAppointmentId.toString() === appointmentId.toString()
-              )
+            const existingAssignment = reloadedAssignments.find(a => {
+              const aAppointmentId = a.appointmentId || a.appointment_id || a.appointment?.id || a.appointment?.appointmentId
+              return aAppointmentId && String(aAppointmentId) === String(appointmentId)
             })
-            
-            if (retryAssignment) {
-              assignmentId = retryAssignment.id || retryAssignment.assignmentId || retryAssignment.assignment_id
-              console.log('[submitReport] Found assignment after reload:', assignmentId, retryAssignment)
+            if (existingAssignment) {
+              assignmentId = existingAssignment.assignment_id || existingAssignment.assignmentId || existingAssignment.id
+              console.log('[submitReport] Found assignment after reload:', assignmentId, existingAssignment)
+              setAssignments(reloadedAssignments)
             } else {
               console.error('[submitReport] Still cannot find assignment after reload')
               console.error('[submitReport] Reloaded assignments:', reloadedAssignments)
               alert('❌ Lỗi: Không thể tìm hoặc tạo phân công. Vui lòng thử lại.')
               return
             }
+          } catch (reloadErr) {
+            console.error('[submitReport] Failed to reload assignments:', reloadErr)
+            alert('❌ Lỗi: Không thể tải danh sách phân công. Vui lòng thử lại.')
+            return
           }
-        }
-      }
-      // Fallback: If we have an id, try to use it directly (for legacy assignments)
-      else if (selectedAssignment.id) {
-        console.log('[submitReport] Using selectedAssignment.id as fallback:', selectedAssignment.id)
-        const existingAssignment = assignments.find(a => 
-          (a.id && a.id === selectedAssignment.id) || 
-          (a.assignmentId && a.assignmentId === selectedAssignment.id) ||
-          (a.assignment_id && a.assignment_id === selectedAssignment.id)
-        )
-        if (existingAssignment) {
-          assignmentId = existingAssignment.id || existingAssignment.assignmentId || existingAssignment.assignment_id
-          console.log('[submitReport] Found assignment by id:', assignmentId)
-        } else {
-          console.error('[submitReport] Assignment id not found in assignments list')
-          alert('❌ Lỗi: Không tìm thấy thông tin phân công. Vui lòng thử lại.')
-          return
         }
       }
       
@@ -683,6 +846,12 @@ function Technician() {
       setShowReportModal(false)
       setSelectedAssignment(null)
       await loadData() // Wait for data reload
+      try {
+        localStorage.setItem('maintenanceReportsUpdated', Date.now().toString())
+        window.dispatchEvent(new Event('maintenance-reports-updated'))
+      } catch (storageError) {
+        console.warn('[Technician] Failed to dispatch maintenance report update event:', storageError)
+      }
       alert('✅ Đã gửi báo cáo bảo dưỡng!')
     } catch (err) {
       console.error('Error submitting report:', err)
@@ -754,9 +923,9 @@ function Technician() {
             {/* Service Orders từ Maintenance Service */}
             {myServiceOrders.length > 0 && (
               <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Phiếu bảo dưỡng được phân công</h4>
                 <div className="space-y-4">
                   {myServiceOrders.map(order => {
+                    const paymentStatus = normalizePaymentStatus(order.paymentStatus)
                     // Find appointment by id or appointmentId
                     const appointment = appointments.find(a => 
                       a.id === order.appointmentId || 
@@ -891,12 +1060,14 @@ function Technician() {
                             <div>
                               <p className="text-gray-500 text-xs mb-1">💳 Trạng thái thanh toán</p>
                               <p className={`font-semibold ${
-                                order.paymentStatus === 'paid' ? 'text-green-600' :
-                                order.paymentStatus === 'pending' ? 'text-yellow-600' :
+                                paymentStatus === 'paid' ? 'text-green-600' :
+                                paymentStatus === 'pending' ? 'text-yellow-600' :
+                                paymentStatus === 'partially_paid' ? 'text-orange-500' :
                                 'text-red-600'
                               }`}>
-                                {order.paymentStatus === 'paid' ? '✅ Đã thanh toán' :
-                                 order.paymentStatus === 'pending' ? '⏳ Chờ thanh toán' :
+                                {paymentStatus === 'paid' ? '✅ Đã thanh toán' :
+                                 paymentStatus === 'pending' ? '⏳ Chờ thanh toán' :
+                                 paymentStatus === 'partially_paid' ? '🟧 Đã thanh toán một phần' :
                                  '❌ Chưa thanh toán'}
                               </p>
                             </div>
@@ -1046,8 +1217,6 @@ function Technician() {
             {/* Service Order Checklists (from Maintenance Service) */}
             {myServiceOrders.length > 0 && (
               <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Checklists từ Phiếu bảo dưỡng</h4>
-                
                 {/* Hiển thị danh sách service orders với checklist hoặc nút tạo checklist */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   {myServiceOrders.map(order => {
@@ -1467,11 +1636,6 @@ function Technician() {
                               )}
                         </div>
                         {/* Only show status if report is submitted and awaiting approval */}
-                        {report.status === 'submitted' && !report.approved && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            ⏳ Chờ phê duyệt
-                        </span>
-                        )}
                         {report.approved && (
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             ✓ Đã phê duyệt

@@ -16,7 +16,7 @@ services:
   # Auth Service
   authservice:
     build:
-      context: ./authservice
+      context: ./backend/authservice
       dockerfile: Dockerfile
     ports:
       - "8081:8081"
@@ -30,7 +30,7 @@ services:
   # Customer Service
   customerservice:
     build:
-      context: ./customerservice
+      context: ./backend/customerservice
       dockerfile: Dockerfile
     ports:
       - "8082:8082"
@@ -44,7 +44,7 @@ services:
   # Staff Service
   staffservice:
     build:
-      context: ./staffservice
+      context: ./backend/staffservice
       dockerfile: Dockerfile
     ports:
       - "8083:8083"
@@ -58,7 +58,7 @@ services:
   # Payment Service
   paymentservice:
     build:
-      context: ./paymentservice
+      context: ./backend/paymentservice
       dockerfile: Dockerfile
     ports:
       - "8084:8084"
@@ -72,7 +72,7 @@ services:
   # Admin Aggregation Service
   adminservice:
     build:
-      context: ./adminservice
+      context: ./backend/adminservice
       dockerfile: Dockerfile
     ports:
       - "8085:8085"
@@ -121,7 +121,7 @@ services:
 
   partsinventoryservice:
     build:
-      context: ./parts-inventory-service
+      context: ./backend/parts-inventory-service
       dockerfile: Dockerfile
     ports:
       - "8086:8086"

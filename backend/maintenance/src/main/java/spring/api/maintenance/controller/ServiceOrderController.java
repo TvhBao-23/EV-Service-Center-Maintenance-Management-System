@@ -12,8 +12,9 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/service-orders")
-@CrossOrigin(origins = "*")
+@RequestMapping("/service-orders")
+// CORS is handled by API Gateway
+// Note: Gateway strips /api/maintenance, so /api/maintenance/service-orders becomes /service-orders
 public class ServiceOrderController {
 
     @Autowired

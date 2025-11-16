@@ -234,7 +234,7 @@ function Booking() {
   const loadPartsForService = async (category) => {
     setLoadingParts(true)
     try {
-      const response = await fetch(`http://localhost:8083/api/staff/parts/for-service/${category}`)
+      const response = await fetch(`http://localhost:8090/api/staff/parts/for-service/${category}`)
       if (response.ok) {
         const parts = await response.json()
         setAvailableParts(parts)
