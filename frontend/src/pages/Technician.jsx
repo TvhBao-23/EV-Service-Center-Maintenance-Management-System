@@ -137,7 +137,20 @@ function Technician() {
       setServiceOrders(normalizedServiceOrders)
       setAssignments(assigns || [])
       setVehicles(vehs || [])
-      setAppointments(appts || [])
+      // Transform appointments to ensure serviceId is mapped correctly
+      const transformedAppts = Array.isArray(appts) ? snakeToCamel(appts).map(a => ({
+        ...a,
+        id: a.appointmentId || a.id,
+        serviceId: a.serviceId || a.service_id, // Ensure serviceId is available
+        appointmentId: a.appointmentId || a.id
+      })) : []
+      console.log('[Technician] Transformed appointments:', transformedAppts.map(a => ({
+        id: a.id,
+        appointmentId: a.appointmentId,
+        serviceId: a.serviceId,
+        service_id: a.service_id
+      })))
+      setAppointments(transformedAppts)
       setChecklists(checks || [])
       setMaintenanceReports(reports || [])
       setCustomers(custs || [])
@@ -957,6 +970,18 @@ function Technician() {
                       a.id === order.appointment?.id ||
                       a.appointmentId === order.appointment?.appointmentId
                     )
+                    
+                    // Debug: Log appointment and serviceId
+                    if (appointment) {
+                      console.log('[Technician] Order', order.orderId, 'Appointment found:', {
+                        appointmentId: appointment.id || appointment.appointmentId,
+                        serviceId: appointment.serviceId,
+                        orderAppointmentId: order.appointmentId
+                      })
+                    } else {
+                      console.warn('[Technician] Order', order.orderId, 'No appointment found for appointmentId:', order.appointmentId)
+                    }
+                    
                     const payment = payments.find(p => 
                       p.appointmentId === order.appointmentId ||
                       p.appointment_id === order.appointmentId ||
@@ -988,11 +1013,23 @@ function Technician() {
                       }
                       return match
                     })
-                    // Find service by id or serviceId
+                    // Find service by id or serviceId - Fix: Check both appointment.serviceId and service.id/serviceId
+                    const serviceId = appointment?.serviceId || appointment?.service_id
                     const service = services.find(s => 
-                      s.id === appointment?.serviceId || 
-                      s.serviceId === appointment?.serviceId
+                      s.id === serviceId || 
+                      s.serviceId === serviceId ||
+                      (serviceId && (s.id === parseInt(serviceId) || s.serviceId === parseInt(serviceId)))
                     )
+                    
+                    // Debug: Log service lookup
+                    if (serviceId) {
+                      console.log('[Technician] Order', order.orderId, 'Service lookup:', {
+                        serviceId: serviceId,
+                        serviceFound: !!service,
+                        serviceName: service?.name,
+                        allServices: services.map(s => ({ id: s.id, serviceId: s.serviceId, name: s.name }))
+                      })
+                    }
                     
                     return (
                       <div key={order.orderId || order.id} className="border rounded-lg p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-blue-50 to-white">
@@ -1004,8 +1041,8 @@ function Technician() {
                                 <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                                   {service 
                                     ? (service.name || service.serviceName || `Lịch hẹn #${appointment.id || appointment.appointmentId}`)
-                                    : appointment?.serviceId 
-                                      ? (getServiceName(appointment.serviceId) || `Lịch hẹn #${appointment.id || appointment.appointmentId}`)
+                                    : (appointment?.serviceId || appointment?.service_id)
+                                      ? (getServiceName(appointment.serviceId || appointment.service_id) || `Lịch hẹn #${appointment.id || appointment.appointmentId}`)
                                       : `Lịch hẹn #${appointment.id || appointment.appointmentId}`
                                   }
                                 </span>
@@ -1013,8 +1050,8 @@ function Technician() {
                           </div>
                             <p className="text-sm text-gray-600 mb-1">
                               <span className="font-medium">Dịch vụ:</span> {
-                                appointment?.serviceId 
-                                  ? getServiceName(appointment.serviceId) 
+                                (appointment?.serviceId || appointment?.service_id)
+                                  ? getServiceName(appointment.serviceId || appointment.service_id) 
                                   : service 
                                     ? (service.name || service.serviceName || 'N/A')
                                     : 'N/A'
@@ -1278,10 +1315,12 @@ function Technician() {
                       v.id === order.vehicleId || 
                       v.vehicleId === order.vehicleId
                     )
-                    // Find service by id or serviceId
+                    // Find service by id or serviceId - Fix: Check both appointment.serviceId and service.id/serviceId
+                    const serviceId = appointment?.serviceId || appointment?.service_id
                     const service = services.find(s => 
-                      s.id === appointment?.serviceId || 
-                      s.serviceId === appointment?.serviceId
+                      s.id === serviceId || 
+                      s.serviceId === serviceId ||
+                      (serviceId && (s.id === parseInt(serviceId) || s.serviceId === parseInt(serviceId)))
                     )
                     const hasChecklist = orderChecklist.length > 0
                     
@@ -1295,11 +1334,11 @@ function Technician() {
                                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Lịch hẹn #{appointment.id}</span>
                               )}
                             </div>
-                            {(service || appointment?.serviceId) && (
+                            {(service || appointment?.serviceId || appointment?.service_id) && (
                               <p className="text-xs text-gray-600 mb-1">
                                 <span className="font-medium">Dịch vụ:</span> {
-                                  appointment?.serviceId 
-                                    ? getServiceName(appointment.serviceId) 
+                                  (appointment?.serviceId || appointment?.service_id)
+                                    ? getServiceName(appointment.serviceId || appointment.service_id) 
                                     : service 
                                       ? (service.name || service.serviceName || 'N/A')
                                       : 'N/A'
@@ -1530,9 +1569,12 @@ function Technician() {
                         c.id === appointment?.userId ||
                         c.userId === appointment?.userId
                       )
+                      // Find service by id or serviceId - Fix: Check both appointment.serviceId and service.id/serviceId
+                      const serviceId = appointment?.serviceId || appointment?.service_id
                       const service = services.find(s => 
-                        s.id === appointment?.serviceId || 
-                        s.serviceId === appointment?.serviceId
+                        s.id === serviceId || 
+                        s.serviceId === serviceId ||
+                        (serviceId && (s.id === parseInt(serviceId) || s.serviceId === parseInt(serviceId)))
                       )
                       // Find assignment by appointmentId to check if report exists
                       const relatedAssignment = assignments.find(a => {
@@ -1575,11 +1617,11 @@ function Technician() {
                                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Order: #{orderId}</span>
                                 )}
                               </div>
-                              {(service || appointment?.serviceId) && (
+                              {(service || appointment?.serviceId || appointment?.service_id) && (
                                 <p className="text-xs text-gray-600 mb-1">
                                   <span className="font-medium">Dịch vụ:</span> {
-                                    appointment?.serviceId 
-                                      ? getServiceName(appointment.serviceId) 
+                                    (appointment?.serviceId || appointment?.service_id)
+                                      ? getServiceName(appointment.serviceId || appointment.service_id) 
                                       : service 
                                         ? (service.name || service.serviceName || 'N/A')
                                         : 'N/A'
@@ -1913,11 +1955,13 @@ function ReportModal({ assignment, vehicles, appointments, services, getServiceN
   // Get service name
   let serviceName = null
   if (appointment) {
+    const serviceId = appointment.serviceId || appointment.service_id
     const service = services?.find(s => 
-      s.id === appointment.serviceId || 
-      s.serviceId === appointment.serviceId
+      s.id === serviceId || 
+      s.serviceId === serviceId ||
+      (serviceId && (s.id === parseInt(serviceId) || s.serviceId === parseInt(serviceId)))
     )
-    serviceName = service?.name || service?.serviceName || (appointment.serviceId ? getServiceName(appointment.serviceId) : null)
+    serviceName = service?.name || service?.serviceName || (serviceId ? getServiceName(serviceId) : null)
   }
 
   // Get vehicle info - support both assignment.vehicleId and order.vehicleId

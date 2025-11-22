@@ -719,6 +719,36 @@ function Admin() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [profileDropdownOpen])
 
+  // Helper function to get actual appointment status by syncing with service order
+  const getActualAppointmentStatus = (appointment, serviceOrdersList) => {
+    if (!appointment) return 'pending'
+    
+    const appointmentId = appointment.appointmentId || appointment.id
+    
+    // Find corresponding service order
+    const serviceOrder = serviceOrdersList?.find(so => 
+      so.appointmentId === appointmentId || 
+      (so.appointment && (so.appointment.id === appointmentId || so.appointment.appointmentId === appointmentId))
+    )
+    
+    // If service order exists, use its status to determine actual appointment status
+    if (serviceOrder) {
+      const normalizedStatus = (serviceOrder.status || '').toString().toUpperCase()
+      
+      // Map service order status to appointment status
+      if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'COMPLETE' || normalizedStatus === 'DONE') {
+        return 'completed'
+      } else if (normalizedStatus === 'IN_PROGRESS' || normalizedStatus === 'INPROGRESS' || normalizedStatus === 'IN PROGRESS') {
+        return 'in_progress'
+      } else if (normalizedStatus === 'QUEUED' || normalizedStatus === 'QUEUE') {
+        return 'received'
+      }
+    }
+    
+    // If no service order, use appointment status
+    return (appointment.status || 'pending').toLowerCase()
+  }
+
   // Recent activities
   const recentActivities = useMemo(() => {
     const activities = []
@@ -743,14 +773,17 @@ function Admin() {
       }
 
       const timestamp = new Date(booking.created_at || booking.createdAt || booking.appointmentDate || booking.requested_date_time || Date.now())
-      console.log('[Admin] Processing booking:', { id, status: booking.status, createdAt: booking.createdAt || booking.created_at, timestamp })
+      
+      // Get actual status by syncing with service order
+      const actualStatus = getActualAppointmentStatus(booking, serviceOrders)
+      console.log('[Admin] Processing booking:', { id, originalStatus: booking.status, actualStatus, createdAt: booking.createdAt || booking.created_at, timestamp })
 
       activities.push({
         id: `booking-${id || Date.now()}`,
         type: 'booking',
         title: `Đặt lịch mới: #${id}`, // Simplified to show appointment ID
         description: `${serviceName}${whenText ? ` - ${whenText}` : ''}`,
-        status: (booking.status || '').toLowerCase(),
+        status: actualStatus, // Use actual status synced with service order
         timestamp: timestamp,
         // Lưu toàn bộ booking data để xem chi tiết
         bookingData: booking
@@ -780,12 +813,14 @@ function Admin() {
       const safeVehicles = Array.isArray(vehicles) ? vehicles : []
       safeBookings.slice(-5).forEach(booking => {
         const vehicle = safeVehicles.find(v => v.id === booking.vehicleId)
+        // Get actual status by syncing with service order
+        const actualStatus = getActualAppointmentStatus(booking, serviceOrders)
         activities.push({
           id: `booking-${booking.id}`,
           type: 'booking',
           title: `Đặt lịch mới: ${vehicle?.model || 'N/A'}`,
           description: `${booking.serviceType} - ${booking.date} ${booking.time}`,
-          status: booking.status,
+          status: actualStatus, // Use actual status synced with service order
           timestamp: new Date(booking.createdAt || Date.now())
         })
       })
@@ -806,7 +841,7 @@ function Admin() {
     console.log('[Admin] Final activities count:', sorted.length)
     console.log('[Admin] Final activity IDs:', sorted.map(a => a.id))
     return sorted
-  }, [adminActivities, bookings, vehicles, serviceReceipts])
+  }, [adminActivities, bookings, vehicles, serviceReceipts, serviceOrders])
 
   const reportSummary = useMemo(() => {
     const list = Array.isArray(maintenanceReports) ? maintenanceReports : []
@@ -1128,13 +1163,17 @@ function Admin() {
                 <div className="flex-shrink-0 flex items-center gap-2">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     activity.status === 'pending' ? 'bg-gray-100 text-gray-800' :
+                    activity.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
                     activity.status === 'received' ? 'bg-blue-100 text-blue-800' :
-                    activity.status === 'in_maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
+                    activity.status === 'in_progress' || activity.status === 'in_maintenance' ? 'bg-yellow-100 text-yellow-800' :
+                    activity.status === 'completed' || activity.status === 'done' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
                   }`}>
                     {activity.status === 'pending' ? 'Chờ' :
+                     activity.status === 'confirmed' ? 'Đã xác nhận' :
                      activity.status === 'received' ? 'Tiếp nhận' :
-                     activity.status === 'in_maintenance' ? 'Đang làm' :
+                     activity.status === 'in_progress' || activity.status === 'in_maintenance' ? 'Đang làm' :
+                     activity.status === 'completed' || activity.status === 'done' ? 'Hoàn tất' :
                      'Hoàn tất'}
                   </span>
                   {activity.type === 'booking' && activity.bookingData && (

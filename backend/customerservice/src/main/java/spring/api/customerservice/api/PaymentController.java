@@ -11,6 +11,10 @@ import spring.api.customerservice.domain.User;
 import spring.api.customerservice.repository.CustomerRepository;
 import spring.api.customerservice.repository.CustomerSubscriptionRepository;
 import spring.api.customerservice.repository.PaymentRepository;
+import spring.api.customerservice.repository.AppointmentRepository;
+import spring.api.customerservice.repository.ServiceRepository;
+import spring.api.customerservice.domain.Appointment;
+import spring.api.customerservice.domain.Service;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +27,8 @@ public class PaymentController {
     private final PaymentRepository paymentRepository;
     private final CustomerRepository customerRepository;
     private final CustomerSubscriptionRepository subscriptionRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ServiceRepository serviceRepository;
 
     @GetMapping("/pending")
     public ResponseEntity<List<Payment>> getPendingPayments(Authentication auth) {
@@ -167,15 +173,64 @@ public class PaymentController {
                     .map(Payment::getAmount)
                     .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
             
-            // Calculate pending payments (sum of pending payments)
-            java.math.BigDecimal pendingPayments = allPayments.stream()
+            // Calculate pending payments from payments table (status = 'pending')
+            java.math.BigDecimal pendingPaymentsFromPayments = allPayments.stream()
                     .filter(p -> p.getStatus() == Payment.PaymentStatus.pending)
                     .map(Payment::getAmount)
                     .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
             
+            // Calculate unpaid appointments cost (appointments without payment or payment status != 'completed')
+            java.math.BigDecimal unpaidAppointmentsCost = java.math.BigDecimal.ZERO;
+            try {
+                List<Appointment> allAppointments = appointmentRepository.findAll();
+                List<Service> allServices = serviceRepository.findAll();
+                
+                for (Appointment appointment : allAppointments) {
+                    Long appointmentId = appointment.getAppointmentId();
+                    Long serviceId = appointment.getServiceId();
+                    
+                    // Find payment for this appointment
+                    Payment relatedPayment = allPayments.stream()
+                            .filter(p -> p.getAppointmentId() != null && p.getAppointmentId().equals(appointmentId))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    // If no payment or payment status != 'completed', add to unpaid cost
+                    if (relatedPayment == null || relatedPayment.getStatus() != Payment.PaymentStatus.completed) {
+                        java.math.BigDecimal appointmentCost = java.math.BigDecimal.ZERO;
+                        
+                        // If has payment with amount and status != 'completed', use payment amount
+                        if (relatedPayment != null && relatedPayment.getAmount() != null) {
+                            appointmentCost = relatedPayment.getAmount();
+                        } else if (serviceId != null) {
+                            // Otherwise, use service basePrice
+                            Service service = allServices.stream()
+                                    .filter(s -> s.getServiceId().equals(serviceId))
+                                    .findFirst()
+                                    .orElse(null);
+                            if (service != null && service.getBasePrice() != null) {
+                                appointmentCost = service.getBasePrice();
+                            }
+                        }
+                        
+                        unpaidAppointmentsCost = unpaidAppointmentsCost.add(appointmentCost);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[PaymentController] Error calculating unpaid appointments cost: " + e.getMessage());
+                e.printStackTrace();
+            }
+            
+            // Total pending payments = pending payments + unpaid appointments cost
+            java.math.BigDecimal totalPendingPayments = pendingPaymentsFromPayments.add(unpaidAppointmentsCost);
+            
+            System.out.println("[PaymentController] Payment statistics - Pending from payments: " + 
+                    pendingPaymentsFromPayments + ", Unpaid appointments: " + unpaidAppointmentsCost + 
+                    ", Total pending: " + totalPendingPayments);
+            
             return ResponseEntity.ok(Map.of(
                     "totalRevenue", totalRevenue.longValue(),
-                    "pendingPayments", pendingPayments.longValue()
+                    "pendingPayments", totalPendingPayments.longValue()
             ));
         } catch (Exception e) {
             System.err.println("[PaymentController] Error getting payment statistics: " + e.getMessage());

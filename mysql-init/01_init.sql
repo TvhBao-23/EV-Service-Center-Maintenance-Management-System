@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_users_email ON users(email);
+-- Note: idx_users_email is already created in 00_complete_schema.sql
 CREATE INDEX idx_customers_user_id ON customers(user_id);
 CREATE INDEX idx_vehicles_customer_id ON vehicles(customer_id);
 CREATE INDEX idx_vehicles_vin ON vehicles(vin);

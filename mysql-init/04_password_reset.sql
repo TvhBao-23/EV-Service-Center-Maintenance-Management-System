@@ -17,10 +17,22 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE INDEX idx_password_reset_tokens_email ON password_reset_tokens(email);
-CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
-CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+-- Create indexes only if they don't exist
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_tokens' AND index_name = 'idx_password_reset_tokens_email');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_tokens_email ON password_reset_tokens(email)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_tokens' AND index_name = 'idx_password_reset_tokens_token');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_tokens' AND index_name = 'idx_password_reset_tokens_expires_at');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_tokens' AND index_name = 'idx_password_reset_tokens_user_id');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Rate limiting table for password reset requests
 CREATE TABLE IF NOT EXISTS password_reset_attempts (
@@ -33,7 +45,16 @@ CREATE TABLE IF NOT EXISTS password_reset_attempts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE INDEX idx_password_reset_attempts_email ON password_reset_attempts(email);
-CREATE INDEX idx_password_reset_attempts_ip ON password_reset_attempts(ip_address);
-CREATE INDEX idx_password_reset_attempts_blocked_until ON password_reset_attempts(blocked_until);
+-- Create indexes only if they don't exist
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_attempts' AND index_name = 'idx_password_reset_attempts_email');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_attempts_email ON password_reset_attempts(email)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_attempts' AND index_name = 'idx_password_reset_attempts_ip');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_attempts_ip ON password_reset_attempts(ip_address)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'password_reset_attempts' AND index_name = 'idx_password_reset_attempts_blocked_until');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_password_reset_attempts_blocked_until ON password_reset_attempts(blocked_until)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

@@ -79,9 +79,28 @@ INSERT INTO service_part_categories (service_category, part_category, priority) 
 ('cooling', 'cooling', 1),
 ('cooling', 'fluid', 2);
 
--- Create index for faster lookups
-CREATE INDEX idx_service_category ON service_part_categories(service_category);
-CREATE INDEX idx_part_category ON service_part_categories(part_category);
+-- Create index for faster lookups (only if not exists)
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics 
+    WHERE table_schema = 'ev_service_center' 
+    AND table_name = 'service_part_categories' 
+    AND index_name = 'idx_service_category');
+SET @sql_idx1 = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_service_category ON service_part_categories(service_category)', 
+    'SELECT ''Index already exists'' AS message');
+PREPARE stmt FROM @sql_idx1;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_exists2 = (SELECT COUNT(*) FROM information_schema.statistics 
+    WHERE table_schema = 'ev_service_center' 
+    AND table_name = 'service_part_categories' 
+    AND index_name = 'idx_part_category');
+SET @sql_idx2 = IF(@idx_exists2 = 0, 
+    'CREATE INDEX idx_part_category ON service_part_categories(part_category)', 
+    'SELECT ''Index already exists'' AS message');
+PREPARE stmt FROM @sql_idx2;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Verification query
 SELECT 

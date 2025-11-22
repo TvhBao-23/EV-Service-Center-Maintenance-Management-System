@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS service_packages (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_service_packages_active ON service_packages(active);
+-- Create index only if it doesn't exist
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'service_packages' AND index_name = 'idx_service_packages_active');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_service_packages_active ON service_packages(active)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Customer Subscriptions table
 CREATE TABLE IF NOT EXISTS customer_subscriptions (
@@ -34,10 +37,22 @@ CREATE TABLE IF NOT EXISTS customer_subscriptions (
     FOREIGN KEY (package_id) REFERENCES service_packages(package_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_customer_subscriptions_customer_id ON customer_subscriptions(customer_id);
-CREATE INDEX idx_customer_subscriptions_package_id ON customer_subscriptions(package_id);
-CREATE INDEX idx_customer_subscriptions_status ON customer_subscriptions(status);
-CREATE INDEX idx_customer_subscriptions_end_date ON customer_subscriptions(end_date);
+-- Create indexes only if they don't exist
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'customer_subscriptions' AND index_name = 'idx_customer_subscriptions_customer_id');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_customer_subscriptions_customer_id ON customer_subscriptions(customer_id)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'customer_subscriptions' AND index_name = 'idx_customer_subscriptions_package_id');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_customer_subscriptions_package_id ON customer_subscriptions(package_id)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'customer_subscriptions' AND index_name = 'idx_customer_subscriptions_status');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_customer_subscriptions_status ON customer_subscriptions(status)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = 'ev_service_center' AND table_name = 'customer_subscriptions' AND index_name = 'idx_customer_subscriptions_end_date');
+SET @sql = IF(@idx_exists = 0, 'CREATE INDEX idx_customer_subscriptions_end_date ON customer_subscriptions(end_date)', 'SELECT ''Index exists''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Insert sample service packages
 INSERT INTO service_packages (name, description, price, duration_months, services_included, benefits, active) VALUES

@@ -7,6 +7,7 @@ import spring.api.customerservice.domain.AppointmentStatus;
 import spring.api.customerservice.repository.AppointmentRepository;
 import spring.api.customerservice.repository.PaymentRepository;
 import spring.api.customerservice.repository.ServiceRepository;
+import spring.api.customerservice.repository.ServiceCenterRepository;
 import spring.api.customerservice.domain.Payment;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final PaymentRepository paymentRepository;
     private final ServiceRepository serviceRepository;
+    private final ServiceCenterRepository serviceCenterRepository;
 
     public Appointment createAppointment(Long customerId, Long vehicleId, Long serviceId, Long centerId,
             LocalDateTime appointmentDate, String notes) {
@@ -27,7 +29,19 @@ public class AppointmentService {
         appointment.setCustomerId(customerId);
         appointment.setVehicleId(vehicleId);
         appointment.setServiceId(serviceId);
-        appointment.setCenterId(centerId);
+        
+        // Validate center_id: if provided, check if it exists; otherwise set to null
+        if (centerId != null && centerId > 0) {
+            if (!serviceCenterRepository.existsById(centerId)) {
+                System.out.println("[AppointmentService] Warning: center_id " + centerId + " does not exist, setting to null");
+                appointment.setCenterId(null);
+            } else {
+                appointment.setCenterId(centerId);
+            }
+        } else {
+            appointment.setCenterId(null);
+        }
+        
         appointment.setAppointmentDate(appointmentDate);
         appointment.setNotes(notes);
         appointment.setStatus(AppointmentStatus.pending); // Default status

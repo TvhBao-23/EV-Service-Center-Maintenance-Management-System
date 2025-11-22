@@ -171,30 +171,8 @@ CREATE INDEX idx_service_orders_status ON service_orders(status);
 CREATE INDEX idx_service_orders_assigned_technician_id ON service_orders(assigned_technician_id);
 
 -- =====================================================
--- 9. ORDER ITEMS TABLE (Bảng mới - cần thiết cho Staff)
--- =====================================================
-CREATE TABLE IF NOT EXISTS order_items (
-    item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    order_id BIGINT NOT NULL,
-    service_id BIGINT,
-    part_id BIGINT,
-    quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    unit_price DECIMAL(10,2) NOT NULL DEFAULT 0,
-    total_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-    type ENUM('service', 'part') NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_id) REFERENCES service_orders(order_id) ON DELETE CASCADE,
-    FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE SET NULL,
-    FOREIGN KEY (part_id) REFERENCES parts(part_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_service_id ON order_items(service_id);
-CREATE INDEX idx_order_items_part_id ON order_items(part_id);
-CREATE INDEX idx_order_items_type ON order_items(type);
-
--- =====================================================
--- 10. PARTS TABLE (Giữ nguyên schema hiện tại)
+-- 9. PARTS TABLE (Giữ nguyên schema hiện tại)
+-- Phải tạo trước order_items vì order_items có FOREIGN KEY reference đến parts
 -- =====================================================
 CREATE TABLE IF NOT EXISTS parts (
     part_id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -218,6 +196,29 @@ CREATE TABLE IF NOT EXISTS parts (
 CREATE INDEX idx_parts_part_code ON parts(part_code);
 CREATE INDEX idx_parts_category ON parts(category);
 CREATE INDEX idx_parts_status ON parts(status);
+
+-- =====================================================
+-- 10. ORDER ITEMS TABLE (Bảng mới - cần thiết cho Staff)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS order_items (
+    item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    service_id BIGINT,
+    part_id BIGINT,
+    quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    unit_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    type ENUM('service', 'part') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES service_orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE SET NULL,
+    FOREIGN KEY (part_id) REFERENCES parts(part_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_order_items_service_id ON order_items(service_id);
+CREATE INDEX idx_order_items_part_id ON order_items(part_id);
+CREATE INDEX idx_order_items_type ON order_items(type);
 
 -- =====================================================
 -- 11. PART INVENTORIES TABLE (Bảng mới - bổ sung cho parts)

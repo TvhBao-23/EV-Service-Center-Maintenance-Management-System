@@ -19,10 +19,10 @@ public class Appointment {
     @Column(name = "vehicle_id", nullable = false)
     private Long vehicleId;
 
-    @Column(name = "service_id", nullable = false)
+    @Column(name = "service_id", nullable = true)
     private Long serviceId;
 
-    @Column(name = "center_id", nullable = false)
+    @Column(name = "center_id", nullable = true)
     private Long centerId;
 
     @Column(name = "requested_date_time", nullable = false)
