@@ -3,6 +3,10 @@
 
 USE ev_service_center;
 
+-- Set charset to UTF-8
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 -- Check if services already exist before inserting
 -- Service: Thay pin Lithium-Ion 60kWh
 SET @service_exists_60 := (

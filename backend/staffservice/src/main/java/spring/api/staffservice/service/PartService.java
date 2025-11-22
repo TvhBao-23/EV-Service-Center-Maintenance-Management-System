@@ -18,7 +18,9 @@ public class PartService {
     private final ServicePartCategoryRepository servicePartCategoryRepository;
 
     public List<Part> getAllParts() {
-        return partRepository.findAll();
+        List<Part> parts = partRepository.findAll();
+        parts.forEach(this::fixPartEncoding);
+        return parts;
     }
 
     public Part getPartById(Long partId) {
@@ -32,34 +34,108 @@ public class PartService {
     }
 
     public List<Part> getPartsByCategory(String category) {
-        return partRepository.findByCategory(category);
+        List<Part> parts = partRepository.findByCategory(category);
+        parts.forEach(this::fixPartEncoding);
+        return parts;
     }
 
     /**
      * Get parts relevant for a specific service category
-     * @param serviceCategory The service category (maintenance, battery, charging, etc.)
+     * 
+     * @param serviceCategory The service category (maintenance, battery, charging,
+     *                        etc.)
      * @return List of parts matching the service's relevant part categories
      */
     public List<Part> getPartsForService(String serviceCategory) {
         log.info("🔍 Fetching parts for service category: {}", serviceCategory);
-        
+
         // Get relevant part categories for this service
         List<String> partCategories = servicePartCategoryRepository
                 .findPartCategoriesByServiceCategory(serviceCategory);
-        
-        log.info("📦 Found {} part categories for service '{}': {}", 
+
+        log.info("📦 Found {} part categories for service '{}': {}",
                 partCategories.size(), serviceCategory, partCategories);
-        
+
         if (partCategories.isEmpty()) {
             log.warn("⚠️ No part categories mapped for service '{}'", serviceCategory);
             return List.of();
         }
-        
+
         // Find all parts in these categories
         List<Part> parts = partRepository.findByCategoryIn(partCategories);
+
+        // Fix encoding for all parts
+        parts.forEach(this::fixPartEncoding);
+
         log.info("✅ Returning {} parts for service '{}'", parts.size(), serviceCategory);
-        
+
         return parts;
+    }
+
+    /**
+     * Fix encoding issues in part name and description
+     */
+    private void fixPartEncoding(Part part) {
+        if (part.getName() != null) {
+            part.setName(fixStringEncoding(part.getName()));
+        }
+        if (part.getDescription() != null) {
+            part.setDescription(fixStringEncoding(part.getDescription()));
+        }
+        if (part.getManufacturer() != null) {
+            part.setManufacturer(fixStringEncoding(part.getManufacturer()));
+        }
+    }
+
+    /**
+     * Fix common UTF-8 encoding issues
+     */
+    private String fixStringEncoding(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+
+        // Check if string has encoding issues
+        if (str.contains("???") || str.contains("Ã") || str.contains("áº") || str.contains("Æ°")) {
+            try {
+                // Try to decode as if it was UTF-8 bytes interpreted as Latin1
+                byte[] bytes = new byte[str.length()];
+                for (int i = 0; i < str.length(); i++) {
+                    bytes[i] = (byte) (str.charAt(i) & 0xFF);
+                }
+                String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+
+                // If decoded is different and doesn't contain encoding artifacts, use it
+                if (!decoded.equals(str) && !decoded.contains("???")) {
+                    log.debug("Fixed encoding: '{}' -> '{}'", str, decoded);
+                    return decoded;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fix encoding for string: {}", str);
+            }
+
+            // Manual replacement for common Vietnamese encoding issues
+            return str
+                    .replace("áº", "ư")
+                    .replace("á»", "ộ")
+                    .replace("á»", "ệ")
+                    .replace("á»", "ồ")
+                    .replace("á»", "ề")
+                    .replace("Ã¡", "á")
+                    .replace("Ã©", "é")
+                    .replace("Ã­", "í")
+                    .replace("Ã³", "ó")
+                    .replace("Ãº", "ú")
+                    .replace("Ã½", "ý")
+                    .replace("á»", "à")
+                    .replace("á»", "è")
+                    .replace("á»", "ì")
+                    .replace("á»", "ò")
+                    .replace("á»", "ù")
+                    .replace("???", "");
+        }
+
+        return str;
     }
 
     public List<Part> getLowStockParts() {
@@ -79,7 +155,7 @@ public class PartService {
     @Transactional
     public Part updatePart(Long partId, Part partDetails) {
         Part part = getPartById(partId);
-        
+
         part.setName(partDetails.getName());
         part.setDescription(partDetails.getDescription());
         part.setCategory(partDetails.getCategory());
@@ -91,11 +167,11 @@ public class PartService {
         part.setLocation(partDetails.getLocation());
         part.setWarrantyMonths(partDetails.getWarrantyMonths());
         part.setImageUrl(partDetails.getImageUrl());
-        
+
         if (partDetails.getStatus() != null) {
             part.setStatus(partDetails.getStatus());
         }
-        
+
         log.info("Updating part ID: {}", partId);
         return partRepository.save(part);
     }
@@ -135,4 +211,3 @@ public class PartService {
         return partRepository.save(part);
     }
 }
-

@@ -31,7 +31,9 @@ public class StaffController {
 
     @GetMapping("/appointments")
     public ResponseEntity<List<Appointment>> getAllAppointments() {
-        List<Appointment> appointments = appointmentRepository.findAllByOrderByAppointmentDateDesc();
+        // Sort by createdAt DESC to show newest appointments first (for recent
+        // activities)
+        List<Appointment> appointments = appointmentRepository.findAllByOrderByCreatedAtDesc();
         return ResponseEntity.ok(appointments);
     }
 
@@ -276,8 +278,8 @@ public class StaffController {
         try {
             String email = body.get("email") != null ? body.get("email").toString() : null;
             String password = body.get("password") != null ? body.get("password").toString() : null;
-            String fullName = body.get("fullName") != null ? body.get("fullName").toString() : 
-                             (body.get("full_name") != null ? body.get("full_name").toString() : null);
+            String fullName = body.get("fullName") != null ? body.get("fullName").toString()
+                    : (body.get("full_name") != null ? body.get("full_name").toString() : null);
             String phone = body.get("phone") != null ? body.get("phone").toString() : null;
             String roleStr = body.get("role") != null ? body.get("role").toString() : null;
 
@@ -299,7 +301,8 @@ public class StaffController {
             // Only allow staff and technician
             if (role != UserRole.staff && role != UserRole.technician) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Chỉ được tạo tài khoản Nhân viên (staff) hoặc Kỹ thuật viên (technician)"));
+                        .body(Map.of("error",
+                                "Chỉ được tạo tài khoản Nhân viên (staff) hoặc Kỹ thuật viên (technician)"));
             }
 
             // Check if email already exists
@@ -309,8 +312,7 @@ public class StaffController {
             }
 
             // Encode password
-            org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder = 
-                    new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+            org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
             String encodedPassword = passwordEncoder.encode(password);
 
             // Create new user
@@ -328,12 +330,11 @@ public class StaffController {
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Tạo tài khoản thành công");
             response.put("user", Map.of(
-                "user_id", savedUser.getUserId(),
-                "email", savedUser.getEmail(),
-                "full_name", savedUser.getFullName(),
-                "phone", savedUser.getPhone() != null ? savedUser.getPhone() : "",
-                "role", savedUser.getRole().name()
-            ));
+                    "user_id", savedUser.getUserId(),
+                    "email", savedUser.getEmail(),
+                    "full_name", savedUser.getFullName(),
+                    "phone", savedUser.getPhone() != null ? savedUser.getPhone() : "",
+                    "role", savedUser.getRole().name()));
 
             return ResponseEntity.ok(response);
 

@@ -153,27 +153,43 @@ function Payment() {
       }
 
       // Enhance with service information and filter out PAID appointments
-      // Backend should filter, but double-check here for safety
+      // Show only appointments that need payment (no payment record OR payment status = pending)
       const enhancedAppointments = userBookings
         .filter(appointment => {
-          // Check if appointment has a payment record with status 'completed'
           const appointmentId = appointment.appointmentId || appointment.appointment_id || appointment.id
-          const relatedPayment = payments.find(p => 
-            (p.appointmentId || p.appointment_id) === appointmentId
-          )
           
-          // If there's a payment record with status 'completed', consider it paid
+          // Skip cancelled appointments
+          const isCancelled = appointment.status === 'cancelled' || appointment.status === 'CANCELLED'
+          if (isCancelled) {
+            return false
+          }
+          
+          // Find related payment record
+          const relatedPayment = payments.find(p => {
+            const pAppointmentId = p.appointmentId || p.appointment_id
+            return pAppointmentId && appointmentId && String(pAppointmentId) === String(appointmentId)
+          })
+          
+          // If there's a payment record with status 'completed' or 'paid', filter it out
           if (relatedPayment) {
             const paymentStatus = String(relatedPayment.status || '').toLowerCase()
             if (paymentStatus === 'completed' || paymentStatus === 'paid') {
               console.log('[Payment] Filtering out paid appointment:', appointmentId, 'Payment status:', paymentStatus)
-              return false // Don't show this appointment
+              return false // Don't show this appointment - already paid
             }
+            // If payment status is 'pending', show it (needs payment)
+            if (paymentStatus === 'pending') {
+              console.log('[Payment] Showing appointment with pending payment:', appointmentId)
+              return true
+            }
+            // For other payment statuses (failed, processing, etc.), show them (needs payment)
+            console.log('[Payment] Showing appointment with payment status:', paymentStatus, 'appointmentId:', appointmentId)
+            return true
           }
           
-          // Also check appointment status
-          const isPaid = appointment.status === 'completed' || appointment.status === 'PAID' || appointment.paymentStatus === 'completed'
-          return !isPaid
+          // If no payment record exists, show it (needs payment)
+          console.log('[Payment] Showing appointment without payment record:', appointmentId, 'Appointment status:', appointment.status)
+          return true
         })
         .map(appointment => {
           // Priority 1: Tìm payment record cho appointment này (nếu đã có payment, dùng amount từ payment)
@@ -183,14 +199,25 @@ function Payment() {
           
           // Priority 2: Tìm service từ API để lấy basePrice
           const appointmentServiceId = appointment.serviceId || appointment.service_id
+          
+          // Debug: Log services array to see what we have
+          if (services.length === 0) {
+            console.warn('[Payment] Services array is empty when trying to find service for appointment:', appointmentServiceId)
+          }
+          
           const service = services.find(s => {
             const sId = s.serviceId || s.id || s.service_id
-            return sId && appointmentServiceId && String(sId) === String(appointmentServiceId)
+            const match = sId && appointmentServiceId && String(sId) === String(appointmentServiceId)
+            if (match) {
+              console.log('[Payment] Found service match:', { serviceId: sId, name: s.name, appointmentServiceId })
+            }
+            return match
           })
           
           // Debug log
-          if (!service && appointmentServiceId) {
-            console.warn('[Payment] Service not found for serviceId:', appointmentServiceId, 'Available services:', services.map(s => s.serviceId || s.id || s.service_id))
+          if (!service && appointmentServiceId && services.length > 0) {
+            console.warn('[Payment] Service not found for serviceId:', appointmentServiceId, 
+              'Available services:', services.map(s => ({ id: s.serviceId || s.id || s.service_id, name: s.name })))
           }
           
           // Determine service name
@@ -231,13 +258,15 @@ function Payment() {
   }
 
   // Reload appointments when services or payments are loaded
+  // IMPORTANT: Only reload when BOTH services and payments are loaded to avoid race condition
   useEffect(() => {
-    if (isAuthenticated) {
-      // Wait a bit for both services and payments to be loaded
-      // Note: payments.length >= 0 means we wait even if payments array is empty (after API call)
+    if (isAuthenticated && services.length > 0 && payments.length >= 0) {
+      // Wait a bit for both services and payments to be fully loaded
+      // payments.length >= 0 means we wait even if payments array is empty (after API call completes)
       const timer = setTimeout(() => {
+        console.log('[Payment] Reloading appointments - services:', services.length, 'payments:', payments.length)
         loadAppointments()
-      }, 200) // Increased delay to ensure payments are loaded
+      }, 500) // Increased delay to ensure both services and payments are fully loaded
       return () => clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

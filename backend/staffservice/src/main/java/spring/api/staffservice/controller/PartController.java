@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/staff/parts")
+@RequestMapping(value = "/api/staff/parts", produces = "application/json;charset=UTF-8")
 @RequiredArgsConstructor
 @Slf4j
 // CORS is handled by API Gateway
@@ -46,7 +46,48 @@ public class PartController {
     @GetMapping("/for-service/{serviceCategory}")
     public ResponseEntity<List<Part>> getPartsForService(@PathVariable String serviceCategory) {
         log.info("GET /api/staff/parts/for-service/{} - Fetching parts relevant for service", serviceCategory);
-        return ResponseEntity.ok(partService.getPartsForService(serviceCategory));
+        List<Part> parts = partService.getPartsForService(serviceCategory);
+        
+        // Fix encoding for part names (similar to ServiceController)
+        parts.forEach(part -> {
+            if (part.getName() != null) {
+                String name = part.getName();
+                // If name contains encoding issues, try to fix it
+                if (name.contains("Ã") || name.contains("áº") || name.contains("Æ°") || name.contains("???")) {
+                    try {
+                        // Try to decode as if it was UTF-8 bytes interpreted as Latin1
+                        byte[] bytes = new byte[name.length()];
+                        for (int i = 0; i < name.length(); i++) {
+                            bytes[i] = (byte) (name.charAt(i) & 0xFF);
+                        }
+                        String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                        part.setName(decoded);
+                        log.debug("Fixed encoding for part name: {} -> {}", name, decoded);
+                    } catch (Exception e) {
+                        // If decoding fails, keep original
+                        log.warn("Failed to decode part name: {}", name);
+                    }
+                }
+            }
+            // Also fix description if needed
+            if (part.getDescription() != null) {
+                String desc = part.getDescription();
+                if (desc.contains("Ã") || desc.contains("áº") || desc.contains("Æ°") || desc.contains("???")) {
+                    try {
+                        byte[] bytes = new byte[desc.length()];
+                        for (int i = 0; i < desc.length(); i++) {
+                            bytes[i] = (byte) (desc.charAt(i) & 0xFF);
+                        }
+                        String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                        part.setDescription(decoded);
+                    } catch (Exception e) {
+                        log.warn("Failed to decode part description: {}", desc);
+                    }
+                }
+            }
+        });
+        
+        return ResponseEntity.ok(parts);
     }
 
     @GetMapping("/low-stock")

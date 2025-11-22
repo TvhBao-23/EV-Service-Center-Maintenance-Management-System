@@ -21,6 +21,7 @@ function Technician() {
   const [staffs, setStaffs] = useState([]) // Staffs để map user_id -> staff_id
   const [staffRecords, setStaffRecords] = useState([]) // Staff records từ maintenance DB
   const [staffIdMap, setStaffIdMap] = useState({}) // Map userId -> staffId
+  const [payments, setPayments] = useState([]) // Payments để lấy payment status chính xác
 
   // UI states
   const [selectedAssignment, setSelectedAssignment] = useState(null)
@@ -72,7 +73,7 @@ function Technician() {
     if (!status) return 'unpaid'
     const normalized = String(status).toLowerCase()
     if (normalized === 'unpaid' || normalized === 'pending') return normalized
-    if (normalized === 'paid') return 'paid'
+    if (normalized === 'paid' || normalized === 'completed') return 'paid' // 'completed' cũng là 'paid'
     if (normalized === 'partially_paid' || normalized === 'partial' || normalized === 'partially paid') {
       return 'partially_paid'
     }
@@ -120,7 +121,7 @@ function Technician() {
       console.warn('[DEBUG] Normalized service orders:', JSON.stringify(normalizedServiceOrders, null, 2))
       
       // Load other data from staff service
-      const [assigns, vehs, appts, checks, reports, custs, svcs, staffUsersData, maintenanceStaffRecords] = await Promise.all([
+      const [assigns, vehs, appts, checks, reports, custs, svcs, staffUsersData, maintenanceStaffRecords, paymentsData] = await Promise.all([
         staffAPI.getAssignments().catch(() => []),
         staffAPI.getVehicles().catch(() => []),
         staffAPI.getAppointments().catch(() => []),
@@ -129,7 +130,8 @@ function Technician() {
         staffAPI.getCustomers().catch(() => []), // Fixed: getCustomers instead of getAllCustomers
         customerAPI.getServices().catch(() => []), // Load services từ Customer Service để lấy service name
         staffAPI.getTechnicians().catch(() => []), // Load technicians (user-level) từ Staff Service
-        maintenanceAPI.getStaffRecords().catch(() => []) // Load staff records (staff_id, user_id) từ Maintenance DB
+        maintenanceAPI.getStaffRecords().catch(() => []), // Load staff records (staff_id, user_id) từ Maintenance DB
+        customerAPI.getAllPayments().catch(() => []) // Load payments để lấy payment status chính xác
       ])
       
       setServiceOrders(normalizedServiceOrders)
@@ -140,6 +142,7 @@ function Technician() {
       setMaintenanceReports(reports || [])
       setCustomers(custs || [])
       setServices(svcs || [])
+      setPayments(paymentsData || [])
       // Merge staff info từ Staff Service (user account) và Maintenance DB (staff_id)
       const staffUsers = Array.isArray(staffUsersData) ? snakeToCamel(staffUsersData) : []
       const staffRecordsArray = Array.isArray(maintenanceStaffRecords) ? maintenanceStaffRecords : []
@@ -775,12 +778,16 @@ function Technician() {
             appointment_id: appointmentId,
             technician_id: currentUserId
           })
+          // API returns: { message: "...", assignment: { ... } }
+          // Try multiple field names for assignment_id
           assignmentId = newAssignment.assignment?.assignment_id
+            || newAssignment.assignment?.assignmentId
             || newAssignment.assignment?.id
             || newAssignment.assignmentId
             || newAssignment.id
             || newAssignment.assignment_id
-          console.log('[submitReport] Created assignment:', assignmentId, newAssignment)
+          console.log('[submitReport] Created assignment response:', newAssignment)
+          console.log('[submitReport] Extracted assignmentId:', assignmentId)
           if (assignmentId) {
             setAssignments(prev => {
               const updated = Array.isArray(prev) ? [...prev] : []
@@ -792,27 +799,45 @@ function Technician() {
               return updated
             })
           } else {
-            console.error('[submitReport] Created assignment but no assignment_id returned:', newAssignment)
+            console.warn('[submitReport] Created assignment but no assignment_id in response, reloading assignments...')
+            // Reload assignments to get the newly created assignment_id
+            try {
+              const reloadedAssignments = await staffAPI.getAssignments()
+              console.log('[submitReport] Reloaded assignments count after create:', reloadedAssignments.length)
+              const existingAssignment = reloadedAssignments.find(a => {
+                const aAppointmentId = a.appointmentId || a.appointment_id || a.appointment?.id || a.appointment?.appointmentId
+                return aAppointmentId && String(aAppointmentId) === String(appointmentId)
+              })
+              if (existingAssignment) {
+                assignmentId = existingAssignment.assignment_id || existingAssignment.assignmentId || existingAssignment.id
+                console.log('[submitReport] Found assignment_id after reload:', assignmentId)
+                setAssignments(reloadedAssignments)
+              } else {
+                console.error('[submitReport] Cannot find assignment after reload:', reloadedAssignments)
+              }
+            } catch (reloadErr) {
+              console.error('[submitReport] Failed to reload assignments after create:', reloadErr)
+            }
           }
         } catch (assignErr) {
           console.warn('[submitReport] Could not create assignment, fetching latest list:', assignErr)
           try {
-            const reloadedAssignments = await staffAPI.getAssignments()
-            console.log('[submitReport] Reloaded assignments count:', reloadedAssignments.length)
+          const reloadedAssignments = await staffAPI.getAssignments()
+          console.log('[submitReport] Reloaded assignments count:', reloadedAssignments.length)
             const existingAssignment = reloadedAssignments.find(a => {
               const aAppointmentId = a.appointmentId || a.appointment_id || a.appointment?.id || a.appointment?.appointmentId
               return aAppointmentId && String(aAppointmentId) === String(appointmentId)
             })
-            if (existingAssignment) {
+          if (existingAssignment) {
               assignmentId = existingAssignment.assignment_id || existingAssignment.assignmentId || existingAssignment.id
-              console.log('[submitReport] Found assignment after reload:', assignmentId, existingAssignment)
-              setAssignments(reloadedAssignments)
-            } else {
-              console.error('[submitReport] Still cannot find assignment after reload')
-              console.error('[submitReport] Reloaded assignments:', reloadedAssignments)
-              alert('❌ Lỗi: Không thể tìm hoặc tạo phân công. Vui lòng thử lại.')
-              return
-            }
+            console.log('[submitReport] Found assignment after reload:', assignmentId, existingAssignment)
+            setAssignments(reloadedAssignments)
+          } else {
+            console.error('[submitReport] Still cannot find assignment after reload')
+            console.error('[submitReport] Reloaded assignments:', reloadedAssignments)
+            alert('❌ Lỗi: Không thể tìm hoặc tạo phân công. Vui lòng thử lại.')
+            return
+          }
           } catch (reloadErr) {
             console.error('[submitReport] Failed to reload assignments:', reloadErr)
             alert('❌ Lỗi: Không thể tải danh sách phân công. Vui lòng thử lại.')
@@ -925,28 +950,44 @@ function Technician() {
               <div className="mb-6">
                 <div className="space-y-4">
                   {myServiceOrders.map(order => {
-                    const paymentStatus = normalizePaymentStatus(order.paymentStatus)
-                    // Find appointment by id or appointmentId
+                    // Find payment by appointment_id để lấy payment status chính xác
                     const appointment = appointments.find(a => 
                       a.id === order.appointmentId || 
                       a.appointmentId === order.appointmentId ||
                       a.id === order.appointment?.id ||
                       a.appointmentId === order.appointment?.appointmentId
                     )
+                    const payment = payments.find(p => 
+                      p.appointmentId === order.appointmentId ||
+                      p.appointment_id === order.appointmentId ||
+                      (appointment && (p.appointmentId === appointment.id || p.appointment_id === appointment.id || p.appointmentId === appointment.appointmentId || p.appointment_id === appointment.appointmentId))
+                    )
+                    // Ưu tiên payment status từ bảng payments, nếu không có thì dùng từ service order
+                    const actualPaymentStatus = payment?.status || order.paymentStatus
+                    const paymentStatus = normalizePaymentStatus(actualPaymentStatus)
                     // Find vehicle by id or vehicleId
                     const vehicle = vehicles.find(v => 
                       v.id === order.vehicleId || 
                       v.vehicleId === order.vehicleId
                     )
                     // Try to find customer by customerId or userId
-                    // appointment.customerId could be userId in users table or customerId in customers table
-                    const customer = customers.find(c => 
-                      c.id === appointment?.customerId || 
-                      c.customerId === appointment?.customerId ||
-                      c.userId === appointment?.customerId ||
-                      c.id === appointment?.userId ||
-                      c.userId === appointment?.userId
-                    )
+                    // appointment.customerId is customer_id in customers table
+                    const customer = customers.find(c => {
+                      const cId = c.id || c.customerId || c.customer_id
+                      const aCustomerId = appointment?.customerId || appointment?.customer_id
+                      const cUserId = c.userId || c.user_id
+                      const aUserId = appointment?.userId || appointment?.user_id
+                      const match = cId === aCustomerId || cUserId === aCustomerId || cId === aUserId || cUserId === aUserId
+                      if (match && order.orderId === 14) {
+                        console.log('[Technician] Found customer for order 14:', {
+                          customer: c,
+                          appointmentCustomerId: aCustomerId,
+                          customerId: cId,
+                          customerUserId: cUserId
+                        })
+                      }
+                      return match
+                    })
                     // Find service by id or serviceId
                     const service = services.find(s => 
                       s.id === appointment?.serviceId || 
@@ -961,7 +1002,12 @@ function Technician() {
                               <span className="text-xl font-bold text-gray-900">Phiếu bảo dưỡng #{order.orderId || order.id}</span>
                             {appointment && (
                                 <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                  Lịch hẹn #{appointment.id || appointment.appointmentId}
+                                  {service 
+                                    ? (service.name || service.serviceName || `Lịch hẹn #${appointment.id || appointment.appointmentId}`)
+                                    : appointment?.serviceId 
+                                      ? (getServiceName(appointment.serviceId) || `Lịch hẹn #${appointment.id || appointment.appointmentId}`)
+                                      : `Lịch hẹn #${appointment.id || appointment.appointmentId}`
+                                  }
                                 </span>
                             )}
                           </div>
@@ -996,22 +1042,20 @@ function Technician() {
                           {customer && (
                             <div>
                               <p className="text-gray-500 text-xs mb-1">👤 Khách hàng</p>
-                              {(customer.fullName || customer.name || customer.firstName) && (
                                 <p className="font-semibold text-gray-900">
-                                  {customer.fullName || customer.name || 
+                                {customer.fullName || customer.name || customer.full_name || 
                                    (customer.firstName && customer.lastName ? `${customer.firstName} ${customer.lastName}` : customer.firstName || customer.lastName) || 
                                    'N/A'}
                                 </p>
-                              )}
-                              {customer.email && (
-                                <p className={`text-sm ${(customer.fullName || customer.name) ? 'text-gray-600' : 'font-semibold text-gray-900'}`}>
-                                  {customer.email}
+                              {(customer.email || customer.email_address) && (
+                                <p className="text-sm text-gray-600">
+                                  {customer.email || customer.email_address}
                                 </p>
                               )}
                               {customer.phone && (
                                 <p className="text-xs text-gray-500 mt-1">📞 {customer.phone}</p>
                               )}
-                              {!customer.email && !customer.phone && (
+                              {!customer.email && !customer.phone && !(customer.fullName || customer.name || customer.full_name) && (
                                 <p className="text-sm text-gray-500">ID: {customer.id || customer.customerId || 'N/A'}</p>
                               )}
                             </div>
@@ -1521,9 +1565,14 @@ function Technician() {
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <span className="text-base font-bold text-gray-900">Phiếu bảo dưỡng #{orderId}</span>
-                                {appointment && (
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Lịch hẹn #{appointment.id || appointment.appointmentId}</span>
+                                <span className="text-base font-bold text-gray-900">
+                                  {appointment 
+                                    ? `Lịch hẹn #${appointment.id || appointment.appointmentId}`
+                                    : `Phiếu bảo dưỡng #${orderId}`
+                                  }
+                                </span>
+                                {appointment && orderId && (appointment.id || appointment.appointmentId) !== orderId && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Order: #{orderId}</span>
                                 )}
                               </div>
                               {(service || appointment?.serviceId) && (
@@ -1711,6 +1760,9 @@ function Technician() {
         <ReportModal
           assignment={selectedAssignment}
           vehicles={vehicles}
+          appointments={appointments}
+          services={services}
+          getServiceName={getServiceName}
           onClose={() => {
             setShowReportModal(false)
             setSelectedAssignment(null)
@@ -1826,7 +1878,7 @@ function ChecklistModal({ assignment, existingChecklist, onClose, onSubmit, getV
 }
 
 // Maintenance Report Modal Component
-function ReportModal({ assignment, vehicles, onClose, onSubmit, getVehicleInfo }) {
+function ReportModal({ assignment, vehicles, appointments, services, getServiceName, onClose, onSubmit, getVehicleInfo }) {
   const [formData, setFormData] = useState({
     issuesFound: '',
     workPerformed: '',
@@ -1843,8 +1895,33 @@ function ReportModal({ assignment, vehicles, onClose, onSubmit, getVehicleInfo }
     onSubmit(formData)
   }
 
+  // Find appointment from assignment to get service name and appointment ID
+  const appointment = appointments?.find(a => 
+    a.id === assignment.appointmentId || 
+    a.appointmentId === assignment.appointmentId ||
+    a.id === assignment.appointment?.id ||
+    a.appointmentId === assignment.appointment?.appointmentId ||
+    (assignment.order && (a.id === assignment.order.appointmentId || a.appointmentId === assignment.order.appointmentId))
+  )
+  
+  // Get appointment ID (priority) or order ID (fallback)
+  const appointmentId = appointment?.id || appointment?.appointmentId || assignment.appointmentId || assignment.appointment_id
+  const orderId = assignment.orderId || assignment.id
+  // Display appointment ID if available, otherwise order ID
+  const displayId = appointmentId || orderId
+  
+  // Get service name
+  let serviceName = null
+  if (appointment) {
+    const service = services?.find(s => 
+      s.id === appointment.serviceId || 
+      s.serviceId === appointment.serviceId
+    )
+    serviceName = service?.name || service?.serviceName || (appointment.serviceId ? getServiceName(appointment.serviceId) : null)
+  }
+
   // Get vehicle info - support both assignment.vehicleId and order.vehicleId
-  const vehicleId = assignment.vehicleId || (assignment.order?.vehicleId) || (assignment.orderId ? assignment.vehicleId : null)
+  const vehicleId = assignment.vehicleId || (assignment.order?.vehicleId) || (appointment?.vehicleId) || null
   let vehicle = null
   let vehicleInfo = 'N/A'
   
@@ -1865,9 +1942,6 @@ function ReportModal({ assignment, vehicles, onClose, onSubmit, getVehicleInfo }
   } else if (vehicleId) {
     vehicleInfo = getVehicleInfo(vehicleId)
   }
-  
-  // Get assignment/order ID
-  const assignmentId = assignment.orderId || assignment.id
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
@@ -1879,9 +1953,18 @@ function ReportModal({ assignment, vehicles, onClose, onSubmit, getVehicleInfo }
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <p className="text-sm text-gray-600">
-              <span className="font-medium">{assignment.orderId ? 'Phiếu bảo dưỡng' : 'Phân công'}:</span> #{assignmentId}
+              <span className="font-medium">Phiếu bảo dưỡng:</span> {
+                serviceName 
+                  ? `${serviceName} (#${displayId})`
+                  : `#${displayId}`
+              }
+              {appointmentId && orderId && appointmentId !== orderId && (
+                <span className="text-xs text-gray-400 ml-2">(Order: #{orderId})</span>
+              )}
             </p>
-            <p className="text-sm text-gray-600"><span className="font-medium">Xe:</span> {vehicleInfo}</p>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">Xe:</span> {vehicleInfo}
+            </p>
           </div>
 
           <div>

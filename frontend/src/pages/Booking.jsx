@@ -234,11 +234,31 @@ function Booking() {
   const loadPartsForService = async (category) => {
     setLoadingParts(true)
     try {
-      const response = await fetch(`http://localhost:8090/api/staff/parts/for-service/${category}`)
+      const response = await fetch(`http://localhost:8090/api/staff/parts/for-service/${category}`, {
+        headers: {
+          'Accept': 'application/json;charset=UTF-8',
+          'Content-Type': 'application/json;charset=UTF-8'
+        }
+      })
       if (response.ok) {
-        const parts = await response.json()
-        setAvailableParts(parts)
-        console.log(`✅ Loaded ${parts.length} parts for ${category} service`)
+        // Ensure response is decoded as UTF-8
+        const text = await response.text()
+        const parts = JSON.parse(text)
+        
+        // Fix encoding issues in part names and descriptions
+        const fixedParts = parts.map(part => {
+          if (part.name) {
+            // Try to fix common encoding issues
+            part.name = fixEncoding(part.name)
+          }
+          if (part.description) {
+            part.description = fixEncoding(part.description)
+          }
+          return part
+        })
+        
+        setAvailableParts(fixedParts)
+        console.log(`✅ Loaded ${fixedParts.length} parts for ${category} service`)
       } else {
         setAvailableParts([])
         console.warn('Failed to load parts for service')
@@ -249,6 +269,44 @@ function Booking() {
     } finally {
       setLoadingParts(false)
     }
+  }
+  
+  // Helper function to fix encoding issues
+  const fixEncoding = (str) => {
+    if (!str) return str
+    // If string contains question marks or encoding artifacts, try to fix
+    if (str.includes('???') || str.includes('Ã') || str.includes('áº') || str.includes('Æ°')) {
+      try {
+        // Try to decode as UTF-8
+        return decodeURIComponent(escape(str))
+      } catch (e) {
+        // If that fails, try replacing common encoding issues
+        return str
+          .replace(/áº/g, 'ư')
+          .replace(/á»/g, 'ộ')
+          .replace(/á»/g, 'ệ')
+          .replace(/á»/g, 'ộ')
+          .replace(/á»/g, 'ệ')
+          .replace(/á»/g, 'ộ')
+          .replace(/á»/g, 'ệ')
+          .replace(/Ã¡/g, 'á')
+          .replace(/Ã©/g, 'é')
+          .replace(/Ã­/g, 'í')
+          .replace(/Ã³/g, 'ó')
+          .replace(/Ãº/g, 'ú')
+          .replace(/Ã½/g, 'ý')
+          .replace(/Ã¡/g, 'à')
+          .replace(/Ã¨/g, 'è')
+          .replace(/Ã¬/g, 'ì')
+          .replace(/Ã²/g, 'ò')
+          .replace(/Ã¹/g, 'ù')
+          .replace(/á»/g, 'ồ')
+          .replace(/á»/g, 'ề')
+          .replace(/á»/g, 'ồ')
+          .replace(/á»/g, 'ề')
+      }
+    }
+    return str
   }
 
   const handleSubmit = async (e) => {

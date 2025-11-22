@@ -136,30 +136,44 @@ public class DashboardService {
         try {
             log.info("Fetching recent bookings from: {}/appointments", STAFF_BASE);
             List<Map> bookings = getListMap(STAFF_BASE + "/appointments");
-            // Sort by created_at or appointmentDate DESC (newest first), then limit to 5
+            log.info("Fetched {} total bookings from staff service", bookings.size());
+
+            // Sort by created_at or createdAt DESC (newest first), then limit to 8
+            // (increased from 5)
+            // Priority: createdAt > created_at > appointmentDate
             a.setRecentBookings(bookings.stream()
                     .sorted((b1, b2) -> {
-                        // Try to get timestamp from various fields
-                        Object time1 = b1.getOrDefault("created_at", b1.getOrDefault("createdAt", 
+                        // Try to get timestamp from various fields (prioritize createdAt/created_at)
+                        Object time1 = b1.getOrDefault("createdAt", b1.getOrDefault("created_at",
                                 b1.getOrDefault("appointmentDate", b1.getOrDefault("requested_date_time", null))));
-                        Object time2 = b2.getOrDefault("created_at", b2.getOrDefault("createdAt", 
+                        Object time2 = b2.getOrDefault("createdAt", b2.getOrDefault("created_at",
                                 b2.getOrDefault("appointmentDate", b2.getOrDefault("requested_date_time", null))));
-                        
+
                         // Compare timestamps (newest first = descending)
-                        if (time1 == null && time2 == null) return 0;
-                        if (time1 == null) return 1; // null goes to end
-                        if (time2 == null) return -1;
-                        
+                        if (time1 == null && time2 == null)
+                            return 0;
+                        if (time1 == null)
+                            return 1; // null goes to end
+                        if (time2 == null)
+                            return -1;
+
                         // Try to parse as timestamp (milliseconds or ISO string)
                         long ts1 = parseTimestamp(time1);
                         long ts2 = parseTimestamp(time2);
                         return Long.compare(ts2, ts1); // DESC order
                     })
-                    .limit(5)
+                    .limit(8) // Increased from 5 to show more recent activities
                     .toList());
-            log.info("Found {} recent bookings (sorted by date)", a.getRecentBookings().size());
+
+            // Log the appointment IDs that were selected
+            List<Object> selectedIds = a.getRecentBookings().stream()
+                    .map(b -> b.get("appointmentId") != null ? b.get("appointmentId")
+                            : b.get("appointment_id") != null ? b.get("appointment_id") : b.get("id"))
+                    .toList();
+            log.info("Found {} recent bookings (sorted by createdAt DESC). Selected IDs: {}",
+                    a.getRecentBookings().size(), selectedIds);
         } catch (Exception e) {
-            log.error("Error fetching bookings: {}", e.getMessage());
+            log.error("Error fetching bookings: {}", e.getMessage(), e);
             a.setRecentBookings(List.of());
         }
         try {
@@ -181,11 +195,14 @@ public class DashboardService {
                                 Object time2 = r2.getOrDefault("completedAt", r2.getOrDefault("completed_at",
                                         r2.getOrDefault("updatedAt", r2.getOrDefault("updated_at",
                                                 r2.getOrDefault("date", null)))));
-                                
-                                if (time1 == null && time2 == null) return 0;
-                                if (time1 == null) return 1;
-                                if (time2 == null) return -1;
-                                
+
+                                if (time1 == null && time2 == null)
+                                    return 0;
+                                if (time1 == null)
+                                    return 1;
+                                if (time2 == null)
+                                    return -1;
+
                                 long ts1 = parseTimestamp(time1);
                                 long ts2 = parseTimestamp(time2);
                                 return Long.compare(ts2, ts1); // DESC order
@@ -204,18 +221,20 @@ public class DashboardService {
      * Parse timestamp from various formats (Long, String ISO, etc.)
      */
     private long parseTimestamp(Object timeObj) {
-        if (timeObj == null) return 0L;
-        
+        if (timeObj == null)
+            return 0L;
+
         // If it's already a Number (Long, Integer, etc.)
         if (timeObj instanceof Number) {
             long num = ((Number) timeObj).longValue();
-            // If it's in seconds (less than year 2000 in milliseconds), convert to milliseconds
+            // If it's in seconds (less than year 2000 in milliseconds), convert to
+            // milliseconds
             if (num < 946684800000L) { // Jan 1, 2000 in milliseconds
                 return num * 1000;
             }
             return num;
         }
-        
+
         // If it's a String, try to parse as ISO date string
         if (timeObj instanceof String) {
             String timeStr = (String) timeObj;
@@ -232,7 +251,7 @@ public class DashboardService {
                 }
             }
         }
-        
+
         return 0L;
     }
 

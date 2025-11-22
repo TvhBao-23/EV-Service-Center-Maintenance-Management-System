@@ -1,0 +1,127 @@
+Admin Service – Giải thích mã nguồn
+====================================
+
+1. Tệp gốc & cấu hình build
+- `AdminServiceApplication.java`: lớp khởi động Spring Boot, đăng ký toàn bộ bean và bật auto-configuration cho service.
+- `pom.xml`: khai báo Maven dependencies (Spring Boot Starter Web, Data JPA, Validation, MySQL driver, Lombok, RestTemplate…), plugin build và cấu hình Java 17.
+- `Dockerfile`, `mvnw`, `mvnw.cmd`: phục vụ đóng gói container và chạy Maven Wrapper khi không cài sẵn Maven.
+
+2. Cấu hình ứng dụng (`src/main/resources`)
+- `application.properties`: cấu hình môi trường local (cổng 8085, kết nối MySQL trên localhost:3307, thông số JPA, CORS, logging).
+- `application-docker.properties`: cấu hình tương tự nhưng trỏ tới service MySQL trong Docker network, user/password khác để chạy trong container.
+- Lưu ý: Admin service KHÔNG có database riêng, chỉ là aggregation service gọi các service khác.
+
+3. Kiến trúc tổng quan
+- Admin Service là một **Aggregation Service** (dịch vụ tổng hợp)
+- KHÔNG có database riêng, KHÔNG có entity/repository riêng
+- Chức năng chính: Tổng hợp dữ liệu từ các service khác (staffservice, customerservice, paymentservice, maintenanceservice)
+- Giao tiếp với các service khác qua RestTemplate trong Docker network
+- Chỉ có 2 gói chính: `api` (controller) và `service` (business logic)
+
+4. Gói `api` – REST API Endpoints
+Mục đích: Định nghĩa các REST API endpoints, nhận request từ Frontend/API Gateway và trả về dữ liệu tổng hợp.
+
+- `AdminDashboardController.java`:
+  + Controller duy nhất của admin service
+  + Endpoints:
+    * GET `/api/admin/health`: Health check endpoint, trả về trạng thái service
+    * GET `/api/admin/dashboard`: Lấy tổng quan dashboard (Summary)
+      - Tổng số customers, technicians, vehicles, bookings, parts
+      - Tổng doanh thu, chi phí chờ thanh toán
+      - Thống kê tổng quan hệ thống
+    * GET `/api/admin/activities`: Lấy hoạt động gần đây (Recent Activities)
+      - Danh sách appointments mới nhất (sắp xếp theo createdAt DESC)
+      - Danh sách service receipts mới hoàn thành
+      - Giới hạn 8 items mỗi loại
+    * GET `/api/admin/staff-count`: Lấy số lượng nhân viên
+      - Tổng số staff members và technicians
+  + Tất cả endpoints đều gọi đến `DashboardService` để xử lý logic
+  + Trả về dữ liệu đã được tổng hợp từ các service khác
+
+5. Gói `service` – Business Logic Layer
+Mục đích: Chứa logic nghiệp vụ tổng hợp dữ liệu từ các service khác.
+
+- `DashboardService.java`:
+  + Service chính và duy nhất của admin service
+  + Chức năng: Tổng hợp dữ liệu từ các service khác
+  + Sử dụng RestTemplate để gọi API của các service khác trong Docker network:
+    * `http://staffservice:8083/api/staff` - Lấy appointments, vehicles, customers, technicians, staff members, parts
+    * `http://customerservice:8082/api/customers` - Lấy customers, services
+    * `http://paymentservice:8084/api/payments` - Lấy payments, tính doanh thu
+    * `http://maintenanceservice:8080/api/maintenance` - Lấy service orders
+  + Các method chính:
+    * `getSummary()`: Tổng hợp dữ liệu tổng quan
+      - Tổng số customers, technicians, vehicles, bookings, parts
+      - Tổng doanh thu (từ payments có status = 'completed' hoặc 'paid')
+      - Chi phí chờ thanh toán (từ payments có status = 'pending')
+      - Xử lý lỗi gracefully: Nếu một service không phản hồi, vẫn trả về dữ liệu từ các service khác
+    * `getRecentActivities()`: Lấy hoạt động gần đây
+      - Lấy appointments từ staffservice, sắp xếp theo createdAt DESC
+      - Lấy service receipts từ staffservice, sắp xếp theo createdAt DESC
+      - Giới hạn 8 items mỗi loại
+      - Kết hợp và sắp xếp lại theo thời gian
+    * `getStaffCount()`: Đếm số lượng nhân viên
+      - Lấy staff members từ staffservice
+      - Lấy technicians từ staffservice
+      - Trả về tổng số
+  + Inner classes:
+    * `Summary`: Class chứa dữ liệu tổng quan
+      - totalCustomers, totalTechnicians, totalVehicles, totalBookings, totalParts
+      - totalRevenue, pendingPayments
+    * `Activities`: Class chứa hoạt động gần đây
+      - recentBookings: List appointments
+      - recentCompletedReceipts: List service receipts
+  + Xử lý lỗi:
+    * Mỗi API call được wrap trong try-catch
+    * Nếu một service lỗi, log error nhưng vẫn tiếp tục lấy dữ liệu từ service khác
+    * Đảm bảo dashboard vẫn hiển thị được dù một số service không phản hồi
+  + Logging:
+    * Sử dụng SLF4J để log các hoạt động
+    * Log khi fetch data từ mỗi service
+    * Log số lượng records tìm được
+    * Log errors khi service không phản hồi
+
+6. Cấu hình RestTemplate
+- RestTemplate được inject vào DashboardService
+- Cấu hình trong `application.properties` hoặc `@Configuration` class (nếu có)
+- Sử dụng để gọi HTTP API đến các service khác trong Docker network
+- Timeout và retry logic có thể được cấu hình
+
+7. Luồng hoạt động
+1. Frontend gọi API Gateway: `GET /api/admin/dashboard`
+2. API Gateway route đến Admin Service: `GET /api/admin/dashboard`
+3. AdminDashboardController nhận request, gọi DashboardService.getSummary()
+4. DashboardService gọi các service khác:
+   - Gọi staffservice để lấy appointments, vehicles, customers, technicians, staff, parts
+   - Gọi customerservice để lấy customers, services
+   - Gọi paymentservice để lấy payments
+   - Gọi maintenanceservice để lấy service orders
+5. Tổng hợp dữ liệu từ tất cả các service
+6. Trả về Summary object cho controller
+7. Controller trả về JSON response cho Frontend
+
+8. Đặc điểm của Admin Service
+- **Stateless**: Không lưu trữ dữ liệu, chỉ tổng hợp dữ liệu real-time
+- **Aggregation Only**: Chỉ tổng hợp, không có CRUD operations
+- **No Database**: Không có database riêng, không có entity/repository
+- **Service-to-Service Communication**: Giao tiếp trực tiếp với các service khác trong Docker network
+- **Error Resilience**: Xử lý lỗi gracefully, vẫn trả về dữ liệu từ các service còn hoạt động
+- **Performance**: Có thể cache dữ liệu trong tương lai để giảm số lượng API calls
+
+9. Thư mục `src/test`
+- Chứa các test cơ bản cho DashboardService
+- Mock RestTemplate để test logic tổng hợp dữ liệu
+- Test error handling khi service không phản hồi
+
+10. Tệp cấu hình triển khai khác
+- `Dockerfile`: build image bằng Maven Wrapper → copy jar → chạy trên `eclipse-temurin:17-jre`.
+- `target/`: sản phẩm build (JAR, classes) – không nên sửa trực tiếp.
+
+Ghi chú
+- Admin Service là một aggregation service, không có database riêng
+- Tất cả dữ liệu được lấy real-time từ các service khác
+- Cần đảm bảo các service khác đang chạy để admin service hoạt động
+- Có thể mở rộng thêm các endpoint tổng hợp khác trong tương lai
+- Cân nhắc thêm caching mechanism để cải thiện performance
+- Các tab khác trong Admin page (Customers & Vehicles, Finance, Reports, Parts) gọi trực tiếp các service tương ứng, không qua admin service
+

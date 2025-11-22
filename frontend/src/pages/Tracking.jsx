@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { customerAPI } from '../lib/api.js'
+import { customerAPI, maintenanceAPI } from '../lib/api.js'
 import { loadList, loadGlobalList } from '../lib/store.js'
 import MaintenanceTimeline from '../components/MaintenanceTimeline.jsx'
 import { formatDate, toDateObject, isValidDate } from '../utils/dateUtils.js'
@@ -19,6 +19,7 @@ function Tracking() {
   const [serviceCenters, setServiceCenters] = useState([])
   const [selectedNote, setSelectedNote] = useState(null) // For note detail modal
   const [showNoteModal, setShowNoteModal] = useState(false) // For note detail modal
+  const [serviceOrders, setServiceOrders] = useState([]) // Service orders to check completion status
 
   const params = new URLSearchParams(location.search)
   const success = params.get('success') === '1'
@@ -114,6 +115,16 @@ function Tracking() {
       console.log('[Tracking] Service centers from API:', centersData)
       setServiceCenters(centersData)
 
+      // Load service orders to check completion status
+      let serviceOrdersData = []
+      try {
+        serviceOrdersData = await maintenanceAPI.getServiceOrders().catch(() => [])
+        console.log('[Tracking] Service orders from API:', serviceOrdersData)
+      } catch (err) {
+        console.warn('[Tracking] Failed to load service orders:', err)
+      }
+      setServiceOrders(serviceOrdersData || [])
+
       // Map status from Admin format to Tracking format
       const mappedAppointments = userBookings.map(booking => {
         // Handle date field - API might return appointmentDate, requestedDateTime, or requested_date_time
@@ -147,6 +158,27 @@ function Tracking() {
         const center = centersData.find(c => c.centerId === booking.centerId)
         const centerName = center ? center.name : 'Trung tâm không xác định'
         
+        // Check if there's a service order for this appointment and use its status if completed
+        const appointmentId = booking.appointmentId || booking.id
+        const serviceOrder = serviceOrdersData.find(so => 
+          so.appointmentId === appointmentId || 
+          so.appointment_id === appointmentId
+        )
+        
+        // If service order is completed, override appointment status to completed
+        let finalStatus = mapAdminStatusToTracking(booking.status)
+        if (serviceOrder) {
+          const orderStatus = (serviceOrder.status || '').toLowerCase()
+          if (orderStatus === 'completed' || orderStatus === 'done') {
+            finalStatus = 'completed'
+            console.log('[Tracking] Overriding appointment status to completed based on service order:', {
+              appointmentId,
+              orderId: serviceOrder.orderId || serviceOrder.id,
+              orderStatus
+            })
+          }
+        }
+        
         return {
           ...booking,
           appointmentId: booking.appointmentId,
@@ -158,7 +190,7 @@ function Tracking() {
           appointmentDate: finalDateValue,
           requestedDateTime: finalDateValue,
           notes: booking.notes,
-          status: mapAdminStatusToTracking(booking.status)
+          status: finalStatus
         }
       })
 
@@ -251,14 +283,35 @@ function Tracking() {
   // Payment reminders for service plans
   const paymentReminders = useMemo(() => {
     const pendingAppointments = appointments.filter(a => a.status === 'pending')
-    const totalAmount = pendingAppointments.length * 750000 // Default amount per appointment
+    
+    // Calculate total amount from actual service prices
+    let totalAmount = 0
+    pendingAppointments.forEach(appointment => {
+      // Try to find the service for this appointment
+      const serviceId = appointment.serviceId || appointment.service_id
+      if (serviceId && services.length > 0) {
+        const service = services.find(s => 
+          (s.serviceId || s.service_id) === serviceId
+        )
+        if (service) {
+          const price = service.basePrice || service.base_price || 0
+          totalAmount += Number(price) || 0
+        } else {
+          // If service not found, use default amount
+          totalAmount += 750000
+        }
+      } else {
+        // If no serviceId or services not loaded, use default amount
+        totalAmount += 750000
+      }
+    })
     
     return {
       count: pendingAppointments.length,
       totalAmount,
       hasReminders: pendingAppointments.length > 0
     }
-  }, [appointments])
+  }, [appointments, services])
 
   // AI-powered Smart reminders: periodic maintenance by km or time
   // Improved algorithm with better KM calculation, EV support, and historical analysis

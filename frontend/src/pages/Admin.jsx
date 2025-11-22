@@ -302,7 +302,14 @@ function Admin() {
       console.warn('[Admin] Failed to load service receipts from API, fallback local:', e)
       setServiceReceipts(loadList('records', []))
     }
-    setAssignments(loadList('assignments', []))
+    // Load assignments from API
+    try {
+      const apiAssignments = await staffAPI.getAssignments()
+      setAssignments(apiAssignments || [])
+    } catch (e) {
+      console.warn('[Admin] Failed to load assignments from API, fallback local:', e)
+      setAssignments(loadList('assignments', []))
+    }
 
     // Load bookings from API
     await loadBookingsData()
@@ -497,9 +504,14 @@ function Admin() {
         .filter(r => (String(r.status || '').toLowerCase() === 'done') || r.status === 'Hoàn tất' || r.approved === true)
         .reduce((sum, r) => sum + (Number(r.totalAmount ?? r.total ?? r.cost ?? r.amount ?? 0)), 0)
       
-      // Calculate pending payments from payments table (not serviceReceipts)
-      // This matches backend logic: PaymentRepository.findAll() -> filter status = 'pending' -> sum amount
+      // Calculate pending payments - BAO GỒM:
+      // 1. Payments với status = 'pending'
+      // 2. Appointments chưa có payment record (dùng service basePrice)
+      // 3. Appointments có payment status != 'completed' (dùng payment amount hoặc service basePrice)
+      
       const safePayments = Array.isArray(payments) ? payments : []
+      
+      // Bước 1: Tính từ payments với status = 'pending'
       const computedPendingFromPayments = safePayments
         .filter(p => {
           const status = String(p.status || '').toLowerCase()
@@ -507,15 +519,61 @@ function Admin() {
         })
         .reduce((sum, p) => sum + (Number(p.amount || 0)), 0)
       
+      // Bước 2: Tính từ appointments chưa thanh toán (chưa có payment hoặc payment status != 'completed')
+      const safeBookings = Array.isArray(bookings) ? bookings : []
+      const safeServices = Array.isArray(services) ? services : []
+      
+      const unpaidAppointmentsCost = safeBookings
+        .filter(b => {
+          // Tìm payment cho appointment này
+          const appointmentId = b.appointmentId || b.id
+          const relatedPayment = safePayments.find(p => 
+            (p.appointmentId || p.appointment_id) === appointmentId
+          )
+          
+          // Nếu không có payment hoặc payment status != 'completed', thì chưa thanh toán
+          if (!relatedPayment) {
+            return true // Chưa có payment = chưa thanh toán
+          }
+          
+          const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+          return paymentStatus !== 'completed' && paymentStatus !== 'paid'
+        })
+        .reduce((sum, b) => {
+          const appointmentId = b.appointmentId || b.id
+          // Tìm payment cho appointment này
+          const relatedPayment = safePayments.find(p => 
+            (p.appointmentId || p.appointment_id) === appointmentId
+          )
+          
+          // Nếu có payment với amount và status != 'completed', dùng amount
+          if (relatedPayment && relatedPayment.amount) {
+            const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+            if (paymentStatus !== 'completed' && paymentStatus !== 'paid') {
+              return sum + Number(relatedPayment.amount || 0)
+            }
+          }
+          
+          // Nếu không có payment hoặc payment không có amount, dùng service basePrice
+          const serviceId = b.serviceId || b.service_id
+          const service = safeServices.find(s => 
+            (s.serviceId || s.id) === serviceId
+          )
+          const servicePrice = service ? Number(service.basePrice || 0) : 0
+          
+          return sum + servicePrice
+        }, 0)
+      
       // Also check serviceReceipts as fallback
       const computedPendingFromReceipts = safeReceipts
         .filter(r => (String(r.status || '').toLowerCase() === 'pending') || r.status === 'Chờ thanh toán')
         .reduce((sum, r) => sum + (Number(r.totalAmount ?? r.total ?? r.cost ?? r.amount ?? 0)), 0)
 
       const totalRevenue = Number(adminSummary.totalRevenue || 0) || computedRevenue
-      // Prefer payments table calculation, fallback to receipts if payments is empty
+      // Tổng chờ thanh toán = pending payments + unpaid appointments
+      const totalPendingPayments = computedPendingFromPayments + unpaidAppointmentsCost
       const pendingPayments = Number(adminSummary.pendingPayments || 0) || 
-        (computedPendingFromPayments > 0 ? computedPendingFromPayments : computedPendingFromReceipts)
+        (totalPendingPayments > 0 ? totalPendingPayments : computedPendingFromReceipts)
       
       // Calculate booking stats from actual bookings data
       const pendingBookings = safeBookings.filter(b => (b.status || '').toLowerCase() === 'pending').length
@@ -555,15 +613,61 @@ function Admin() {
     const completedRecords = safeReceipts.filter(r => r.status === 'done' || r.status === 'Hoàn tất')
     const totalRevenue = completedRecords.reduce((sum, r) => sum + (Number(r.totalAmount ?? r.total ?? r.cost ?? r.amount ?? 0)), 0)
     
-    // Calculate pending payments from payments table (not serviceReceipts)
-    // This matches backend logic: PaymentRepository.findAll() -> filter status = 'pending' -> sum amount
+    // Calculate pending payments - BAO GỒM:
+    // 1. Payments với status = 'pending'
+    // 2. Appointments chưa có payment record (dùng service basePrice)
+    // 3. Appointments có payment status != 'completed' (dùng payment amount hoặc service basePrice)
+    
     const safePayments = Array.isArray(payments) ? payments : []
-    const pendingPayments = safePayments
+    const safeServices = Array.isArray(services) ? services : []
+    
+    // Bước 1: Tính từ payments với status = 'pending'
+    const pendingPaymentsFromPayments = safePayments
       .filter(p => {
         const status = String(p.status || '').toLowerCase()
         return status === 'pending'
       })
       .reduce((sum, p) => sum + (Number(p.amount || 0)), 0)
+    
+    // Bước 2: Tính từ appointments chưa thanh toán
+    const unpaidAppointmentsCost = safeBookings
+      .filter(b => {
+        const appointmentId = b.appointmentId || b.id
+        const relatedPayment = safePayments.find(p => 
+          (p.appointmentId || p.appointment_id) === appointmentId
+        )
+        
+        if (!relatedPayment) {
+          return true // Chưa có payment = chưa thanh toán
+        }
+        
+        const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+        return paymentStatus !== 'completed' && paymentStatus !== 'paid'
+      })
+      .reduce((sum, b) => {
+        const appointmentId = b.appointmentId || b.id
+        const relatedPayment = safePayments.find(p => 
+          (p.appointmentId || p.appointment_id) === appointmentId
+        )
+        
+        if (relatedPayment && relatedPayment.amount) {
+          const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+          if (paymentStatus !== 'completed' && paymentStatus !== 'paid') {
+            return sum + Number(relatedPayment.amount || 0)
+          }
+        }
+        
+        const serviceId = b.serviceId || b.service_id
+        const service = safeServices.find(s => 
+          (s.serviceId || s.id) === serviceId
+        )
+        const servicePrice = service ? Number(service.basePrice || 0) : 0
+        
+        return sum + servicePrice
+      }, 0)
+    
+    // Tổng chờ thanh toán = pending payments + unpaid appointments
+    const pendingPayments = pendingPaymentsFromPayments + unpaidAppointmentsCost
     
     // Parts inventory
     const lowStockParts = safeParts.filter(p => (Number(p.currentStock) || 0) <= (Number(p.minStock) || 0))
@@ -621,6 +725,9 @@ function Admin() {
 
     // Prefer activities from admin service if available (already sorted and limited by backend)
     const acts = adminActivities || { recentBookings: [], recentCompletedReceipts: [] }
+    console.log('[Admin] Processing activities. Total bookings from API:', acts.recentBookings?.length || 0)
+    console.log('[Admin] Booking IDs from API:', acts.recentBookings?.map(b => b.appointmentId || b.id) || [])
+    
     ;(acts.recentBookings || []).forEach(booking => {
       const id = booking.appointmentId || booking.id || ''
       const vehicleName = booking.vehicleModel || booking.vehicle || booking.licensePlate || booking.vin || ''
@@ -635,13 +742,16 @@ function Admin() {
         displayName = `${customerName} - ${vehicleName}`
       }
 
+      const timestamp = new Date(booking.created_at || booking.createdAt || booking.appointmentDate || booking.requested_date_time || Date.now())
+      console.log('[Admin] Processing booking:', { id, status: booking.status, createdAt: booking.createdAt || booking.created_at, timestamp })
+
       activities.push({
         id: `booking-${id || Date.now()}`,
         type: 'booking',
-        title: `Đặt lịch mới: ${displayName}`,
+        title: `Đặt lịch mới: #${id}`, // Simplified to show appointment ID
         description: `${serviceName}${whenText ? ` - ${whenText}` : ''}`,
         status: (booking.status || '').toLowerCase(),
-        timestamp: new Date(booking.created_at || booking.createdAt || booking.appointmentDate || booking.requested_date_time || Date.now()),
+        timestamp: timestamp,
         // Lưu toàn bộ booking data để xem chi tiết
         bookingData: booking
       })
@@ -692,7 +802,10 @@ function Admin() {
       })
     }
 
-    return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8)
+    const sorted = activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8)
+    console.log('[Admin] Final activities count:', sorted.length)
+    console.log('[Admin] Final activity IDs:', sorted.map(a => a.id))
+    return sorted
   }, [adminActivities, bookings, vehicles, serviceReceipts])
 
   const reportSummary = useMemo(() => {
@@ -748,6 +861,33 @@ function Admin() {
     return plate ? `${model} (${plate})` : model
   }
 
+  // Helper để lấy appointment_id từ report
+  const getAppointmentIdByReport = (report) => {
+    if (!report) return null
+    
+    // Cách 1: Từ assignment_id trong report
+    if (report.assignmentId || report.assignment_id) {
+      const assignmentId = report.assignmentId || report.assignment_id
+      const assignment = assignments.find(a => {
+        const aId = a.assignment_id || a.assignmentId || a.id
+        return aId && (aId.toString() === assignmentId.toString())
+      })
+      if (assignment) {
+        const appointmentId = assignment.appointmentId || assignment.appointment_id || assignment.appointment?.id || assignment.appointment?.appointmentId
+        if (appointmentId) return appointmentId
+      }
+    }
+    
+    // Cách 2: Từ serviceOrder nếu có
+    const serviceOrder = getServiceOrderByReport(report)
+    if (serviceOrder) {
+      const appointmentId = serviceOrder.appointmentId || serviceOrder.appointment_id
+      if (appointmentId) return appointmentId
+    }
+    
+    return null
+  }
+
   // Helper để tìm service order từ report
   const getServiceOrderByReport = (report) => {
     if (!report) return null
@@ -762,15 +902,24 @@ function Admin() {
       if (matched) return matched
     }
     
-    // Cách 2: Match qua assignmentId (nếu có)
-    if (report.assignmentId) {
-      // Tìm service order có appointmentId match với assignment
-      const matched = serviceOrders.find(order => {
-        const orderAppointmentId = order.appointmentId || order.appointment_id
-        // Có thể cần thêm logic để match assignment với appointment
-        return false // Tạm thời bỏ qua vì cần thêm thông tin
+    // Cách 2: Match qua assignmentId (nếu có) - tìm appointment_id từ assignment
+    if (report.assignmentId || report.assignment_id) {
+      const assignmentId = report.assignmentId || report.assignment_id
+      const assignment = assignments.find(a => {
+        const aId = a.assignment_id || a.assignmentId || a.id
+        return aId && (aId.toString() === assignmentId.toString())
       })
-      if (matched) return matched
+      if (assignment) {
+        const appointmentId = assignment.appointmentId || assignment.appointment_id || assignment.appointment?.id || assignment.appointment?.appointmentId
+        if (appointmentId) {
+          // Tìm service order có appointmentId này
+          const matched = serviceOrders.find(order => {
+            const orderAppointmentId = order.appointmentId || order.appointment_id
+            return orderAppointmentId && (orderAppointmentId.toString() === appointmentId.toString())
+          })
+          if (matched) return matched
+        }
+      }
     }
     
     // Cách 3: Match qua vehicleId và technicianId (nếu có)
@@ -1039,23 +1188,72 @@ function Admin() {
                   return vehicleMatch || bookingCustomerId === customerId || bookingCustomerId === userId
                 })
                 
-                // Tính chi phí chưa thanh toán - GIỐNG BACKEND (từ bảng payments với status = 'pending')
-                // Backend tính từ: PaymentRepository.findAll() -> filter status = 'pending' -> sum amount
-                // Xem: customerservice/PaymentController.java dòng 171-174
+                // Tính chi phí chưa thanh toán - BAO GỒM:
+                // 1. Payments với status = 'pending'
+                // 2. Appointments chưa có payment record (dùng service basePrice)
+                // 3. Appointments có payment status != 'completed' (dùng payment amount hoặc service basePrice)
+                
+                // Bước 1: Tính từ payments với status = 'pending'
                 const customerPendingPayments = (payments || []).filter(p => {
-                  // Match customer_id từ payments table
                   const paymentCustomerId = p.customerId || p.customer_id
                   return paymentCustomerId === customerId
                 }).filter(p => {
-                  // Chỉ tính payments với status = 'pending' (giống backend)
                   const status = String(p.status || '').toLowerCase()
                   return status === 'pending'
                 })
                 
-                const totalPendingCost = customerPendingPayments.reduce((sum, p) => {
+                const pendingPaymentsCost = customerPendingPayments.reduce((sum, p) => {
                   const amount = Number(p.amount || 0)
                   return sum + amount
                 }, 0)
+                
+                // Bước 2: Tính từ appointments chưa thanh toán (chưa có payment hoặc payment status != 'completed')
+                const customerUnpaidAppointments = (bookings || []).filter(b => {
+                  const bookingCustomerId = b.customerId || b.customer_id
+                  return bookingCustomerId === customerId
+                }).filter(b => {
+                  // Tìm payment cho appointment này
+                  const appointmentId = b.appointmentId || b.id
+                  const relatedPayment = (payments || []).find(p => 
+                    (p.appointmentId || p.appointment_id) === appointmentId
+                  )
+                  
+                  // Nếu không có payment hoặc payment status != 'completed', thì chưa thanh toán
+                  if (!relatedPayment) {
+                    return true // Chưa có payment = chưa thanh toán
+                  }
+                  
+                  const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+                  return paymentStatus !== 'completed' && paymentStatus !== 'paid'
+                })
+                
+                const unpaidAppointmentsCost = customerUnpaidAppointments.reduce((sum, b) => {
+                  const appointmentId = b.appointmentId || b.id
+                  // Tìm payment cho appointment này
+                  const relatedPayment = (payments || []).find(p => 
+                    (p.appointmentId || p.appointment_id) === appointmentId
+                  )
+                  
+                  // Nếu có payment với amount, dùng amount
+                  if (relatedPayment && relatedPayment.amount) {
+                    const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+                    if (paymentStatus !== 'completed' && paymentStatus !== 'paid') {
+                      return sum + Number(relatedPayment.amount || 0)
+                    }
+                  }
+                  
+                  // Nếu không có payment hoặc payment không có amount, dùng service basePrice
+                  const serviceId = b.serviceId || b.service_id
+                  const service = (services || []).find(s => 
+                    (s.serviceId || s.id) === serviceId
+                  )
+                  const servicePrice = service ? Number(service.basePrice || 0) : 0
+                  
+                  return sum + servicePrice
+                }, 0)
+                
+                // Tổng chi phí chưa thanh toán = pending payments + unpaid appointments
+                const totalPendingCost = pendingPaymentsCost + unpaidAppointmentsCost
                 
                 // Tính userServiceOrders để hiển thị trong expanded row
                 const userServiceOrders = (serviceOrders || []).filter(order => {
@@ -1068,7 +1266,7 @@ function Admin() {
                 return (
                   <>
                     <tr key={customerId || userId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
@@ -1084,7 +1282,7 @@ function Admin() {
                           >
                             {isExpanded ? '▼' : '▶'}
                           </button>
-                          <div>
+                      <div>
                             <div className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
                                  onClick={() => {
                                    const newExpanded = new Set(expandedCustomers)
@@ -1097,30 +1295,30 @@ function Admin() {
                                  }}>
                               {cus.full_name || cus.fullName}
                             </div>
-                            <div className="text-sm text-gray-500">{cus.email}</div>
+                        <div className="text-sm text-gray-500">{cus.email}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userVehicles.length}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userBookings.length}</td>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userVehicles.length}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userBookings.length}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
                         {totalPendingCost > 0 ? `${totalPendingCost.toLocaleString()} VNĐ` : '0 VNĐ'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button 
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button 
                           onClick={() => handleViewCustomer({ id: userId || customerId, ...cus })}
-                          className="text-blue-600 hover:text-blue-900 mr-3 font-medium"
-                        >
-                          Xem
-                        </button>
-                        <button 
+                        className="text-blue-600 hover:text-blue-900 mr-3 font-medium"
+                      >
+                        Xem
+                      </button>
+                      <button 
                           onClick={() => handleChatCustomer({ id: userId || customerId, fullName: cus.full_name || cus.fullName, email: cus.email })}
-                          className="text-green-600 hover:text-green-900 font-medium"
-                        >
-                          Chat
-                        </button>
-                      </td>
-                    </tr>
+                        className="text-green-600 hover:text-green-900 font-medium"
+                      >
+                        Chat
+                      </button>
+                    </td>
+                  </tr>
                     {/* Expanded row - Hiển thị danh sách dịch vụ/lịch hẹn */}
                     {isExpanded && (
                       <tr>
@@ -1130,7 +1328,7 @@ function Admin() {
                             {userBookings.length === 0 ? (
                               <p className="text-sm text-gray-500">Chưa có lịch hẹn nào</p>
                             ) : (
-                              <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg">
                                   <thead className="bg-gray-100">
                                     <tr>
@@ -1141,8 +1339,8 @@ function Admin() {
                                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Chi phí</th>
                                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Trạng thái thanh toán</th>
                                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Trạng thái</th>
-                                    </tr>
-                                  </thead>
+              </tr>
+            </thead>
                                   <tbody className="divide-y divide-gray-200">
                                     {userBookings.map(booking => {
                                       const bookingVehicle = userVehicles.find(v => (v.vehicle_id || v.id) === (booking.vehicleId || booking.vehicle_id))
@@ -1202,17 +1400,17 @@ function Admin() {
                                         String(booking.paymentStatus || '').toLowerCase() === 'paid' || 
                                         booking.paid === true
                                       
-                                      return (
+                return (
                                         <tr key={booking.id || booking.appointmentId} className="hover:bg-gray-50">
                                           <td className="px-4 py-2 text-sm text-gray-900">
                                             #{booking.id || booking.appointmentId}
-                                          </td>
+                    </td>
                                           <td className="px-4 py-2 text-sm text-gray-900">
                                             {bookingService?.name || booking.serviceName || booking.service || 'N/A'}
-                                          </td>
+                    </td>
                                           <td className="px-4 py-2 text-sm text-gray-900">
                                             {bookingVehicle ? `${bookingVehicle.brand || ''} ${bookingVehicle.model || ''}`.trim() : 'N/A'}
-                                          </td>
+                    </td>
                                           <td className="px-4 py-2 text-sm text-gray-900">
                                             {booking.appointmentDate 
                                               ? new Date(booking.appointmentDate).toLocaleDateString('vi-VN')
@@ -1278,13 +1476,13 @@ function Admin() {
                                                 </span>
                                               )
                                             })()}
-                                          </td>
-                                        </tr>
-                                      )
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
                             )}
                           </div>
                         </td>
@@ -1556,7 +1754,7 @@ function Admin() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
                         <button className="text-blue-600 hover:text-blue-900" onClick={() => handleEditPart(part)}>Sửa</button>
-                        <button className="text-green-600 hover:text-green-900" onClick={() => handleImportPart(part)}>Nhập kho</button>
+                      <button className="text-green-600 hover:text-green-900" onClick={() => handleImportPart(part)}>Nhập kho</button>
                         <button className="text-orange-600 hover:text-orange-900" onClick={() => handleExportPart(part)}>Xuất kho</button>
                         <button className="text-red-600 hover:text-red-900" onClick={() => handleDeletePart(part)}>Xóa</button>
                       </div>
@@ -1833,25 +2031,25 @@ function Admin() {
                     const amount = Number(payment.amount || 0)
                     const status = String(payment.status || '').toLowerCase()
                     
-                    return (
+                  return (
                       <tr key={payment.paymentId || payment.payment_id || payment.id}>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {dateVal ? new Date(dateVal).toLocaleDateString('vi-VN') : '-'}
-                        </td>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {dateVal ? new Date(dateVal).toLocaleDateString('vi-VN') : '-'}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                           {customer?.full_name || customer?.fullName || 'N/A'}
-                        </td>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'N/A'}
-                        </td>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                           {service?.name || appointment?.serviceType || appointment?.service || 'Dịch vụ'}
-                        </td>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {amount.toLocaleString()} VNĐ
-                        </td>
-                        <td className="px-6 py-2 whitespace-nowrap text-sm">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {amount.toLocaleString()} VNĐ
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             status === 'completed' ? 'bg-green-100 text-green-800' :
                             status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             status === 'processing' ? 'bg-blue-100 text-blue-800' :
@@ -1863,11 +2061,11 @@ function Admin() {
                              status === 'processing' ? 'Đang xử lý' :
                              status === 'failed' ? 'Thất bại' :
                              (payment.status || 'Khác')}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -1908,6 +2106,7 @@ function Admin() {
             {maintenanceReports.map(report => {
               const customerName = getCustomerNameByVehicle(report.vehicleId)
               const serviceOrder = getServiceOrderByReport(report)
+              const appointmentId = getAppointmentIdByReport(report)
               const reportChecklist = getChecklistByReport(report)
               const completedCount = reportChecklist.filter(item => item.isCompleted).length
               const totalCount = reportChecklist.length
@@ -1923,19 +2122,19 @@ function Admin() {
                 <div key={report.reportId || report.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        Báo cáo #{report.reportId || report.id}
-                        {serviceOrder && (
+                    <p className="text-sm font-medium text-gray-900">
+                      Báo cáo #{report.reportId || report.id}
+                        {appointmentId && (
                           <span className="ml-2 text-xs text-gray-500">
-                            • Phiếu bảo dưỡng #{serviceOrder.orderId || serviceOrder.id}
+                            • Phiếu bảo dưỡng #{appointmentId}
                           </span>
                         )}
-                      </p>
+                    </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {report.createdAt ? new Date(report.createdAt).toLocaleString('vi-VN') : 
                          report.submittedAt ? new Date(report.submittedAt).toLocaleString('vi-VN') : '---'}
-                      </p>
-                    </div>
+                    </p>
+                  </div>
                     <button
                       onClick={() => {
                         setSelectedReport(report)
@@ -1945,24 +2144,24 @@ function Admin() {
                     >
                       Xem chi tiết
                     </button>
-                  </div>
+                </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-gray-600">
-                        <span className="font-medium">Kỹ thuật viên:</span> {getTechnicianName(report.technicianId)}
-                      </p>
+                  <span className="font-medium">Kỹ thuật viên:</span> {getTechnicianName(report.technicianId)}
+                </p>
                     </div>
                     <div>
                       <p className="text-gray-600">
-                        <span className="font-medium">Xe:</span> {getVehicleLabel(report.vehicleId)}
+                  <span className="font-medium">Xe:</span> {getVehicleLabel(report.vehicleId)}
                       </p>
-                    </div>
+              </div>
                     {customerName && (
-                      <div>
+                    <div>
                         <p className="text-gray-600">
                           <span className="font-medium">Chủ xe:</span> {customerName}
-                        </p>
-                      </div>
+                      </p>
+                    </div>
                     )}
                     {totalCount > 0 && (
                       <div>
@@ -1972,11 +2171,11 @@ function Admin() {
                             completedCount === totalCount ? 'text-green-600' : 'text-yellow-600'
                           }`}>
                             {completedCount} / {totalCount} hoàn thành
-                          </span>
-                        </p>
+                    </span>
+                  </p>
                       </div>
                     )}
-                    {report.workPerformed && (
+                  {report.workPerformed && (
                       <div className="md:col-span-2">
                         <p className="text-gray-600">
                           <span className="font-medium">Công việc:</span> {report.workPerformed.length > 100 ? 
@@ -2101,18 +2300,18 @@ function Admin() {
                         const currentKm = vehicle.currentKm || vehicle.current_km || vehicle.odometer || null
                         
                         return (
-                          <div key={vehicle.vehicle_id || vehicle.id} className="bg-gray-50 rounded-lg p-3 flex justify-between items-center">
-                            <div>
+                        <div key={vehicle.vehicle_id || vehicle.id} className="bg-gray-50 rounded-lg p-3 flex justify-between items-center">
+                          <div>
                               <p className="font-medium text-gray-900">🚗 {vehicleName}</p>
                               <p className="text-sm text-gray-600">
                                 Biển số/VIN: {licensePlateOrVin} • Năm: {year}
                                 {currentKm !== null && ` • Số km: ${Number(currentKm).toLocaleString()}`}
                               </p>
-                            </div>
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                              Hoạt động
-                            </span>
                           </div>
+                          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                            Hoạt động
+                          </span>
+                        </div>
                         )
                       })
                     )}
@@ -2715,6 +2914,7 @@ function Admin() {
           const technicianName = getTechnicianName(report.technicianId)
           const reportChecklist = getChecklistByReport(report)
           const serviceOrder = getServiceOrderByReport(report)
+          const appointmentId = getAppointmentIdByReport(report)
           const completedCount = reportChecklist.filter(item => item.isCompleted).length
           const totalCount = reportChecklist.length
           
@@ -2805,9 +3005,9 @@ function Admin() {
                           {completedCount} / {totalCount} hoàn thành
                         </span>
                       </div>
-                      {serviceOrder && (
+                      {appointmentId && (
                         <p className="text-xs text-gray-500 mb-3">
-                          Phiếu bảo dưỡng #{serviceOrder.orderId || serviceOrder.id}
+                          Phiếu bảo dưỡng #{appointmentId}
                         </p>
                       )}
                       <div className="space-y-2">

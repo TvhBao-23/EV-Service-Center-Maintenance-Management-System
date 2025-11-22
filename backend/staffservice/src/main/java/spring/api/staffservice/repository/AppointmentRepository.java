@@ -7,7 +7,10 @@ import java.util.List;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
     List<Appointment> findAllByOrderByAppointmentDateDesc();
+
+    List<Appointment> findAllByOrderByCreatedAtDesc(); // Sort by creation date (newest first)
+
     List<Appointment> findByStatus(String status);
+
     List<Appointment> findByCustomerId(Long customerId);
 }
-

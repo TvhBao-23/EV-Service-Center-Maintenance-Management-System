@@ -22,6 +22,9 @@ DEALLOCATE PREPARE stmt;
 -- Cannot use TRUNCATE due to foreign key constraints
 DELETE FROM services;
 
+-- Set charset before insert
+SET NAMES utf8mb4;
+
 INSERT INTO services (service_id, name, description, estimated_duration_minutes, base_price, category) VALUES
 (1, 'Bảo dưỡng định kỳ', 'Kiểm tra tổng thể hệ thống điện, pin và các bộ phận chính', 120, 500000, 'maintenance'),
 (2, 'Thay pin lithium-ion', 'Thay thế pin lithium-ion cao cấp cho xe điện', 480, 15000000, 'battery'),

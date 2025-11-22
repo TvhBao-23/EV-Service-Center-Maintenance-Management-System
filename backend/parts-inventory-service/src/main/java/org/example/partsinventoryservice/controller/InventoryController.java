@@ -26,12 +26,10 @@ public class InventoryController {
                         inv.getPart().getName(),
                         inv.getQuantityInStock(),
                         inv.getMinStockLevel(),
-                        inv.getPart().getUnitPrice()
-                ))
+                        inv.getPart().getUnitPrice()))
                 .toList();
         return ResponseEntity.ok(list);
     }
-
 
     @GetMapping("/{partId}")
     public ResponseEntity<PartInventory> getByPartId(@PathVariable Long partId) {

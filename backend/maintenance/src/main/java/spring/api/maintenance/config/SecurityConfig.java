@@ -7,11 +7,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Security Configuration
- * Cho phép tất cả endpoints hoạt động mà không cần authentication
- * (Chỉ dùng cho development/testing)
- */
+//Cho phép tất cả endpoints hoạt động mà không cần authentication
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -19,10 +15,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            );
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll());
         return http.build();
     }
 
@@ -31,4 +26,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
-
