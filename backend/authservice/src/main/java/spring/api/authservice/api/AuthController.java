@@ -25,8 +25,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
-            AuthResponse response = authService.register(request);
-            return ResponseEntity.ok(response);
+            authService.register(request);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                    .body(Map.of("status", "success", "message", "Đăng ký tài khoản thành công!"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
