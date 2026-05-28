@@ -81,7 +81,7 @@ public class AuthController {
     }
     
     // Forgot password endpoints
-    @PostMapping("/forgot-password/request")
+    @PostMapping({"/forgot-password", "/forgot-password/request"})
     public ResponseEntity<?> requestPasswordReset(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
@@ -117,7 +117,7 @@ public class AuthController {
         }
     }
     
-    @PostMapping("/forgot-password/reset")
+    @PostMapping({"/reset-password", "/forgot-password/reset"})
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         try {
             passwordResetService.resetPassword(request.email(), request.token(), request.newPassword());
