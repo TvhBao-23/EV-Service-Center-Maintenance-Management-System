@@ -20,7 +20,7 @@ Hệ thống sử dụng cơ chế bảo mật **Bearer Token (JWT)** qua API Ga
 * **Body (JSON):**
 ```json
 {
-    "username": "baotvh_test",
+    "email": "baotvh3481@ut.edu.vn",
     "password": "SecurePassword123!"
 }
 ```
