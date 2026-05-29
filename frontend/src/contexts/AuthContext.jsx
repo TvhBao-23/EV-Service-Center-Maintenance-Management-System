@@ -239,8 +239,8 @@ export function AuthProvider({ children }) {
       })
       
       if (response.status === 'success' || response.token) {
-        console.log('🔵 REGISTER - Success! Logging in automatically...')
-        return await login(userData.email, userData.password)
+        console.log('🔵 REGISTER - Success! Returning success response to client...')
+        return { success: true, message: response.message || 'Đăng ký tài khoản thành công!' }
       }
       
       console.error('❌ REGISTER FAILED - No token or success status received')
@@ -285,8 +285,8 @@ export function AuthProvider({ children }) {
       }
       
       if (data.status === 'success' || (data.token && data.user)) {
-        console.log('🟢 STAFF REGISTER - Success! Logging in automatically...')
-        return await loginStaff(userData.email, userData.password)
+        console.log('🟢 STAFF REGISTER - Success! Returning success response to client...')
+        return { success: true, message: data.message || 'Đăng ký nhân viên thành công!' }
       }
       
       console.error('❌ STAFF REGISTER FAILED - No token or success status received')

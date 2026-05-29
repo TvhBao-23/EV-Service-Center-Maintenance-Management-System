@@ -16,11 +16,13 @@ function Register() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-
+  const [success, setSuccess] = useState('')
+ 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    setSuccess('')
     
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -46,17 +48,10 @@ function Register() {
         : await register(userData)
       
       if (result.success) {
-        // Redirect by role
-        const userRole = result.user.role || 'customer'
-        if (userRole === 'admin') {
-          navigate('/admin')
-        } else if (userRole === 'technician') {
-          navigate('/technician')
-        } else if (userRole === 'staff') {
-          navigate('/staff')
-        } else {
-          navigate('/vehicles')
-        }
+        setSuccess('Đăng ký tài khoản thành công! Đang chuyển hướng đến trang đăng nhập...')
+        setTimeout(() => {
+          navigate('/login')
+        }, 2000)
       } else {
         setError(result.error || 'Có lỗi xảy ra khi đăng ký')
       }
@@ -182,6 +177,12 @@ function Register() {
             {error && (
               <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">
+                {success}
               </div>
             )}
 
