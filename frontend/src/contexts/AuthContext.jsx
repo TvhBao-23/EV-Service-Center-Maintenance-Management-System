@@ -233,49 +233,17 @@ export function AuthProvider({ children }) {
       const response = await authAPI.register(userData)
       
       console.log('🔵 REGISTER - Response received:', { 
+        status: response.status,
         hasToken: !!response.token,
         email: userData.email 
       })
       
-      if (response.token) {
-        // STEP 3: Store the new token FIRST and WAIT
-        localStorage.setItem('authToken', response.token)
-        console.log('🔵 REGISTER - Token stored, waiting 100ms...')
-        
-        // Small delay to ensure localStorage is flushed
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        console.log('🔵 REGISTER - Fetching profile with new token...')
-        
-        // STEP 4: Get user profile after registration with NEW token
-        const profile = await customerAPI.getProfile()
-        
-        console.log('🔵 REGISTER - Profile received:', {
-          userId: profile.user_id,
-          email: profile.email,
-          fullName: profile.full_name
-        })
-        
-        const userForContext = {
-          id: profile.user_id,
-          fullName: profile.full_name,
-          email: profile.email,
-          phone: profile.phone,
-          role: profile.role,
-          customerId: profile.customer_id,
-          address: profile.address
-        }
-        
-        // STEP 5: Set user in context and localStorage
-        setUser(userForContext)
-        localStorage.setItem('user', JSON.stringify(userForContext))
-        
-        console.log('✅ REGISTER SUCCESS - User data saved:', userForContext)
-        
-        return { success: true, user: userForContext }
+      if (response.status === 'success' || response.token) {
+        console.log('🔵 REGISTER - Success! Returning success response to client...')
+        return { success: true, message: response.message || 'Đăng ký tài khoản thành công!' }
       }
       
-      console.error('❌ REGISTER FAILED - No token received')
+      console.error('❌ REGISTER FAILED - No token or success status received')
       return { success: false, error: 'Đăng ký thất bại' }
     } catch (error) {
       console.error('❌ REGISTER ERROR:', error)
@@ -306,39 +274,22 @@ export function AuthProvider({ children }) {
       const data = await response.json()
       
       console.log('🟢 STAFF REGISTER - Response received:', { 
+        status: data.status,
         hasToken: !!data.token,
-        hasUser: !!data.user,
-        email: data.user?.email,
-        role: data.user?.role
+        email: userData.email,
+        role: userData.role
       })
       
       if (!response.ok) {
         throw new Error(data.error || 'Đăng ký thất bại')
       }
       
-      if (data.token && data.user) {
-        // STEP 3: Store token and user data
-        localStorage.setItem('authToken', data.token)
-        
-        const userData = {
-          id: data.user.userId,
-          fullName: data.user.fullName,
-          email: data.user.email,
-          phone: data.user.phone,
-          role: data.user.role,
-          isStaff: true,
-          isActive: true
-        }
-        
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
-        
-        console.log('✅ STAFF REGISTER SUCCESS - User data saved:', userData)
-        
-        return { success: true, user: userData }
+      if (data.status === 'success' || (data.token && data.user)) {
+        console.log('🟢 STAFF REGISTER - Success! Returning success response to client...')
+        return { success: true, message: data.message || 'Đăng ký nhân viên thành công!' }
       }
       
-      console.error('❌ STAFF REGISTER FAILED - No token received')
+      console.error('❌ STAFF REGISTER FAILED - No token or success status received')
       return { success: false, error: 'Đăng ký thất bại' }
     } catch (error) {
       console.error('❌ STAFF REGISTER ERROR:', error)

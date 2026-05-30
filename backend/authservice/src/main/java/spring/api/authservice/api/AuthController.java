@@ -25,8 +25,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
-            AuthResponse response = authService.register(request);
-            return ResponseEntity.ok(response);
+            authService.register(request);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                    .body(Map.of("status", "success", "message", "Đăng ký tài khoản thành công!"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
@@ -34,7 +35,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
             AuthResponse response = authService.login(request);
             return ResponseEntity.ok(response);
@@ -80,7 +81,7 @@ public class AuthController {
     }
     
     // Forgot password endpoints
-    @PostMapping("/forgot-password/request")
+    @PostMapping({"/forgot-password", "/forgot-password/request"})
     public ResponseEntity<?> requestPasswordReset(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
@@ -116,7 +117,7 @@ public class AuthController {
         }
     }
     
-    @PostMapping("/forgot-password/reset")
+    @PostMapping({"/reset-password", "/forgot-password/reset"})
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         try {
             passwordResetService.resetPassword(request.email(), request.token(), request.newPassword());

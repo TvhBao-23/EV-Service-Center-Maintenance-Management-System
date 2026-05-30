@@ -1,5 +1,6 @@
 package spring.api.authservice.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,8 +16,10 @@ public record RegisterRequest(
         String password,
 
         @NotBlank(message = "Họ tên không được để trống")
+        @JsonAlias({"fullName", "name", "full_name", "hovaten"})
         String fullName,
 
+        @JsonAlias({"phone", "phoneNumber", "phone_number", "sdt"})
         String phone,
 
         UserRole role

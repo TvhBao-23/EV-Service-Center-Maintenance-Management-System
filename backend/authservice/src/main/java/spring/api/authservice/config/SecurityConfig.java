@@ -51,8 +51,10 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/health").permitAll()
-                .requestMatchers("/api/auth/forgot-password/**").permitAll()
+                .requestMatchers("/api/auth/forgot-password/**", "/api/auth/forgot-password").permitAll()
+                .requestMatchers("/api/auth/reset-password/**", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/health").permitAll()
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
