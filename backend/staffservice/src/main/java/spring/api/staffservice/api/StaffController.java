@@ -670,10 +670,29 @@ public class StaffController {
     }
 
     @GetMapping("/checklists/{id}")
-    public ResponseEntity<Checklist> getChecklist(@PathVariable Long id) {
-        Checklist checklist = checklistRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy checklist"));
-        return ResponseEntity.ok(checklist);
+    public ResponseEntity<?> getChecklist(@PathVariable String id) {
+        try {
+            Checklist checklist = null;
+            try {
+                Long checklistId = Long.valueOf(id);
+                checklist = checklistRepository.findById(checklistId).orElse(null);
+            } catch (NumberFormatException e) {
+                ServiceReceipt receipt = serviceReceiptRepository.findByReceiptNumber(id).orElse(null);
+                if (receipt != null) {
+                    Assignment assignment = assignmentRepository.findByAppointmentId(receipt.getAppointmentId()).orElse(null);
+                    if (assignment != null) {
+                        checklist = checklistRepository.findByAssignmentId(assignment.getAssignmentId()).orElse(null);
+                    }
+                }
+            }
+
+            if (checklist == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Không tìm thấy checklist tương ứng với ID/Mã: " + id));
+            }
+            return ResponseEntity.ok(checklist);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Lỗi: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/checklists/assignment/{assignmentId}")
@@ -688,42 +707,122 @@ public class StaffController {
 
     @PutMapping("/checklists/{id}")
     public ResponseEntity<?> updateChecklist(
-            @PathVariable Long id,
-            @RequestBody Checklist updates) {
+            @PathVariable String id,
+            @RequestBody Map<String, Object> request) {
 
-        Checklist checklist = checklistRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy checklist"));
+        try {
+            Checklist checklist = null;
+            Long assignmentId = null;
+            Long vehicleId = null;
+            Long technicianId = null;
 
-        // Update fields
-        if (updates.getBatteryHealth() != null)
-            checklist.setBatteryHealth(updates.getBatteryHealth());
-        if (updates.getBatteryVoltage() != null)
-            checklist.setBatteryVoltage(updates.getBatteryVoltage());
-        if (updates.getBatteryTemperature() != null)
-            checklist.setBatteryTemperature(updates.getBatteryTemperature());
-        if (updates.getBrakeSystem() != null)
-            checklist.setBrakeSystem(updates.getBrakeSystem());
-        if (updates.getTireCondition() != null)
-            checklist.setTireCondition(updates.getTireCondition());
-        if (updates.getTirePressure() != null)
-            checklist.setTirePressure(updates.getTirePressure());
-        if (updates.getLightsStatus() != null)
-            checklist.setLightsStatus(updates.getLightsStatus());
-        if (updates.getCoolingSystem() != null)
-            checklist.setCoolingSystem(updates.getCoolingSystem());
-        if (updates.getMotorCondition() != null)
-            checklist.setMotorCondition(updates.getMotorCondition());
-        if (updates.getChargingPort() != null)
-            checklist.setChargingPort(updates.getChargingPort());
-        if (updates.getSoftwareVersion() != null)
-            checklist.setSoftwareVersion(updates.getSoftwareVersion());
-        if (updates.getOverallStatus() != null)
-            checklist.setOverallStatus(updates.getOverallStatus());
-        if (updates.getNotes() != null)
-            checklist.setNotes(updates.getNotes());
+            // 1. Try parsing id as a number
+            try {
+                Long checklistId = Long.valueOf(id);
+                checklist = checklistRepository.findById(checklistId).orElse(null);
+                
+                if (checklist == null) {
+                    // Maybe it's a numeric receipt_id
+                    ServiceReceipt receipt = serviceReceiptRepository.findById(checklistId).orElse(null);
+                    if (receipt != null) {
+                        vehicleId = receipt.getVehicleId();
+                        Assignment assignment = assignmentRepository.findByAppointmentId(receipt.getAppointmentId()).orElse(null);
+                        if (assignment != null) {
+                            assignmentId = assignment.getAssignmentId();
+                            technicianId = assignment.getTechnicianId();
+                            checklist = checklistRepository.findByAssignmentId(assignmentId).orElse(null);
+                        } else {
+                            return ResponseEntity.badRequest().body(Map.of("error", "Lịch hẹn liên quan chưa được phân công kỹ thuật viên"));
+                        }
+                    }
+                }
+            } catch (NumberFormatException e) {
+                // 2. If not a number, treat it as receiptNumber (e.g. "SR-...")
+                ServiceReceipt receipt = serviceReceiptRepository.findByReceiptNumber(id).orElse(null);
+                if (receipt != null) {
+                    vehicleId = receipt.getVehicleId();
+                    Assignment assignment = assignmentRepository.findByAppointmentId(receipt.getAppointmentId()).orElse(null);
+                    if (assignment != null) {
+                        assignmentId = assignment.getAssignmentId();
+                        technicianId = assignment.getTechnicianId();
+                        checklist = checklistRepository.findByAssignmentId(assignmentId).orElse(null);
+                    } else {
+                        return ResponseEntity.badRequest().body(Map.of("error", "Lịch hẹn liên quan chưa được phân công kỹ thuật viên"));
+                    }
+                }
+            }
 
-        Checklist saved = checklistRepository.save(checklist);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật checklist thành công", "checklist", saved));
+            // 3. If checklist still not found, we create a new one if we have assignment info
+            if (checklist == null) {
+                if (assignmentId != null) {
+                    checklist = new Checklist();
+                    checklist.setAssignmentId(assignmentId);
+                    checklist.setVehicleId(vehicleId);
+                    checklist.setTechnicianId(technicianId);
+                } else {
+                    return ResponseEntity.status(404).body(Map.of("error", "Không tìm thấy checklist hoặc phiếu tiếp nhận tương ứng với ID/Mã: " + id));
+                }
+            }
+
+            // 4. Map the request fields to the checklist entity
+            mapChecklistFields(request, checklist);
+
+            Checklist saved = checklistRepository.save(checklist);
+            return ResponseEntity.ok(Map.of("message", "Cập nhật checklist thành công", "checklist", saved));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Lỗi máy chủ nội bộ: " + e.getMessage()
+            ));
+        }
+    }
+
+    private void mapChecklistFields(Map<String, Object> request, Checklist checklist) {
+        if (request.containsKey("batterySoh") && request.get("batterySoh") != null) {
+            checklist.setBatteryHealth(request.get("batterySoh").toString());
+        } else if (request.containsKey("batteryHealth") && request.get("batteryHealth") != null) {
+            checklist.setBatteryHealth((String) request.get("batteryHealth"));
+        } else if (request.containsKey("battery_health") && request.get("battery_health") != null) {
+            checklist.setBatteryHealth((String) request.get("battery_health"));
+        }
+
+        if (request.containsKey("voltage") && request.get("voltage") != null) {
+            checklist.setBatteryVoltage(new java.math.BigDecimal(request.get("voltage").toString()));
+        } else if (request.containsKey("batteryVoltage") && request.get("batteryVoltage") != null) {
+            checklist.setBatteryVoltage(new java.math.BigDecimal(request.get("batteryVoltage").toString()));
+        } else if (request.containsKey("battery_voltage") && request.get("battery_voltage") != null) {
+            checklist.setBatteryVoltage(new java.math.BigDecimal(request.get("battery_voltage").toString()));
+        }
+
+        if (request.containsKey("batteryTemperature") && request.get("batteryTemperature") != null) {
+            checklist.setBatteryTemperature(new java.math.BigDecimal(request.get("batteryTemperature").toString()));
+        } else if (request.containsKey("battery_temperature") && request.get("battery_temperature") != null) {
+            checklist.setBatteryTemperature(new java.math.BigDecimal(request.get("battery_temperature").toString()));
+        }
+
+        if (request.containsKey("brakeCondition") && request.get("brakeCondition") != null) {
+            checklist.setBrakeSystem((String) request.get("brakeCondition"));
+        } else if (request.containsKey("brakeSystem") && request.get("brakeSystem") != null) {
+            checklist.setBrakeSystem((String) request.get("brakeSystem"));
+        } else if (request.containsKey("brake_system") && request.get("brake_system") != null) {
+            checklist.setBrakeSystem((String) request.get("brake_system"));
+        }
+
+        if (request.containsKey("tireCondition") && request.get("tireCondition") != null) {
+            checklist.setTireCondition((String) request.get("tireCondition"));
+        } else if (request.containsKey("tire_condition") && request.get("tire_condition") != null) {
+            checklist.setTireCondition((String) request.get("tire_condition"));
+        }
+
+        if (request.containsKey("tirePressure") && request.get("tirePressure") != null) {
+            checklist.setTirePressure((String) request.get("tirePressure"));
+        } else if (request.containsKey("tire_pressure") && request.get("tire_pressure") != null) {
+            checklist.setTirePressure((String) request.get("tire_pressure"));
+        }
+
+        if (request.containsKey("notes") && request.get("notes") != null) {
+            checklist.setNotes((String) request.get("notes"));
+        }
     }
 
     // =====================================================

@@ -47,6 +47,14 @@ spring:
           filters:
             # Note: No StripPrefix needed as controller already has /api/admin mapping
 
+        # Route checklists from maintenance to staffservice (where the checklists table is managed)
+        - id: maintenance-checklists-route
+          uri: http://staffservice:8083
+          predicates:
+            - Path=/api/maintenance/checklists/**
+          filters:
+            - RewritePath=/api/maintenance/checklists/(?<segment>.*), /api/staff/checklists/${segment}
+
         # Maintenance Service
         - id: maintenance-service
           uri: http://maintenanceservice:8080
