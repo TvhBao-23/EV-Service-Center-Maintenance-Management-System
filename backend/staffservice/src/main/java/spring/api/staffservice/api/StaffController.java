@@ -389,47 +389,114 @@ public class StaffController {
             @RequestBody Map<String, Object> request,
             Authentication authentication) {
 
-        Long appointmentId = Long.valueOf(request.get("appointment_id").toString());
-        Long technicianId = Long.valueOf(request.get("technician_id").toString());
+        try {
+            if (request == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Dữ liệu yêu cầu không hợp lệ"));
+            }
 
-        // Check if appointment exists
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch hẹn"));
+            Long appointmentId = null;
+            Long technicianId = null;
 
-        // Check if technician exists
-        User technician = userRepository.findById(technicianId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy kỹ thuật viên"));
+            // Extract technicianId
+            if (request.get("technician_id") != null) {
+                try {
+                    technicianId = Long.valueOf(request.get("technician_id").toString());
+                } catch (NumberFormatException e) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "ID kỹ thuật viên không hợp lệ"));
+                }
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu ID kỹ thuật viên (technician_id)"));
+            }
 
-        if (!technician.getRole().equals(UserRole.technician)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "User không phải kỹ thuật viên"));
+            // Check if technician exists
+            User technician = userRepository.findById(technicianId)
+                    .orElse(null);
+            if (technician == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy kỹ thuật viên với ID = " + technicianId));
+            }
+
+            if (!UserRole.technician.equals(technician.getRole())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User không phải kỹ thuật viên"));
+            }
+
+            // Extract appointmentId or receipt_id
+            if (request.get("appointment_id") != null) {
+                try {
+                    appointmentId = Long.valueOf(request.get("appointment_id").toString());
+                } catch (NumberFormatException e) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "ID lịch hẹn (appointment_id) không hợp lệ"));
+                }
+            } else if (request.get("receipt_id") != null) {
+                String receiptIdStr = request.get("receipt_id").toString();
+                ServiceReceipt receipt = null;
+                try {
+                    Long receiptIdLong = Long.valueOf(receiptIdStr);
+                    receipt = serviceReceiptRepository.findById(receiptIdLong).orElse(null);
+                } catch (NumberFormatException e) {
+                    // Not a number, so it must be receipt_number (e.g. "SR-...")
+                    receipt = serviceReceiptRepository.findByReceiptNumber(receiptIdStr).orElse(null);
+                }
+
+                if (receipt == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy phiếu tiếp nhận với mã hoặc ID: " + receiptIdStr));
+                }
+                appointmentId = receipt.getAppointmentId();
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu thông tin lịch hẹn hoặc phiếu tiếp nhận (appointment_id hoặc receipt_id)"));
+            }
+
+            // Check if appointment exists
+            Appointment appointment = appointmentRepository.findById(appointmentId)
+                    .orElse(null);
+            if (appointment == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy lịch hẹn với ID = " + appointmentId));
+            }
+
+            // Check if already assigned
+            if (assignmentRepository.findByAppointmentId(appointmentId).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Lịch hẹn đã được phân công"));
+            }
+
+            // Get current staff user
+            User currentUser = (User) authentication.getPrincipal();
+
+            Assignment assignment = new Assignment();
+            assignment.setAppointmentId(appointmentId);
+            assignment.setTechnicianId(technicianId);
+            assignment.setAssignedBy(currentUser.getUserId());
+            assignment.setStatus("assigned");
+            
+            // Set assignedAt from assignment_date if provided
+            if (request.get("assignment_date") != null) {
+                try {
+                    LocalDateTime assignmentDate = LocalDateTime.parse(request.get("assignment_date").toString());
+                    assignment.setAssignedAt(assignmentDate);
+                } catch (Exception e) {
+                    assignment.setAssignedAt(LocalDateTime.now());
+                }
+            } else {
+                assignment.setAssignedAt(LocalDateTime.now());
+            }
+
+            if (request.containsKey("notes") && request.get("notes") != null) {
+                assignment.setNotes((String) request.get("notes"));
+            }
+
+            Assignment saved = assignmentRepository.save(assignment);
+
+            // Update appointment status
+            appointment.setStatus("confirmed");
+            appointmentRepository.save(appointment);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Phân công thành công",
+                    "assignment", saved));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Lỗi máy chủ nội bộ: " + e.getMessage()
+            ));
         }
-
-        // Check if already assigned
-        if (assignmentRepository.findByAppointmentId(appointmentId).isPresent()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Lịch hẹn đã được phân công"));
-        }
-
-        // Get current staff user
-        User currentUser = (User) authentication.getPrincipal();
-
-        Assignment assignment = new Assignment();
-        assignment.setAppointmentId(appointmentId);
-        assignment.setTechnicianId(technicianId);
-        assignment.setAssignedBy(currentUser.getUserId());
-        assignment.setStatus("assigned");
-        if (request.containsKey("notes")) {
-            assignment.setNotes((String) request.get("notes"));
-        }
-
-        Assignment saved = assignmentRepository.save(assignment);
-
-        // Update appointment status
-        appointment.setStatus("confirmed");
-        appointmentRepository.save(appointment);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Phân công thành công",
-                "assignment", saved));
     }
 
     @GetMapping("/assignments")

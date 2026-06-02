@@ -55,20 +55,7 @@ Phân hệ Auth & Security chịu trách nhiệm quản lý danh tính người 
 * **Người thực hiện (Actor):** Người dùng đã nhận được OTP
 * **Luồng xử lý nghiệp vụ chi tiết (Kiểm thử hộp trắng):**
 
-```mermaid
-graph TD
-    A([Bắt đầu: Nhập Email, OTP, Mật khẩu mới]) --> B{Tìm OTP khớp trong DB?}
-    B -- Không tìm thấy --> C[Trả về lỗi: Mã OTP không hợp lệ]
-    B -- Tìm thấy --> D{Kiểm tra used == true?}
-    D -- Đã sử dụng --> E[Trả về lỗi: Mã OTP đã được sử dụng trước đó]
-    D -- Chưa dùng --> F{Kiểm tra expires_at < hiện tại?}
-    F -- Đã quá hạn --> G[Trả về lỗi: Mã OTP đã hết hạn sử dụng]
-    F -- Còn hạn --> H[Băm mật khẩu mới bằng BCrypt]
-    H --> I[Cập nhật mật khẩu mới vào bảng users]
-    I --> J[Đánh dấu used = true trong bảng OTP]
-    J --> K[Trả về mã 200 OK: Đặt lại mật khẩu thành công]
-    C & E & G --> L([Kết thúc luồng lỗi])
-    K --> M([Kết thúc thành công])
+
 ```
 
 ---
