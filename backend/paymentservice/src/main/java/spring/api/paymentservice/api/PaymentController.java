@@ -28,7 +28,20 @@ public class PaymentController {
         }
 
         User user = (User) auth.getPrincipal();
-        payment.setCustomerId(user.getUserId());
+        
+        Long customerId;
+        if (spring.api.paymentservice.domain.UserRole.admin.equals(user.getRole()) || 
+            spring.api.paymentservice.domain.UserRole.staff.equals(user.getRole())) {
+            // Admin or Staff: get customerId from the appointment itself
+            customerId = paymentRepository.findCustomerIdByAppointmentId(payment.getAppointmentId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lịch hẹn hoặc khách hàng liên quan"));
+        } else {
+            // Customer: get customerId from their own user account
+            customerId = paymentRepository.findCustomerIdByUserId(user.getUserId())
+                    .orElseThrow(() -> new RuntimeException("Tài khoản của bạn chưa được liên kết với hồ sơ Khách hàng"));
+        }
+        
+        payment.setCustomerId(customerId);
 
         Payment created = paymentService.initiatePayment(payment);
 
@@ -76,7 +89,14 @@ public class PaymentController {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch"));
         
         User user = (User) auth.getPrincipal();
-        if (!payment.getCustomerId().equals(user.getUserId())) {
+        if (spring.api.paymentservice.domain.UserRole.admin.equals(user.getRole()) || 
+            spring.api.paymentservice.domain.UserRole.staff.equals(user.getRole())) {
+            // Admin or Staff can view any payment
+            return ResponseEntity.ok(payment);
+        }
+        
+        Long customerId = paymentRepository.findCustomerIdByUserId(user.getUserId()).orElse(null);
+        if (customerId == null || !payment.getCustomerId().equals(customerId)) {
             return ResponseEntity.status(403).body(Map.of("error", "Không có quyền truy cập"));
         }
 
@@ -86,7 +106,9 @@ public class PaymentController {
     @GetMapping("/my-payments")
     public ResponseEntity<?> getMyPayments(Authentication auth) {
         User user = (User) auth.getPrincipal();
-        List<Payment> payments = paymentRepository.findByCustomerIdOrderByCreatedAtDesc(user.getUserId());
+        Long customerId = paymentRepository.findCustomerIdByUserId(user.getUserId())
+                .orElseThrow(() -> new RuntimeException("Tài khoản của bạn chưa được liên kết với hồ sơ Khách hàng"));
+        List<Payment> payments = paymentRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
         return ResponseEntity.ok(payments);
     }
 
