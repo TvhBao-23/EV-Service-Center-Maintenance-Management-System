@@ -1,8 +1,31 @@
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
+import { chatAPI } from '../lib/api.js'
 
 function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
   let role = 'customer'
   try { role = JSON.parse(localStorage.getItem('user')||'{}')?.role || 'customer' } catch {}
+  
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await chatAPI.getUnreadCount()
+        setUnreadChatCount(res.unreadCount || 0)
+      } catch (err) {
+        console.warn('Failed to fetch unread chat count in sidebar:', err)
+      }
+    }
+
+    fetchUnreadCount()
+    const interval = setInterval(fetchUnreadCount, 10000) // Poll every 10 seconds
+    return () => clearInterval(interval)
+  }, [])
+
   const baseItems = [
     { to: '/vehicles', label: 'Xe của tôi', icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13l2-2m0 0l7-7 7 7M5 11v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
@@ -19,6 +42,9 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
     { to: '/payment', label: 'Thanh toán', icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
     )},
+    { to: '/chat', label: 'Hỗ trợ', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    )},
   ]
   const techItems = [
     { to: '/technician', label: 'Kỹ thuật viên', icon: (
@@ -28,6 +54,9 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
   const staffItems = [
     { to: '/staff', label: 'Nhân viên', icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5zm0 2c-4 0-7 2-7 4v3h14v-3c0-2-3-4-7-4z"/></svg>
+    )},
+    { to: '/chat', label: 'Hỗ trợ', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
     )},
   ]
   const adminItems = [
@@ -57,20 +86,35 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) => `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <span className="text-gray-500">{item.icon}</span>
-                  {!collapsed && item.label}
-                </NavLink>
-              </li>
-            ))}
+            {navItems.map((item) => {
+              const isChat = item.to === '/chat'
+              return (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-md text-sm font-medium transition-colors relative ${
+                      isActive ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <span className="text-gray-500">{item.icon}</span>
+                    {!collapsed && (
+                      <span className="flex-1 flex justify-between items-center">
+                        <span>{item.label}</span>
+                        {isChat && unreadChatCount > 0 && (
+                          <span className="ml-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                            {unreadChatCount}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {collapsed && isChat && unreadChatCount > 0 && (
+                      <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+                    )}
+                  </NavLink>
+                </li>
+              )
+            })}
           </ul>
         </nav>
         <div className={`p-3 border-t text-xs text-gray-500 ${collapsed ? 'text-center' : ''}`}>© 2025</div>
@@ -94,20 +138,30 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
             </div>
             <nav className="flex-1 overflow-y-auto py-4">
               <ul className="space-y-1 px-3">
-                {navItems.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        isActive ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                      onClick={onClose}
-                    >
-                      <span className="text-gray-500">{item.icon}</span>
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
+                {navItems.map((item) => {
+                  const isChat = item.to === '/chat'
+                  return (
+                    <li key={item.to}>
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative ${
+                          isActive ? 'bg-green-50 text-green-700' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        onClick={onClose}
+                      >
+                        <span className="text-gray-500">{item.icon}</span>
+                        <span className="flex-1 flex justify-between items-center">
+                          <span>{item.label}</span>
+                          {isChat && unreadChatCount > 0 && (
+                            <span className="ml-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                              {unreadChatCount}
+                            </span>
+                          )}
+                        </span>
+                      </NavLink>
+                    </li>
+                  )
+                })}
               </ul>
             </nav>
           </aside>
@@ -118,5 +172,3 @@ function Sidebar({ collapsed = false, mobileOpen = false, onClose }) {
 }
 
 export default Sidebar
-
-

@@ -13,6 +13,7 @@ import Booking from './pages/Booking.jsx'
 import Payment from './pages/Payment.jsx'
 import PersonalProfile from './pages/PersonalProfile.jsx'
 import Subscriptions from './pages/Subscriptions.jsx'
+import Chat from './pages/Chat.jsx'
 import Technician from './pages/Technician.jsx'
 import Staff from './pages/Staff.jsx'
 import Admin from './pages/Admin.jsx'
@@ -42,6 +43,7 @@ function App() {
           <Route path="/payment" element={<Payment />} />
           <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="/personal-profile" element={<PersonalProfile />} />
+          <Route path="/chat" element={<Chat />} />
         </Route>
         
         <Route path="/technician" element={<Technician />} />

@@ -27,7 +27,6 @@ public class StaffController {
     private final ServiceReceiptRepository serviceReceiptRepository;
     private final ChecklistRepository checklistRepository;
     private final MaintenanceReportRepository maintenanceReportRepository;
-    private final spring.api.staffservice.service.MessageService messageService;
 
     @GetMapping("/appointments")
     public ResponseEntity<List<Appointment>> getAllAppointments() {
@@ -1016,72 +1015,8 @@ public class StaffController {
         return ResponseEntity.ok(Map.of("message", "Phê duyệt báo cáo thành công"));
     }
 
-    // =====================================================
-    // CHAT & MESSAGING
-    // =====================================================
+    // Chat endpoints have been moved to MessageController
 
-    @PostMapping("/messages/send")
-    public ResponseEntity<?> sendMessage(
-            @RequestBody spring.api.staffservice.dto.SendMessageRequest request,
-            Authentication authentication) {
-
-        User currentUser = (User) authentication.getPrincipal();
-        spring.api.staffservice.dto.MessageDTO message = messageService.sendMessage(currentUser.getUserId(), request);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Tin nhắn đã được gửi",
-                "data", message));
-    }
-
-    @GetMapping("/messages/conversation/{userId}")
-    public ResponseEntity<?> getConversation(
-            @PathVariable Long userId,
-            Authentication authentication) {
-
-        User currentUser = (User) authentication.getPrincipal();
-        List<spring.api.staffservice.dto.MessageDTO> messages = messageService.getConversation(currentUser.getUserId(),
-                userId);
-
-        return ResponseEntity.ok(Map.of(
-                "messages", messages,
-                "count", messages.size()));
-    }
-
-    @GetMapping("/messages/unread")
-    public ResponseEntity<?> getUnreadMessages(Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        List<spring.api.staffservice.dto.MessageDTO> messages = messageService
-                .getUnreadMessages(currentUser.getUserId());
-
-        return ResponseEntity.ok(Map.of(
-                "messages", messages,
-                "count", messages.size()));
-    }
-
-    @GetMapping("/messages/unread/count")
-    public ResponseEntity<?> getUnreadCount(Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        Long count = messageService.getUnreadCount(currentUser.getUserId());
-
-        return ResponseEntity.ok(Map.of("count", count));
-    }
-
-    @PutMapping("/messages/{messageId}/read")
-    public ResponseEntity<?> markMessageAsRead(@PathVariable Long messageId) {
-        messageService.markAsRead(messageId);
-        return ResponseEntity.ok(Map.of("message", "Đã đánh dấu là đã đọc"));
-    }
-
-    @PutMapping("/messages/conversation/{userId}/read")
-    public ResponseEntity<?> markConversationAsRead(
-            @PathVariable Long userId,
-            Authentication authentication) {
-
-        User currentUser = (User) authentication.getPrincipal();
-        messageService.markConversationAsRead(currentUser.getUserId(), userId);
-
-        return ResponseEntity.ok(Map.of("message", "Đã đánh dấu cuộc hội thoại là đã đọc"));
-    }
 
     // Get customer details with full information
     @GetMapping("/customers/{customerId}/details")

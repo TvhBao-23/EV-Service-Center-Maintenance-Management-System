@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import { chatAPI } from '../lib/api.js'
 
 /**
  * Unified Navigation Bar for Admin, Staff, and Technician roles
@@ -12,6 +13,25 @@ function RoleBasedNav() {
   const { user, logout } = useAuth()
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token || !user || (user.role !== 'staff' && user.role !== 'admin')) return
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await chatAPI.getUnreadCount()
+        setUnreadChatCount(res.unreadCount || 0)
+      } catch (err) {
+        console.warn('Failed to fetch unread chat count in nav:', err)
+      }
+    }
+
+    fetchUnreadCount()
+    const interval = setInterval(fetchUnreadCount, 10000) // Poll every 10 seconds
+    return () => clearInterval(interval)
+  }, [user])
 
   const displayName = user?.fullName || user?.email || 'User'
   const initials = (displayName || '').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
@@ -160,6 +180,24 @@ function RoleBasedNav() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Chat Button with Badge */}
+        {(userRole === 'staff' || userRole === 'admin') && (
+          <button
+            onClick={() => navigate('/chat')}
+            className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors mr-1"
+            title="Trò chuyện hỗ trợ khách hàng"
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {unreadChatCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-sm">
+                {unreadChatCount}
+              </span>
+            )}
+          </button>
         )}
 
         {/* Profile Dropdown */}

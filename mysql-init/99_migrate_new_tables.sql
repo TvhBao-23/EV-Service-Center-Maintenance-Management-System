@@ -480,6 +480,35 @@ WHERE u.role IN ('staff', 'technician', 'admin')
 AND u.user_id NOT IN (SELECT user_id FROM staffs WHERE user_id IS NOT NULL);
 
 -- =====================================================
+-- 15. Tạo bảng PART_TRANSACTIONS (bảng mới - bổ sung cho parts)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS part_transactions (
+    txn_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    part_id BIGINT NOT NULL,
+    type ENUM('IMPORT', 'EXPORT', 'ADJUSTMENT') NOT NULL,
+    quantity INT NOT NULL,
+    related_request_id BIGINT,
+    related_order_id BIGINT,
+    note TEXT,
+    created_by_staff_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (part_id) REFERENCES parts(part_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create indexes for part_transactions
+SET @idx_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = 'ev_service_center' AND table_name = 'part_transactions' AND index_name = 'idx_part_transactions_part_id');
+SET @query = IF(@idx_exists = 0, 'CREATE INDEX idx_part_transactions_part_id ON part_transactions(part_id)', 'SELECT \'Index exists\'');
+PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = 'ev_service_center' AND table_name = 'part_transactions' AND index_name = 'idx_part_transactions_type');
+SET @query = IF(@idx_exists = 0, 'CREATE INDEX idx_part_transactions_type ON part_transactions(type)', 'SELECT \'Index exists\'');
+PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = 'ev_service_center' AND table_name = 'part_transactions' AND index_name = 'idx_part_transactions_created_at');
+SET @query = IF(@idx_exists = 0, 'CREATE INDEX idx_part_transactions_created_at ON part_transactions(created_at)', 'SELECT \'Index exists\'');
+PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- =====================================================
 -- HOÀN TẤT MIGRATION
 -- =====================================================
 SELECT 'Migration completed successfully!' AS status;

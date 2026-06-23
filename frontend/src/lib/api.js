@@ -899,11 +899,50 @@ export const maintenanceAPI = {
   }
 }
 
+// Chat / Messages API
+export const chatAPI = {
+  // Gửi tin nhắn mới
+  sendMessage: (recipientId, messageText, subject = 'Chăm sóc khách hàng', parentMessageId = null) => {
+    return apiCall(`${API_BASE_URLS.staff}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ recipientId, messageText, subject, parentMessageId })
+    })
+  },
+
+  // Lấy cuộc hội thoại giữa user hiện tại và user khác
+  getConversation: (otherUserId) => {
+    return apiCall(`${API_BASE_URLS.staff}/messages/conversation/${otherUserId}`)
+  },
+
+  // Lấy danh sách các cuộc hội thoại của user hiện tại
+  getConversations: () => {
+    return apiCall(`${API_BASE_URLS.staff}/messages/conversations`)
+  },
+
+  // Đánh dấu toàn bộ hội thoại là đã đọc
+  markConversationAsRead: (otherUserId) => {
+    return apiCall(`${API_BASE_URLS.staff}/messages/mark-conversation-read/${otherUserId}`, {
+      method: 'PUT'
+    })
+  },
+
+  // Đếm số tin nhắn chưa đọc
+  getUnreadCount: () => {
+    return apiCall(`${API_BASE_URLS.staff}/messages/unread-count`)
+  },
+
+  // Lấy danh sách nhân viên để khách hàng bắt đầu chat
+  getStaffList: () => {
+    return apiCall(`${API_BASE_URLS.staff}/messages/staff-list`)
+  }
+}
+
 export default {
   authAPI,
   customerAPI,
   paymentAPI,
   staffAPI,
   maintenanceAPI,
-  partsInventoryAPI
+  partsInventoryAPI,
+  chatAPI
 }
