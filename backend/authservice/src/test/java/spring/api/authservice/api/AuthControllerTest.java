@@ -20,6 +20,7 @@ import spring.api.authservice.repository.UserRepository;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AuthController.class)
 @Import(spring.api.authservice.config.SecurityConfig.class)
-public class AuthControllerTest {
+class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -55,7 +56,7 @@ public class AuthControllerTest {
      * REG-01: Đăng ký thành công với Password đúng biên dưới (8 ký tự)
      */
     @Test
-    public void testRegister_REG01_Password8Chars_Created() throws Exception {
+    void testRegister_REG01_Password8Chars_Created() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "12345678", // 8 chars
@@ -78,7 +79,7 @@ public class AuthControllerTest {
      * REG-02: Đăng ký thành công với Password đúng biên trên (16 ký tự)
      */
     @Test
-    public void testRegister_REG02_Password16Chars_Created() throws Exception {
+    void testRegister_REG02_Password16Chars_Created() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "1234567890123456", // 16 chars
@@ -101,7 +102,7 @@ public class AuthControllerTest {
      * REG-03: Thất bại do mật khẩu ngắn hơn biên dưới (7 ký tự)
      */
     @Test
-    public void testRegister_REG03_Password7Chars_BadRequest() throws Exception {
+    void testRegister_REG03_Password7Chars_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "1234567", // 7 chars
@@ -120,7 +121,7 @@ public class AuthControllerTest {
      * REG-04: Thất bại do mật khẩu dài hơn biên trên (17 ký tự)
      */
     @Test
-    public void testRegister_REG04_Password17Chars_BadRequest() throws Exception {
+    void testRegister_REG04_Password17Chars_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "12345678901234567", // 17 chars
@@ -139,7 +140,7 @@ public class AuthControllerTest {
      * REG-05: Thất bại do email sai định dạng (thiếu @ và tên miền)
      */
     @Test
-    public void testRegister_REG05_EmailInvalid_BadRequest() throws Exception {
+    void testRegister_REG05_EmailInvalid_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "invalid-email",
                 "12345678",
@@ -158,7 +159,7 @@ public class AuthControllerTest {
      * REG-06: Thất bại do email để trống (chuỗi rỗng)
      */
     @Test
-    public void testRegister_REG06_EmailEmpty_BadRequest() throws Exception {
+    void testRegister_REG06_EmailEmpty_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "",
                 "12345678",
@@ -177,7 +178,7 @@ public class AuthControllerTest {
      * REG-07: Thất bại do email là null
      */
     @Test
-    public void testRegister_REG07_EmailNull_BadRequest() throws Exception {
+    void testRegister_REG07_EmailNull_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 null,
                 "12345678",
@@ -196,7 +197,7 @@ public class AuthControllerTest {
      * REG-08: Thất bại do họ tên để trống (chuỗi rỗng)
      */
     @Test
-    public void testRegister_REG08_FullNameEmpty_BadRequest() throws Exception {
+    void testRegister_REG08_FullNameEmpty_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "12345678",
@@ -215,7 +216,7 @@ public class AuthControllerTest {
      * REG-09: Thất bại do họ tên là null
      */
     @Test
-    public void testRegister_REG09_FullNameNull_BadRequest() throws Exception {
+    void testRegister_REG09_FullNameNull_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "12345678",
@@ -234,7 +235,7 @@ public class AuthControllerTest {
      * REG-10: Thất bại do trùng lặp tài khoản (email đã được sử dụng)
      */
     @Test
-    public void testRegister_REG10_DuplicateEmail_BadRequest() throws Exception {
+    void testRegister_REG10_DuplicateEmail_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao.test@example.com",
                 "12345678",
@@ -261,7 +262,7 @@ public class AuthControllerTest {
      * Case B8: min- (5 digits - Invalid)
      */
     @Test
-    public void testResetPassword_B8_Otp5Digits_BadRequest() throws Exception {
+    void testResetPassword_B8_Otp5Digits_BadRequest() throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest(
                 "bao.test@example.com",
                 "12345", // 5 digits
@@ -278,7 +279,7 @@ public class AuthControllerTest {
      * Case B9: boundary (6 digits - Valid)
      */
     @Test
-    public void testResetPassword_B9_Otp6Digits_Ok() throws Exception {
+    void testResetPassword_B9_Otp6Digits_Ok() throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest(
                 "bao.test@example.com",
                 "123456", // 6 digits (correct boundary)
@@ -297,7 +298,7 @@ public class AuthControllerTest {
      * Case B10: max+ (7 digits - Invalid)
      */
     @Test
-    public void testResetPassword_B10_Otp7Digits_BadRequest() throws Exception {
+    void testResetPassword_B10_Otp7Digits_BadRequest() throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest(
                 "bao.test@example.com",
                 "1234567", // 7 digits
@@ -314,7 +315,7 @@ public class AuthControllerTest {
      * Case X11: Contains letters (Invalid format)
      */
     @Test
-    public void testResetPassword_X11_OtpContainsLetters_BadRequest() throws Exception {
+    void testResetPassword_X11_OtpContainsLetters_BadRequest() throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest(
                 "bao.test@example.com",
                 "12345A", // Letters instead of digits
@@ -332,7 +333,7 @@ public class AuthControllerTest {
     // =========================================================================
 
     @Test
-    public void testRegister_EmptyFullName_BadRequest() throws Exception {
+    void testRegister_EmptyFullName_BadRequest() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "bao@example.com",
                 "password123",
@@ -355,7 +356,7 @@ public class AuthControllerTest {
      * LOG-01: Đăng nhập thành công bằng Email hợp lệ
      */
     @Test
-    public void testLogin_LOG01_SuccessEmail_Ok() throws Exception {
+    void testLogin_LOG01_SuccessEmail_Ok() throws Exception {
         LoginRequest request = new LoginRequest(
                 "bao.hoai@example.com",
                 "password123"
@@ -374,7 +375,7 @@ public class AuthControllerTest {
      * LOG-02: Đăng nhập thành công bằng Username alias
      */
     @Test
-    public void testLogin_LOG02_SuccessUsernameAlias_Ok() throws Exception {
+    void testLogin_LOG02_SuccessUsernameAlias_Ok() throws Exception {
         String requestJson = "{\"username\":\"bao.hoai@example.com\",\"password\":\"password123\"}";
 
         when(authService.login(any(LoginRequest.class))).thenReturn(new AuthResponse("mocked-jwt-token"));
@@ -390,7 +391,7 @@ public class AuthControllerTest {
      * LOG-03: Đăng nhập thất bại do sai mật khẩu (HTTP 401 Unauthorized)
      */
     @Test
-    public void testLogin_LOG03_WrongPassword_Unauthorized() throws Exception {
+    void testLogin_LOG03_WrongPassword_Unauthorized() throws Exception {
         LoginRequest request = new LoginRequest(
                 "bao.hoai@example.com",
                 "wrong-password"
@@ -410,7 +411,7 @@ public class AuthControllerTest {
      * LOG-04: Đăng nhập thất bại do tài khoản không tồn tại (HTTP 401 Unauthorized)
      */
     @Test
-    public void testLogin_LOG04_UserNotFound_Unauthorized() throws Exception {
+    void testLogin_LOG04_UserNotFound_Unauthorized() throws Exception {
         LoginRequest request = new LoginRequest(
                 "notfound@example.com",
                 "password123"
@@ -430,7 +431,7 @@ public class AuthControllerTest {
      * LOG-05: Đăng nhập thất bại do trường Email bị trống (HTTP 400 Bad Request)
      */
     @Test
-    public void testLogin_LOG05_EmailEmpty_BadRequest() throws Exception {
+    void testLogin_LOG05_EmailEmpty_BadRequest() throws Exception {
         LoginRequest request = new LoginRequest(
                 "",
                 "password123"
@@ -446,7 +447,7 @@ public class AuthControllerTest {
      * LOG-06: Đăng nhập thất bại do trường Mật khẩu bị trống (HTTP 400 Bad Request)
      */
     @Test
-    public void testLogin_LOG06_PasswordEmpty_BadRequest() throws Exception {
+    void testLogin_LOG06_PasswordEmpty_BadRequest() throws Exception {
         LoginRequest request = new LoginRequest(
                 "bao.hoai@example.com",
                 ""
@@ -458,16 +459,46 @@ public class AuthControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // =========================================================================
+    // WHITE-BOX / BVA FORGOT PASSWORD TESTS (FGT-01 to FGT-02)
+    // =========================================================================
+
+    /**
+     * FGT-01: Gửi yêu cầu OTP thành công
+     */
     @Test
-    public void testForgotPassword_ValidRequest_Success() throws Exception {
+    void testForgotPassword_FGT01_Success() throws Exception {
         ForgotPasswordRequest request = new ForgotPasswordRequest(
                 "bao.hoai@example.com"
         );
+
+        doNothing().when(passwordResetService).requestPasswordReset(any(String.class), any(String.class));
 
         mockMvc.perform(post("/api/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Mã xác nhận đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư."));
+    }
+
+    /**
+     * FGT-02: Gửi yêu cầu OTP lỗi do email không tồn tại trong hệ thống
+     */
+    @Test
+    void testForgotPassword_FGT02_EmailNotFound() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest(
+                "notfound@example.com"
+        );
+
+        doThrow(new RuntimeException("Email không tồn tại trong hệ thống"))
+                .when(passwordResetService).requestPasswordReset(any(String.class), any(String.class));
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error").value("Email không tồn tại trong hệ thống"));
     }
 }

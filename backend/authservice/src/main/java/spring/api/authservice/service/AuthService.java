@@ -1,6 +1,7 @@
 package spring.api.authservice.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,6 +21,7 @@ import spring.api.authservice.service.JwtService;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -141,7 +143,7 @@ public class AuthService {
         otpStorage.put(email, otp);
 
         // TODO: Send email with OTP (integrate with email service)
-        System.out.println("OTP for " + email + ": " + otp);
+        log.info("OTP for {}: {}", email, otp);
 
         return otp; // Return for demo, remove in production
     }
