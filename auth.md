@@ -64,6 +64,20 @@ Kiểm thử tại các biên ranh giới về độ dài của chuỗi **Mật 
 *   `boundary` (6 số - hợp lệ): **B9**
 *   `max+` (7 số - không hợp lệ): **B10**
 
+### 2.3. Thiết kế Kiểm thử Hộp trắng (White-box Test Design)
+
+Kiểm thử hộp trắng tập trung vào cấu trúc bên trong của mã nguồn, kiểm tra luồng điều khiển và luồng dữ liệu thông qua các kỹ thuật bao phủ lệnh (Statement Coverage) và bao phủ nhánh (Branch/Decision Coverage) của các lớp Service và Controller.
+
+#### a. Kiểm thử bao phủ nhánh (Branch Coverage) - MessageService
+*   **Nhánh vai trò người gửi (Customer vs Staff):** Kiểm tra phương thức `sendMessage` tự động xác định vai trò người gửi để tạo bản ghi `ChatConversation` với `customerId` và `staffId` chính xác.
+    *   *Kịch bản test:* `testSendMessage_Success` mock vai trò người gửi là `customer` và người nhận là `staff`.
+*   **Nhánh điều kiện đọc tin nhắn (markConversationAsRead):** Kiểm tra bộ lọc chỉ đánh dấu đã đọc đối với các tin nhắn có `recipientId` trùng khớp với `currentUserId`.
+    *   *Kịch bản test:* `testMarkConversationAsRead_Success` gửi danh sách tin nhắn bao gồm tin nhắn của chính mình (không đổi trạng thái) và tin nhắn từ đối phương (phải đổi trạng thái sang đã đọc).
+
+#### b. Kiểm thử bao phủ đường đi lỗi (Path Coverage)
+*   **Ngoại lệ khi không tìm thấy dữ liệu (markAsRead):** Kiểm tra luồng xử lý ngoại lệ khi gọi đánh dấu đã đọc một tin nhắn không tồn tại trong hệ thống.
+    *   *Kịch bản test:* `testMarkAsRead_NotFound` mock kết quả tìm kiếm tin nhắn trống và kiểm tra xem hệ thống có ném ra `RuntimeException` chính xác hay không.
+
 ---
 
 ## 3. KỊCH BẢN KIỂM THỬ VÀ KẾT QUẢ (TEST CASES & RESULTS)

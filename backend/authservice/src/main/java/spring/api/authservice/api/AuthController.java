@@ -23,7 +23,7 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
             authService.register(request);
             return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
@@ -140,5 +140,6 @@ public class AuthController {
             return request.getRemoteAddr();
         }
         return xfHeader.split(",")[0];
+
     }
 }
