@@ -77,12 +77,12 @@ public class AuthService {
                             request.email(),
                             request.password()));
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("Email hoặc mật khẩu không đúng");
+            throw new BadCredentialsException("Email hoặc mật khẩu không đúng");
         }
 
         // Get user from database
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new BadCredentialsException("Không tìm thấy người dùng"));
 
         // Generate JWT token
         String jwtToken = jwtService.generateToken(user);

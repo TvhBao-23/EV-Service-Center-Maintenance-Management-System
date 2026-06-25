@@ -347,8 +347,15 @@ public class AuthControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // =========================================================================
+    // WHITE-BOX / BVA LOGIN TESTS (LOG-01 to LOG-06)
+    // =========================================================================
+
+    /**
+     * LOG-01: Đăng nhập thành công bằng Email hợp lệ
+     */
     @Test
-    public void testLogin_ValidRequest_Success() throws Exception {
+    public void testLogin_LOG01_SuccessEmail_Ok() throws Exception {
         LoginRequest request = new LoginRequest(
                 "bao.hoai@example.com",
                 "password123"
@@ -361,6 +368,94 @@ public class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("mocked-jwt-token"));
+    }
+
+    /**
+     * LOG-02: Đăng nhập thành công bằng Username alias
+     */
+    @Test
+    public void testLogin_LOG02_SuccessUsernameAlias_Ok() throws Exception {
+        String requestJson = "{\"username\":\"bao.hoai@example.com\",\"password\":\"password123\"}";
+
+        when(authService.login(any(LoginRequest.class))).thenReturn(new AuthResponse("mocked-jwt-token"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("mocked-jwt-token"));
+    }
+
+    /**
+     * LOG-03: Đăng nhập thất bại do sai mật khẩu (HTTP 401 Unauthorized)
+     */
+    @Test
+    public void testLogin_LOG03_WrongPassword_Unauthorized() throws Exception {
+        LoginRequest request = new LoginRequest(
+                "bao.hoai@example.com",
+                "wrong-password"
+        );
+
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Email hoặc mật khẩu không đúng"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Email hoặc mật khẩu không đúng"));
+    }
+
+    /**
+     * LOG-04: Đăng nhập thất bại do tài khoản không tồn tại (HTTP 401 Unauthorized)
+     */
+    @Test
+    public void testLogin_LOG04_UserNotFound_Unauthorized() throws Exception {
+        LoginRequest request = new LoginRequest(
+                "notfound@example.com",
+                "password123"
+        );
+
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Không tìm thấy người dùng"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Không tìm thấy người dùng"));
+    }
+
+    /**
+     * LOG-05: Đăng nhập thất bại do trường Email bị trống (HTTP 400 Bad Request)
+     */
+    @Test
+    public void testLogin_LOG05_EmailEmpty_BadRequest() throws Exception {
+        LoginRequest request = new LoginRequest(
+                "",
+                "password123"
+        );
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * LOG-06: Đăng nhập thất bại do trường Mật khẩu bị trống (HTTP 400 Bad Request)
+     */
+    @Test
+    public void testLogin_LOG06_PasswordEmpty_BadRequest() throws Exception {
+        LoginRequest request = new LoginRequest(
+                "bao.hoai@example.com",
+                ""
+        );
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
