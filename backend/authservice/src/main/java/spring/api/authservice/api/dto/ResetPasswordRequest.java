@@ -18,7 +18,7 @@ public record ResetPasswordRequest(
     String token,
     
     @NotBlank(message = "Mật khẩu mới không được để trống")
-    @Size(min = 6, max = 255, message = "Mật khẩu phải từ 6 đến 255 ký tự")
+    @Size(min = 8, max = 16, message = "Mật khẩu phải từ 8 đến 16 ký tự")
     @JsonAlias({"password", "new_password"})
     String newPassword
 ) {}

@@ -501,4 +501,80 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error").value("Email không tồn tại trong hệ thống"));
     }
+
+    // =========================================================================
+    // BOUNDARY VALUE ANALYSIS (BVA) - RESET PASSWORD NEW PASSWORD LENGTH [8, 16]
+    // =========================================================================
+
+    /**
+     * RST-09: Đặt lại mật khẩu thất bại do mật khẩu mới ngắn hơn biên dưới (7 ký tự)
+     */
+    @Test
+    void testResetPassword_NewPassword7Chars_BadRequest() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest(
+                "bao.test@example.com",
+                "123456",
+                "1234567" // 7 chars
+        );
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * RST-10: Đặt lại mật khẩu thất bại do mật khẩu mới dài hơn biên trên (17 ký tự)
+     */
+    @Test
+    void testResetPassword_NewPassword17Chars_BadRequest() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest(
+                "bao.test@example.com",
+                "123456",
+                "12345678901234567" // 17 chars
+        );
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * RST-11: Đặt lại mật khẩu thành công với mật khẩu mới đúng biên dưới (8 ký tự)
+     */
+    @Test
+    void testResetPassword_NewPassword8Chars_Ok() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest(
+                "bao.test@example.com",
+                "123456",
+                "12345678" // 8 chars
+        );
+
+        doNothing().when(passwordResetService).resetPassword(any(String.class), any(String.class), any(String.class));
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * RST-12: Đặt lại mật khẩu thành công với mật khẩu mới đúng biên trên (16 ký tự)
+     */
+    @Test
+    void testResetPassword_NewPassword16Chars_Ok() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest(
+                "bao.test@example.com",
+                "123456",
+                "1234567890123456" // 16 chars
+        );
+
+        doNothing().when(passwordResetService).resetPassword(any(String.class), any(String.class), any(String.class));
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
 }
