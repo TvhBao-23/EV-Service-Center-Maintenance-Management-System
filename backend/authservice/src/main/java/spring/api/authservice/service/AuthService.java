@@ -11,6 +11,7 @@ import spring.api.authservice.api.dto.AuthResponse;
 import spring.api.authservice.api.dto.ChangePasswordRequest;
 import spring.api.authservice.api.dto.LoginRequest;
 import spring.api.authservice.api.dto.RegisterRequest;
+import spring.api.authservice.api.dto.UserInfoResponse;
 import spring.api.authservice.domain.Customer;
 import spring.api.authservice.domain.User;
 import spring.api.authservice.domain.UserRole;
@@ -110,16 +111,17 @@ public class AuthService {
         return userRepository.findByEmail(email).orElse(null);
     }
 
-    public Map<String, Object> getUserInfo(String email) {
+    public UserInfoResponse getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        return Map.of(
-                "userId", user.getUserId(),
-                "email", user.getEmail(),
-                "fullName", user.getFullName(),
-                "phone", user.getPhone(),
-                "role", user.getRole().toString());
+        return new UserInfoResponse(
+                user.getUserId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getRole().toString()
+        );
     }
 
     public void resetPassword(String email, String newPassword) {

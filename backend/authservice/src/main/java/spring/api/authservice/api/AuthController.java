@@ -81,14 +81,19 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         try {
+            if (authentication == null) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Người dùng chưa xác thực"));
+            }
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
             String email = userDetails.getUsername();
             
             // Get user info from service
             return ResponseEntity.ok(authService.getUserInfo(email));
         } catch (Exception e) {
+            String errMsg = e.getMessage() != null ? e.getMessage() : "Lỗi hệ thống không xác định";
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", errMsg));
         }
     }
     

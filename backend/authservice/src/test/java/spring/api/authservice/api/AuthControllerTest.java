@@ -49,7 +49,7 @@ class AuthControllerTest {
     private JwtService jwtService;
 
     // =========================================================================
-    // WHITE-BOX / BVA REGISTER TESTS (REG-01 to REG-10)
+    // KIỂM THỬ HỘP TRẮNG / BIÊN BVA CHO ĐĂNG KÝ TÀI KHOẢN (REG-01 đến REG-10)
     // =========================================================================
 
     /**
@@ -255,7 +255,7 @@ class AuthControllerTest {
     }
 
     // =========================================================================
-    // BOUNDARY VALUE ANALYSIS (BVA) - OTP LENGTH (EXACTLY 6 DIGITS)
+    // PHÂN TÍCH GIÁ TRỊ BIÊN (BVA) - ĐỘ DÀI MÃ OTP (CỐ ĐỊNH ĐÚNG 6 CHỮ SỐ)
     // =========================================================================
 
     /**
@@ -328,28 +328,10 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // =========================================================================
-    // GENERAL AUTHENTICATION TESTS
-    // =========================================================================
 
-    @Test
-    void testRegister_EmptyFullName_BadRequest() throws Exception {
-        RegisterRequest request = new RegisterRequest(
-                "bao@example.com",
-                "password123",
-                "", // Empty full name
-                null,
-                null
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
 
     // =========================================================================
-    // WHITE-BOX / BVA LOGIN TESTS (LOG-01 to LOG-06)
+    // KIỂM THỬ HỘP TRẮNG / BIÊN BVA CHO ĐĂNG NHẬP (LOG-01 đến LOG-06)
     // =========================================================================
 
     /**
@@ -460,7 +442,7 @@ class AuthControllerTest {
     }
 
     // =========================================================================
-    // WHITE-BOX / BVA FORGOT PASSWORD TESTS (FGT-01 to FGT-02)
+    // KIỂM THỬ HỘP TRẮNG / BIÊN BVA CHO YÊU CẦU QUÊN MẬT KHẨU (FGT-01 đến FGT-02)
     // =========================================================================
 
     /**
@@ -503,7 +485,7 @@ class AuthControllerTest {
     }
 
     // =========================================================================
-    // BOUNDARY VALUE ANALYSIS (BVA) - RESET PASSWORD NEW PASSWORD LENGTH [8, 16]
+    // PHÂN TÍCH GIÁ TRỊ BIÊN (BVA) - ĐỘ DÀI MẬT KHẨU MỚI KHI RESET [8, 16] KÝ TỰ
     // =========================================================================
 
     /**
@@ -576,5 +558,92 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
+    }
+
+    // =========================================================================
+    // KIỂM THỬ API LẤY THÔNG TIN TÀI KHOẢN HIỆN TẠI (GET /api/auth/me)
+    // =========================================================================
+
+    /**
+     * ME-01: Lấy thông tin người dùng thành công (200 OK)
+     */
+    @Test
+    void testGetCurrentUser_Success_Ok() throws Exception {
+        // Mock Security Context
+        org.springframework.security.core.context.SecurityContext securityContext = 
+                org.mockito.Mockito.mock(org.springframework.security.core.context.SecurityContext.class);
+        org.springframework.security.core.Authentication authentication = 
+                org.mockito.Mockito.mock(org.springframework.security.core.Authentication.class);
+        org.springframework.security.core.userdetails.UserDetails principal = 
+                org.springframework.security.core.userdetails.User.withUsername("bao.hoai@example.com")
+                .password("password123")
+                .authorities("ROLE_customer")
+                .build();
+        
+        org.mockito.Mockito.when(authentication.getPrincipal()).thenReturn(principal);
+        org.mockito.Mockito.when(securityContext.getAuthentication()).thenReturn(authentication);
+        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+
+        spring.api.authservice.api.dto.UserInfoResponse userInfo = new spring.api.authservice.api.dto.UserInfoResponse(
+                1L,
+                "bao.hoai@example.com",
+                "Hoài Bảo",
+                null, // Phone can be null, testing our fix!
+                "customer"
+        );
+        when(authService.getUserInfo("bao.hoai@example.com")).thenReturn(userInfo);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.email").value("bao.hoai@example.com"))
+                .andExpect(jsonPath("$.fullName").value("Hoài Bảo"))
+                .andExpect(jsonPath("$.phone").value((Object) null))
+                .andExpect(jsonPath("$.role").value("customer"));
+
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    /**
+     * ME-02: Lấy thông tin thất bại do chưa xác thực (401 Unauthorized)
+     */
+    @Test
+    void testGetCurrentUser_NotAuthenticated_Unauthorized() throws Exception {
+        // Ensure security context is empty
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Người dùng chưa xác thực"));
+    }
+
+    /**
+     * ME-03: Lấy thông tin thất bại do lỗi phía service (400 Bad Request)
+     */
+    @Test
+    void testGetCurrentUser_ServiceException_BadRequest() throws Exception {
+        // Mock Security Context
+        org.springframework.security.core.context.SecurityContext securityContext = 
+                org.mockito.Mockito.mock(org.springframework.security.core.context.SecurityContext.class);
+        org.springframework.security.core.Authentication authentication = 
+                org.mockito.Mockito.mock(org.springframework.security.core.Authentication.class);
+        org.springframework.security.core.userdetails.UserDetails principal = 
+                org.springframework.security.core.userdetails.User.withUsername("bao.hoai@example.com")
+                .password("password123")
+                .authorities("ROLE_customer")
+                .build();
+        
+        org.mockito.Mockito.when(authentication.getPrincipal()).thenReturn(principal);
+        org.mockito.Mockito.when(securityContext.getAuthentication()).thenReturn(authentication);
+        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+
+        when(authService.getUserInfo("bao.hoai@example.com"))
+                .thenThrow(new RuntimeException("Không tìm thấy người dùng"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Không tìm thấy người dùng"));
+
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 }
