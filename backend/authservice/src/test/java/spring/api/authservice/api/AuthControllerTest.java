@@ -568,22 +568,8 @@ class AuthControllerTest {
      * ME-01: Lấy thông tin người dùng thành công (200 OK)
      */
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "bao.hoai@example.com")
     void testGetCurrentUser_Success_Ok() throws Exception {
-        // Mock Security Context
-        org.springframework.security.core.context.SecurityContext securityContext = 
-                org.mockito.Mockito.mock(org.springframework.security.core.context.SecurityContext.class);
-        org.springframework.security.core.Authentication authentication = 
-                org.mockito.Mockito.mock(org.springframework.security.core.Authentication.class);
-        org.springframework.security.core.userdetails.UserDetails principal = 
-                org.springframework.security.core.userdetails.User.withUsername("bao.hoai@example.com")
-                .password("password123")
-                .authorities("ROLE_customer")
-                .build();
-        
-        org.mockito.Mockito.when(authentication.getPrincipal()).thenReturn(principal);
-        org.mockito.Mockito.when(securityContext.getAuthentication()).thenReturn(authentication);
-        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
-
         spring.api.authservice.api.dto.UserInfoResponse userInfo = new spring.api.authservice.api.dto.UserInfoResponse(
                 1L,
                 "bao.hoai@example.com",
@@ -600,50 +586,28 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.fullName").value("Hoài Bảo"))
                 .andExpect(jsonPath("$.phone").value((Object) null))
                 .andExpect(jsonPath("$.role").value("customer"));
-
-        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     /**
-     * ME-02: Lấy thông tin thất bại do chưa xác thực (401 Unauthorized)
+     * ME-02: Lấy thông tin thất bại do chưa xác thực (403 Forbidden từ Spring Security)
      */
     @Test
     void testGetCurrentUser_NotAuthenticated_Unauthorized() throws Exception {
-        // Ensure security context is empty
-        org.springframework.security.core.context.SecurityContextHolder.clearContext();
-
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Người dùng chưa xác thực"));
+                .andExpect(status().isForbidden());
     }
 
     /**
      * ME-03: Lấy thông tin thất bại do lỗi phía service (400 Bad Request)
      */
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "bao.hoai@example.com")
     void testGetCurrentUser_ServiceException_BadRequest() throws Exception {
-        // Mock Security Context
-        org.springframework.security.core.context.SecurityContext securityContext = 
-                org.mockito.Mockito.mock(org.springframework.security.core.context.SecurityContext.class);
-        org.springframework.security.core.Authentication authentication = 
-                org.mockito.Mockito.mock(org.springframework.security.core.Authentication.class);
-        org.springframework.security.core.userdetails.UserDetails principal = 
-                org.springframework.security.core.userdetails.User.withUsername("bao.hoai@example.com")
-                .password("password123")
-                .authorities("ROLE_customer")
-                .build();
-        
-        org.mockito.Mockito.when(authentication.getPrincipal()).thenReturn(principal);
-        org.mockito.Mockito.when(securityContext.getAuthentication()).thenReturn(authentication);
-        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
-
         when(authService.getUserInfo("bao.hoai@example.com"))
                 .thenThrow(new RuntimeException("Không tìm thấy người dùng"));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/auth/me"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Không tìm thấy người dùng"));
-
-        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 }
