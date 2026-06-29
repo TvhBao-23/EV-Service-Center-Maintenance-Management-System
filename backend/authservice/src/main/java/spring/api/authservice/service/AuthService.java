@@ -15,10 +15,11 @@ import spring.api.authservice.api.dto.UserInfoResponse;
 import spring.api.authservice.domain.Customer;
 import spring.api.authservice.domain.User;
 import spring.api.authservice.domain.UserRole;
+import spring.api.authservice.exception.AuthException;
 import spring.api.authservice.repository.CustomerRepository;
 import spring.api.authservice.repository.UserRepository;
-import spring.api.authservice.service.JwtService;
 
+import java.security.SecureRandom;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final String USER_NOT_FOUND_MSG = "Không tìm thấy người dùng";
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
@@ -35,18 +38,19 @@ public class AuthService {
 
     // In-memory OTP storage (in production, use Redis or database)
     private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthResponse register(RegisterRequest request) {
         // Check if user already exists
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email đã được sử dụng");
+            throw new AuthException("Email đã được sử dụng");
         }
 
         // Only allow customer registration in AuthService
         // Staff and technician registration should go through StaffService
-        UserRole requestedRole = request.role() != null ? request.role() : UserRole.customer;
-        if (requestedRole != UserRole.customer) {
-            throw new RuntimeException("Đăng ký nhân viên và kỹ thuật viên phải thực hiện qua trang đăng ký nhân viên");
+        UserRole requestedRole = request.role() != null ? request.role() : UserRole.CUSTOMER;
+        if (requestedRole != UserRole.CUSTOMER) {
+            throw new AuthException("Đăng ký nhân viên và kỹ thuật viên phải thực hiện qua trang đăng ký nhân viên");
         }
 
         // Create new user
@@ -55,12 +59,12 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
         user.setPhone(request.phone());
-        user.setRole(UserRole.customer);
+        user.setRole(UserRole.CUSTOMER);
 
         User savedUser = userRepository.save(user);
 
         // Create customer if role is customer
-        if (savedUser.getRole() == UserRole.customer) {
+        if (savedUser.getRole() == UserRole.CUSTOMER) {
             Customer customer = new Customer();
             customer.setUserId(savedUser.getUserId());
             customer.setAddress("");
@@ -77,15 +81,15 @@ public class AuthService {
             // Authenticate user
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.email(),
-                            request.password()));
+                             request.email(),
+                             request.password()));
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException("Email hoặc mật khẩu không đúng");
         }
 
         // Get user from database
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new BadCredentialsException(USER_NOT_FOUND_MSG));
 
         // Generate JWT token
         String jwtToken = jwtService.generateToken(user);
@@ -95,11 +99,11 @@ public class AuthService {
     public void changePassword(String email, ChangePasswordRequest request) {
         // Get user from database
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AuthException(USER_NOT_FOUND_MSG));
 
         // Verify current password
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            throw new RuntimeException("Mật khẩu hiện tại không đúng");
+            throw new AuthException("Mật khẩu hiện tại không đúng");
         }
 
         // Update to new password
@@ -113,7 +117,7 @@ public class AuthService {
 
     public UserInfoResponse getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AuthException(USER_NOT_FOUND_MSG));
 
         return new UserInfoResponse(
                 user.getUserId(),
@@ -126,7 +130,7 @@ public class AuthService {
 
     public void resetPassword(String email, String newPassword) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AuthException(USER_NOT_FOUND_MSG));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -135,17 +139,18 @@ public class AuthService {
     // Forgot password methods
     public String sendOTP(String email) {
         // Check if user exists
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
+        if (!userRepository.existsByEmail(email)) {
+            throw new AuthException("Email không tồn tại trong hệ thống");
+        }
 
-        // Generate 6-digit OTP
-        String otp = String.format("%06d", (int) (Math.random() * 1000000));
+        // Generate 6-digit OTP using SecureRandom
+        String otp = String.format("%06d", secureRandom.nextInt(1000000));
 
         // Store OTP (in production, set expiry time and use Redis)
         otpStorage.put(email, otp);
 
-        // TODO: Send email with OTP (integrate with email service)
-        log.info("OTP for {}: {}", email, otp);
+        // Do not log plain text OTP in production logs for security reasons
+        log.info("OTP generated successfully for: {}", email);
 
         return otp; // Return for demo, remove in production
     }
@@ -153,7 +158,7 @@ public class AuthService {
     public boolean verifyOTP(String email, String otp) {
         String storedOtp = otpStorage.get(email);
         if (storedOtp == null) {
-            throw new RuntimeException("OTP không tồn tại hoặc đã hết hạn");
+            throw new AuthException("OTP không tồn tại hoặc đã hết hạn");
         }
         // Don't remove OTP here - it will be removed after password reset
         return storedOtp.equals(otp);
@@ -162,12 +167,12 @@ public class AuthService {
     public void resetPasswordWithOTP(String email, String otp, String newPassword) {
         // Verify OTP first
         if (!verifyOTP(email, otp)) {
-            throw new RuntimeException("OTP không chính xác");
+            throw new AuthException("OTP không chính xác");
         }
 
         // Reset password
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AuthException(USER_NOT_FOUND_MSG));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
