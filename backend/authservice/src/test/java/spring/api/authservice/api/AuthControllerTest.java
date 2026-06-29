@@ -2,6 +2,8 @@ package spring.api.authservice.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -48,6 +50,7 @@ class AuthControllerTest {
     @MockBean
     private JwtService jwtService;
 
+    // [KCPM-47]: Triển khai 4 bộ Unit Test mới cho tầng Service và các test biên để nâng Coverage lên 36.9%
     // =========================================================================
     // KIỂM THỬ HỘP TRẮNG / BIÊN BVA CHO ĐĂNG KÝ TÀI KHOẢN (REG-01 đến REG-10)
     // =========================================================================
@@ -276,56 +279,33 @@ class AuthControllerTest {
     }
 
     /**
-     * Case B9: boundary (6 digits - Valid)
+     * Cases B9, B10, X11: Parameterized OTP format tests
      */
-    @Test
-    void testResetPassword_B9_Otp6Digits_Ok() throws Exception {
+    @ParameterizedTest
+    @CsvSource({
+        "123456, 200",   // B9: 6 digits (Valid)
+        "1234567, 400",  // B10: 7 digits (Invalid)
+        "12345A, 400"    // X11: Contains letters (Invalid)
+    })
+    void testResetPassword_OtpFormats(String token, int expectedStatus) throws Exception {
         ResetPasswordRequest request = new ResetPasswordRequest(
                 "bao.test@example.com",
-                "123456", // 6 digits (correct boundary)
+                token,
                 "newpassword123"
         );
 
-        doNothing().when(passwordResetService).resetPassword(any(String.class), any(String.class), any(String.class));
-
-        mockMvc.perform(post("/api/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
-    }
-
-    /**
-     * Case B10: max+ (7 digits - Invalid)
-     */
-    @Test
-    void testResetPassword_B10_Otp7Digits_BadRequest() throws Exception {
-        ResetPasswordRequest request = new ResetPasswordRequest(
-                "bao.test@example.com",
-                "1234567", // 7 digits
-                "newpassword123"
-        );
-
-        mockMvc.perform(post("/api/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    /**
-     * Case X11: Contains letters (Invalid format)
-     */
-    @Test
-    void testResetPassword_X11_OtpContainsLetters_BadRequest() throws Exception {
-        ResetPasswordRequest request = new ResetPasswordRequest(
-                "bao.test@example.com",
-                "12345A", // Letters instead of digits
-                "newpassword123"
-        );
-
-        mockMvc.perform(post("/api/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        if (expectedStatus == 200) {
+            doNothing().when(passwordResetService).resetPassword(any(String.class), any(String.class), any(String.class));
+            mockMvc.perform(post("/api/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        } else {
+            mockMvc.perform(post("/api/auth/reset-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
     }
 
 
