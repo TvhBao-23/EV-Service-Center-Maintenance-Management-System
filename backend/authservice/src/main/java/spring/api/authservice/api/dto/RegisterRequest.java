@@ -16,6 +16,7 @@ public record RegisterRequest(
         String password,
 
         @NotBlank(message = "Họ tên không được để trống")
+        // [KCPM-37]: Sửa lỗi sập DB do trường full_name nhận giá trị null bằng cách dùng JsonAlias
         @JsonAlias({"fullName", "name", "full_name", "hovaten"})
         String fullName,
 
