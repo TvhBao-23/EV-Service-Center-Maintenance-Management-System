@@ -30,17 +30,11 @@ public class AppointmentService {
         appointment.setVehicleId(vehicleId);
         appointment.setServiceId(serviceId);
         
-        // Validate center_id: if provided, check if it exists; otherwise set to null
-        if (centerId != null && centerId > 0) {
-            if (!serviceCenterRepository.existsById(centerId)) {
-                System.out.println("[AppointmentService] Warning: center_id " + centerId + " does not exist, setting to null");
-                appointment.setCenterId(null);
-            } else {
-                appointment.setCenterId(centerId);
-            }
-        } else {
-            appointment.setCenterId(null);
+        // Customers must choose an existing service center when booking.
+        if (centerId == null || centerId <= 0 || !serviceCenterRepository.existsById(centerId)) {
+            throw new RuntimeException("Trung tam dich vu khong ton tai");
         }
+        appointment.setCenterId(centerId);
         
         appointment.setAppointmentDate(appointmentDate);
         appointment.setNotes(notes);
