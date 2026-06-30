@@ -1,6 +1,7 @@
 package org.example.partsinventoryservice.service;
 
 import org.example.partsinventoryservice.entity.Part;
+import org.example.partsinventoryservice.exception.BadRequestException;
 import org.example.partsinventoryservice.exception.ResourceNotFoundException;
 import org.example.partsinventoryservice.repository.PartInventoryRepository;
 import org.example.partsinventoryservice.repository.PartRepository;
@@ -8,6 +9,7 @@ import org.example.partsinventoryservice.repository.PartTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -44,12 +46,13 @@ public class PartService {
 
     @Transactional
     public Part create(Part req) {
-        // có thể bổ sung validate trùng part_code ở repository bằng unique
+        validatePart(req);
         return partRepository.save(req);
     }
 
     @Transactional
     public Part update(Long partId, Part req) {
+        validatePart(req);
         Part p = getById(partId);
         p.setPartCode(req.getPartCode());
         p.setName(req.getName());
@@ -73,4 +76,22 @@ public class PartService {
         partRepository.delete(p);
     }
 
+    private void validatePart(Part part) {
+        if (part == null) {
+            throw new BadRequestException("Part payload is required");
+        }
+        if (isBlank(part.getPartCode())) {
+            throw new BadRequestException("partCode is required");
+        }
+        if (isBlank(part.getName())) {
+            throw new BadRequestException("name is required");
+        }
+        if (part.getUnitPrice() == null || part.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("unitPrice must be greater than or equal to 0");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
 }
