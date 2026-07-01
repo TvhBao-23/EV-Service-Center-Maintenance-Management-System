@@ -8,6 +8,8 @@ import spring.api.authservice.domain.PasswordResetAttempt;
 import spring.api.authservice.repository.PasswordResetAttemptRepository;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -23,13 +25,18 @@ public class RateLimitService {
     /**
      * Kiểm tra xem email có bị block không
      */
+    // [KCPM-39]: Sửa lỗi không lưu DB do cơ chế transaction self-invocation bằng cách đặt @Transactional trực tiếp trên phương thức gọi
+    @Transactional
     public boolean isBlocked(String email) {
         return attemptRepository.findByEmail(email)
                 .map(attempt -> {
-                    // Nếu đã hết thời gian block, reset
+                    // Nếu đã hết thời gian block, reset trực tiếp trong transaction
                     if (attempt.getBlockedUntil() != null && 
-                        LocalDateTime.now().isAfter(attempt.getBlockedUntil())) {
-                        resetAttempts(email);
+                        LocalDateTime.now(ZoneId.systemDefault()).isAfter(attempt.getBlockedUntil())) {
+                        attempt.setAttemptCount(0);
+                        attempt.setBlockedUntil(null);
+                        attemptRepository.save(attempt);
+                        log.info("Reset attempts for email: {}", email);
                         return false;
                     }
                     return attempt.isBlocked();
@@ -44,7 +51,12 @@ public class RateLimitService {
     @Transactional
     public boolean checkAndIncrementAttempts(String email, String ipAddress) {
         PasswordResetAttempt attempt = attemptRepository.findByEmail(email)
-                .orElse(new PasswordResetAttempt());
+                .orElseGet(() -> {
+                    PasswordResetAttempt newAttempt = new PasswordResetAttempt();
+                    newAttempt.setEmail(email);
+                    newAttempt.setAttemptCount(0);
+                    return newAttempt;
+                });
 
         // Kiểm tra xem đã bị block chưa
         if (attempt.isBlocked()) {
@@ -54,7 +66,7 @@ public class RateLimitService {
 
         // Reset nếu đã qua thời gian reset
         if (attempt.getLastAttemptAt() != null && 
-            attempt.getLastAttemptAt().plusMinutes(RESET_PERIOD_MINUTES).isBefore(LocalDateTime.now())) {
+            attempt.getLastAttemptAt().plusMinutes(RESET_PERIOD_MINUTES).isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
             attempt.setAttemptCount(0);
         }
 
@@ -62,11 +74,11 @@ public class RateLimitService {
         attempt.setEmail(email);
         attempt.setIpAddress(ipAddress);
         attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-        attempt.setLastAttemptAt(LocalDateTime.now());
+        attempt.setLastAttemptAt(LocalDateTime.now(ZoneId.systemDefault()));
 
         // Nếu vượt quá số lần cho phép, block
         if (attempt.getAttemptCount() >= MAX_ATTEMPTS) {
-            attempt.setBlockedUntil(LocalDateTime.now().plusMinutes(BLOCK_DURATION_MINUTES));
+            attempt.setBlockedUntil(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(BLOCK_DURATION_MINUTES));
             log.warn("Email {} has been blocked due to too many attempts", email);
         }
 
@@ -103,19 +115,18 @@ public class RateLimitService {
     }
 
     /**
-     * Lấy thời gian còn lại của block
+     * Lấy thời gian còn lại của block (timezone-aware)
      */
     public Long getBlockedMinutesRemaining(String email) {
         return attemptRepository.findByEmail(email)
                 .filter(PasswordResetAttempt::isBlocked)
                 .map(attempt -> {
                     long minutes = java.time.Duration.between(
-                        LocalDateTime.now(), 
-                        attempt.getBlockedUntil()
+                        ZonedDateTime.now(ZoneId.systemDefault()), 
+                        attempt.getBlockedUntil().atZone(ZoneId.systemDefault())
                     ).toMinutes();
                     return Math.max(0, minutes);
                 })
                 .orElse(0L);
     }
 }
-

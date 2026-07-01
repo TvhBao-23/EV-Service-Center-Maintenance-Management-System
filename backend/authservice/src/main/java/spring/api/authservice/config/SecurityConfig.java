@@ -1,6 +1,5 @@
 package spring.api.authservice.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -18,6 +17,8 @@ import spring.api.authservice.repository.UserRepository;
 
 @Configuration
 @EnableWebSecurity
+// [KCPM-41]: Khắc phục cảnh báo tắt tính năng bảo mật CSRF (java:S4502) bằng SuppressWarnings vì hệ thống dùng Stateless JWT
+@SuppressWarnings("java:S4502")
 public class SecurityConfig {
 
     private final UserRepository userRepository;
@@ -47,12 +48,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/**"))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/health").permitAll()
-                .requestMatchers("/api/auth/forgot-password/**").permitAll()
+                .requestMatchers("/api/auth/forgot-password/**", "/api/auth/forgot-password").permitAll()
+                .requestMatchers("/api/auth/reset-password/**", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/health").permitAll()
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()

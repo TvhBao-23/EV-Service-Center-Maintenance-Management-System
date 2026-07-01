@@ -7,11 +7,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import spring.api.authservice.domain.PasswordResetToken;
 import spring.api.authservice.domain.User;
+import spring.api.authservice.exception.AuthException;
 import spring.api.authservice.repository.PasswordResetTokenRepository;
 import spring.api.authservice.repository.UserRepository;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -35,19 +37,19 @@ public class PasswordResetService {
         // Kiểm tra rate limit
         if (rateLimitService.isBlocked(email)) {
             long minutesRemaining = rateLimitService.getBlockedMinutesRemaining(email);
-            throw new RuntimeException(
+            throw new AuthException(
                 String.format("Bạn đã thử quá nhiều lần. Vui lòng thử lại sau %d phút.", minutesRemaining)
             );
         }
 
         // Kiểm tra rate limit và tăng số lần thử
         if (!rateLimitService.checkAndIncrementAttempts(email, ipAddress)) {
-            throw new RuntimeException("Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 60 phút.");
+            throw new AuthException("Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 60 phút.");
         }
 
         // Tìm user
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
+                .orElseThrow(() -> new AuthException("Email không tồn tại trong hệ thống"));
 
         // Xóa các token cũ của user này
         tokenRepository.deleteByEmail(email);
@@ -60,7 +62,8 @@ public class PasswordResetService {
         resetToken.setUserId(user.getUserId());
         resetToken.setEmail(email);
         resetToken.setToken(token);
-        resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(TOKEN_EXPIRY_MINUTES));
+        // [KCPM-40]: Cấu hình ZoneId.systemDefault() để khắc phục lỗi lệch múi giờ hệ thống khi so sánh thời hạn OTP
+        resetToken.setExpiresAt(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(TOKEN_EXPIRY_MINUTES));
         resetToken.setUsed(false);
         resetToken.setIpAddress(ipAddress);
 
@@ -100,16 +103,16 @@ public class PasswordResetService {
     public void resetPassword(String email, String token, String newPassword) {
         // Tìm token
         PasswordResetToken resetToken = tokenRepository.findByEmailAndTokenAndUsedFalse(email, token)
-                .orElseThrow(() -> new RuntimeException("Mã xác nhận không hợp lệ hoặc đã được sử dụng"));
+                .orElseThrow(() -> new AuthException("Mã xác nhận không hợp lệ hoặc đã được sử dụng"));
 
         // Kiểm tra token còn hạn
         if (resetToken.isExpired()) {
-            throw new RuntimeException("Mã xác nhận đã hết hạn. Vui lòng yêu cầu mã mới.");
+            throw new AuthException("Mã xác nhận đã hết hạn. Vui lòng yêu cầu mã mới.");
         }
 
         // Tìm user
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+                .orElseThrow(() -> new AuthException("Người dùng không tồn tại"));
 
         // Cập nhật mật khẩu
         user.setPassword(passwordEncoder.encode(newPassword));
@@ -117,7 +120,7 @@ public class PasswordResetService {
 
         // Đánh dấu token đã sử dụng
         resetToken.setUsed(true);
-        resetToken.setUsedAt(LocalDateTime.now());
+        resetToken.setUsedAt(LocalDateTime.now(ZoneId.systemDefault()));
         tokenRepository.save(resetToken);
 
         // Reset rate limit attempts
@@ -146,8 +149,7 @@ public class PasswordResetService {
      */
     @Transactional
     public void cleanupExpiredTokens() {
-        tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+        tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now(ZoneId.systemDefault()));
         log.info("Expired password reset tokens cleaned up");
     }
 }
-

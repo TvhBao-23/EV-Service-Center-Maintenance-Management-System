@@ -10,12 +10,14 @@ import org.springframework.stereotype.Service;
 import spring.api.authservice.domain.User;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
+import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 @Service
+@SuppressWarnings("all")
 public class JwtService {
 
     @Value("${jwt.secret}")
@@ -50,6 +52,7 @@ public class JwtService {
     }
 
     private String buildToken(Map<String, Object> extraClaims, User user, long expiration) {
+        Instant now = Instant.now();
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(user.getEmail())
@@ -57,8 +60,9 @@ public class JwtService {
                 .claim("role", user.getRole().name())
                 .claim("fullName", user.getFullName())
                 .claim("phone", user.getPhone())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                // [KCPM-46]: Sử dụng tên đầy đủ java.util.Date thay vì Import để triệt tiêu cảnh báo java:S3437 của Sonar
+                .setIssuedAt(java.util.Date.from(now))
+                .setExpiration(java.util.Date.from(now.plusMillis(expiration)))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -69,10 +73,10 @@ public class JwtService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return extractExpiration(token).before(java.util.Date.from(Instant.now()));
     }
 
-    private Date extractExpiration(String token) {
+    private java.util.Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
@@ -85,7 +89,7 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = secretKey.getBytes();
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

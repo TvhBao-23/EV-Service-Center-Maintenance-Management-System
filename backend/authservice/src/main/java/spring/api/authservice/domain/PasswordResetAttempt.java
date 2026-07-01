@@ -26,7 +26,7 @@ public class PasswordResetAttempt {
     private String ipAddress;
 
     @Column(name = "attempt_count", nullable = false)
-    private Integer attemptCount = 1;
+    private Integer attemptCount = 0;
 
     @Column(name = "last_attempt_at")
     private LocalDateTime lastAttemptAt;
@@ -39,17 +39,17 @@ public class PasswordResetAttempt {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        lastAttemptAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now(java.time.ZoneId.systemDefault());
+        lastAttemptAt = LocalDateTime.now(java.time.ZoneId.systemDefault());
     }
 
     @PreUpdate
     protected void onUpdate() {
-        lastAttemptAt = LocalDateTime.now();
+        lastAttemptAt = LocalDateTime.now(java.time.ZoneId.systemDefault());
     }
 
     public boolean isBlocked() {
-        return blockedUntil != null && LocalDateTime.now().isBefore(blockedUntil);
+        return blockedUntil != null && LocalDateTime.now(java.time.ZoneId.systemDefault()).isBefore(blockedUntil);
     }
 }
 

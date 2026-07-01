@@ -235,6 +235,26 @@ CREATE TABLE IF NOT EXISTS part_inventories (
 CREATE INDEX idx_part_inventories_part_id ON part_inventories(part_id);
 
 -- =====================================================
+-- 11b. PART TRANSACTIONS TABLE (Bảng mới)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS part_transactions (
+    txn_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    part_id BIGINT NOT NULL,
+    type ENUM('IMPORT', 'EXPORT', 'ADJUSTMENT') NOT NULL,
+    quantity INT NOT NULL,
+    related_request_id BIGINT,
+    related_order_id BIGINT,
+    note TEXT,
+    created_by_staff_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (part_id) REFERENCES parts(part_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_part_transactions_part_id ON part_transactions(part_id);
+CREATE INDEX idx_part_transactions_type ON part_transactions(type);
+CREATE INDEX idx_part_transactions_created_at ON part_transactions(created_at);
+
+-- =====================================================
 -- 12. PART USAGE HISTORY TABLE (Bảng mới)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS part_usage_history (
@@ -277,7 +297,8 @@ CREATE INDEX idx_service_checklists_is_completed ON service_checklists(is_comple
 -- =====================================================
 CREATE TABLE IF NOT EXISTS payments (
     payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    appointment_id BIGINT NOT NULL,
+    appointment_id BIGINT NULL,
+    subscription_id BIGINT NULL,
     customer_id BIGINT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     payment_method ENUM('cash', 'card', 'bank_transfer', 'e_wallet') NOT NULL,

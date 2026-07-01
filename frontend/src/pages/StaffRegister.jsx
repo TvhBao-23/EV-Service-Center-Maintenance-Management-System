@@ -16,6 +16,7 @@ function StaffRegister() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState('')
 
   const handleChange = (e) => {
     setFormData({
@@ -23,11 +24,13 @@ function StaffRegister() {
       [e.target.name]: e.target.value
     })
     setError('')
+    setSuccess('')
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -53,13 +56,10 @@ function StaffRegister() {
       })
       
       if (result.success) {
-        // Redirect based on role
-        const role = result.user.role?.toLowerCase()
-        if (role === 'technician') {
-          navigate('/technician')
-        } else {
-          navigate('/staff')
-        }
+        setSuccess('Đăng ký nhân viên thành công! Đang chuyển hướng đến trang đăng nhập...')
+        setTimeout(() => {
+          navigate('/staff-login')
+        }, 2000)
       } else {
         setError(result.error || 'Đăng ký thất bại')
       }
@@ -98,6 +98,13 @@ function StaffRegister() {
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             <p className="text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {success && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <p className="text-sm">{success}</p>
           </div>
         )}
 

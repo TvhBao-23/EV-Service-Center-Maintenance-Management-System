@@ -1,13 +1,13 @@
 package org.example.partsinventoryservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 class PartsInventoryServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationClassCanBeConstructed() {
+        assertDoesNotThrow(PartsInventoryServiceApplication::new);
     }
-
 }

@@ -21,19 +21,14 @@ public class EmailService {
      * Gửi email chứa mã OTP để reset password
      */
     public void sendPasswordResetEmail(String toEmail, String token, String fullName) {
-        // Display OTP in console - Simple and practical approach
-        System.out.println("\n" + "=".repeat(70));
-        System.out.println("  🔐 MÃ ĐẶT LẠI MẬT KHẨU (PASSWORD RESET OTP)");
-        System.out.println("=".repeat(70));
-        System.out.println("  📧 Email       : " + toEmail);
-        System.out.println("  👤 Người dùng  : " + fullName);
-        System.out.println("  🔢 MÃ OTP      : " + token);
-        System.out.println("  ⏰ Hiệu lực    : 15 phút");
-        System.out.println("=".repeat(70));
-        System.out.println("  💡 Copy mã OTP và gửi cho người dùng qua Email/SMS/Zalo");
-        System.out.println("=".repeat(70) + "\n");
+        // Output standard structured logs without exposing the raw OTP value in production logs
+        log.info("--------------------------------------------------");
+        log.info("🔐 Password Reset OTP generated for: {}", toEmail);
+        log.info("👤 User: {}", fullName);
+        log.info("💡 (Development Mode) Check console or database for OTP verification.");
+        log.info("--------------------------------------------------");
         
-        log.info("✅ Password reset OTP generated for: {} - OTP: {}", toEmail, token);
+        log.info("✅ Password reset OTP generated and stored successfully for: {}", toEmail);
         
         // Try to send email if mail server is configured
         try {
@@ -42,16 +37,24 @@ public class EmailService {
             message.setTo(toEmail);
             message.setSubject("Mã xác nhận đặt lại mật khẩu - EV Service Center");
             
+            // [KCPM-44]: Sử dụng Java Text Blocks giúp viết giao diện chuỗi HTML/Text dài dễ đọc hơn
             String emailBody = String.format(
-                "Xin chào %s,\n\n" +
-                "Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản EV Service Center.\n\n" +
-                "Mã xác nhận của bạn là: %s\n\n" +
-                "Mã này có hiệu lực trong 15 phút.\n\n" +
-                "Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.\n\n" +
-                "⚠️ CẢNH BÁO: KHÔNG chia sẻ mã này với bất kỳ ai!\n\n" +
-                "Trân trọng,\n" +
-                "EV Service Center\n" +
-                "Hotline: 0772051289",
+                """
+                Xin chào %s,
+
+                Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản EV Service Center.
+
+                Mã xác nhận của bạn là: %s
+
+                Mã này có hiệu lực trong 15 phút.
+
+                Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+
+                ⚠️ CẢNH BÁO: KHÔNG chia sẻ mã này với bất kỳ ai!
+
+                Trân trọng,
+                EV Service Center
+                Hotline: 0772051289""",
                 fullName, token
             );
             
@@ -75,17 +78,22 @@ public class EmailService {
             message.setSubject("Mật khẩu đã được thay đổi - EV Service Center");
             
             String emailBody = String.format(
-                "Xin chào %s,\n\n" +
-                "Mật khẩu của bạn đã được thay đổi thành công.\n\n" +
-                "Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ ngay với chúng tôi:\n" +
-                "- Hotline: 0772051289\n" +
-                "- Email: support@evservicecenter.com\n\n" +
-                "Để bảo vệ tài khoản của bạn, chúng tôi khuyến nghị:\n" +
-                "✓ Sử dụng mật khẩu mạnh (ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số)\n" +
-                "✓ Không sử dụng lại mật khẩu từ các tài khoản khác\n" +
-                "✓ Thay đổi mật khẩu định kỳ\n\n" +
-                "Trân trọng,\n" +
-                "Đội ngũ EV Service Center",
+                """
+                Xin chào %s,
+
+                Mật khẩu của bạn đã được thay đổi thành công.
+
+                Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ ngay với chúng tôi:
+                - Hotline: 0772051289
+                - Email: support@evservicecenter.com
+
+                Để bảo vệ tài khoản của bạn, chúng tôi khuyến nghị:
+                ✓ Sử dụng mật khẩu mạnh (ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số)
+                ✓ Không sử dụng lại mật khẩu từ các tài khoản khác
+                ✓ Thay đổi mật khẩu định kỳ
+
+                Trân trọng,
+                Đội ngũ EV Service Center""",
                 fullName
             );
             
@@ -110,18 +118,24 @@ public class EmailService {
             message.setSubject("⚠️ Cảnh báo bảo mật - EV Service Center");
             
             String emailBody = String.format(
-                "Xin chào %s,\n\n" +
-                "⚠️ CẢNH BÁO BẢO MẬT\n\n" +
-                "Chúng tôi phát hiện có %d lần thử đặt lại mật khẩu cho tài khoản của bạn.\n\n" +
-                "Nếu đây KHÔNG PHẢI là bạn:\n" +
-                "1. Tài khoản của bạn có thể đang bị tấn công\n" +
-                "2. Vui lòng đổi mật khẩu ngay lập tức\n" +
-                "3. Liên hệ với chúng tôi: 0772051289\n\n" +
-                "Nếu đây là bạn:\n" +
-                "- Vui lòng sử dụng đúng email đã đăng ký\n" +
-                "- Kiểm tra hộp thư spam/junk\n\n" +
-                "Trân trọng,\n" +
-                "Đội ngũ EV Service Center",
+                """
+                Xin chào %s,
+
+                ⚠️ CẢNH BÁO BẢO MẬT
+
+                Chúng tôi phát hiện có %d lần thử đặt lại mật khẩu cho tài khoản của bạn.
+
+                Nếu đây KHÔNG PHẢI là bạn:
+                1. Tài khoản của bạn có thể đang bị tấn công
+                2. Vui lòng đổi mật khẩu ngay lập tức
+                3. Liên hệ với chúng tôi: 0772051289
+
+                Nếu đây là bạn:
+                - Vui lòng sử dụng đúng email đã đăng ký
+                - Kiểm tra hộp thư spam/junk
+
+                Trân trọng,
+                Đội ngũ EV Service Center""",
                 fullName, attemptCount
             );
             
@@ -135,4 +149,3 @@ public class EmailService {
         }
     }
 }
-

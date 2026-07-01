@@ -459,36 +459,71 @@ function Admin() {
   }
 
   // Handler for Chat with Customer
-  const handleChatCustomer = (customer) => {
-    setSelectedChatCustomer(customer)
-    // Load existing messages from localStorage
-    const storageKey = `chat_${userId}_${customer.id}`
-    const existingMessages = JSON.parse(localStorage.getItem(storageKey) || '[]')
-    setChatMessages(existingMessages)
+  const handleChatCustomer = async (customer) => {
+    const normalizedCustomer = {
+      id: customer.id || customer.customer_id || customer.user_id,
+      fullName: customer.fullName || customer.full_name || 'Khách hàng',
+      email: customer.email || ''
+    }
+    setSelectedChatCustomer(normalizedCustomer)
     setShowChatModal(true)
+    try {
+      const conversation = await chatAPI.getConversation(normalizedCustomer.id)
+      setChatMessages(conversation || [])
+      await chatAPI.markConversationAsRead(normalizedCustomer.id).catch(() => {})
+    } catch (err) {
+      console.error('Failed to load conversation:', err)
+      setChatMessages([])
+    }
   }
 
   // Handler for sending message
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChatCustomer) return
     
-    const message = {
-      id: Date.now(),
-      sender: 'admin',
-      senderName: user?.fullName || 'Admin',
-      text: newMessage,
-      timestamp: new Date().toISOString()
-    }
-    
-    const updatedMessages = [...chatMessages, message]
-    setChatMessages(updatedMessages)
-    
-    // Save to localStorage
-    const storageKey = `chat_${userId}_${selectedChatCustomer.id}`
-    localStorage.setItem(storageKey, JSON.stringify(updatedMessages))
-    
+    const textToSend = newMessage.trim()
     setNewMessage('')
+    try {
+      const sentMsg = await chatAPI.sendMessage(selectedChatCustomer.id, textToSend)
+      setChatMessages(prev => [...prev, sentMsg])
+    } catch (err) {
+      console.error('Failed to send message:', err)
+      alert('Không thể gửi tin nhắn. Vui lòng thử lại!')
+      setNewMessage(textToSend)
+    }
   }
+
+  // Polling for new messages in Admin chat modal
+  useEffect(() => {
+    if (!showChatModal || !selectedChatCustomer) return
+
+    const fetchMessages = async () => {
+      try {
+        const conversation = await chatAPI.getConversation(selectedChatCustomer.id)
+        setChatMessages(prev => {
+          if (prev.length !== conversation.length) {
+            chatAPI.markConversationAsRead(selectedChatCustomer.id).catch(() => {})
+            return conversation
+          }
+          // Also check if any message text differs (just in case)
+          const hasChanges = conversation.some((msg, idx) => {
+            const prevMsg = prev[idx]
+            return !prevMsg || prevMsg.messageId !== msg.messageId
+          })
+          if (hasChanges) {
+            chatAPI.markConversationAsRead(selectedChatCustomer.id).catch(() => {})
+            return conversation
+          }
+          return prev
+        })
+      } catch (err) {
+        console.warn('Failed to poll new messages:', err)
+      }
+    }
+
+    const intervalId = setInterval(fetchMessages, 3000)
+    return () => clearInterval(intervalId)
+  }, [showChatModal, selectedChatCustomer])
 
   // Dashboard Statistics
   const dashboardStats = useMemo(() => {
@@ -2770,33 +2805,36 @@ function Admin() {
                     <p className="text-sm mt-1">Gửi tin nhắn đầu tiên để bắt đầu trò chuyện</p>
                   </div>
                 ) : (
-                  chatMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  chatMessages.map((msg) => {
+                    const isMe = String(msg.senderId) === String(userId)
+                    return (
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          msg.sender === 'admin'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-white text-gray-900 border border-gray-200'
-                        }`}
+                        key={msg.messageId || msg.id}
+                        className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-xs font-semibold mb-1">
-                          {msg.sender === 'admin' ? 'Bạn' : msg.senderName}
-                        </p>
-                        <p className="text-sm">{msg.text}</p>
-                        <p className={`text-xs mt-1 ${
-                          msg.sender === 'admin' ? 'text-green-100' : 'text-gray-500'
-                        }`}>
-                          {new Date(msg.timestamp).toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            isMe
+                              ? 'bg-green-600 text-white'
+                              : 'bg-white text-gray-900 border border-gray-200'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold mb-1">
+                            {isMe ? 'Bạn' : msg.senderName || 'Khách hàng'}
+                          </p>
+                          <p className="text-sm">{msg.messageText}</p>
+                          <p className={`text-xs mt-1 ${
+                            isMe ? 'text-green-100' : 'text-gray-500'
+                          }`}>
+                            {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
 
