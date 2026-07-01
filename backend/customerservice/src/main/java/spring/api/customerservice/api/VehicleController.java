@@ -34,9 +34,15 @@ public class VehicleController {
         User user = (User) authentication.getPrincipal();
         Long userId = user.getUserId();
         
-        // Find customer by userId
+        // Find or create customer for this user
         Customer customer = customerRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Customer not found for user: " + userId));
+                .orElseGet(() -> {
+                    Customer newCustomer = new Customer();
+                    newCustomer.setUserId(userId);
+                    newCustomer.setCreatedAt(LocalDateTime.now());
+                    newCustomer.setUpdatedAt(LocalDateTime.now());
+                    return customerRepository.save(newCustomer);
+                });
         
         // Return only vehicles owned by this customer
         List<Vehicle> vehicles = vehicleRepository.findByCustomerId(customer.getCustomerId());
