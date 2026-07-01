@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import spring.api.adminservice.dto.ConfigDTO;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.RequestBody;
 import spring.api.adminservice.service.DashboardService;
 
 import java.util.Map;
@@ -37,7 +40,7 @@ public class AdminDashboardController {
     }
 
     @PostMapping("/config")
-    public ResponseEntity<Map<String, String>> updateConfig(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody spring.api.adminservice.dto.ConfigDTO configDTO) {
+    public ResponseEntity<Map<String, String>> updateConfig(@Valid @RequestBody ConfigDTO configDTO) {
         // In a real application, we would save this to the database.
         // For testing BVA, returning a success message is enough when validation passes.
         return ResponseEntity.ok(Map.of("message", "Configuration updated successfully", "status", "success"));
