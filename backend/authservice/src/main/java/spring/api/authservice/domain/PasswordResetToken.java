@@ -45,11 +45,11 @@ public class PasswordResetToken {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now(java.time.ZoneId.systemDefault());
     }
 
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+        return LocalDateTime.now(java.time.ZoneId.systemDefault()).isAfter(expiresAt);
     }
 
     public boolean isValid() {
