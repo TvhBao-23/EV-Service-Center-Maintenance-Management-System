@@ -45,14 +45,15 @@ public class PaymentController {
 
         Payment created = paymentService.initiatePayment(payment);
 
-        return ResponseEntity.ok(Map.of(
-            "message", "Giao dịch đã được tạo. Vui lòng nhập mã xác thực",
-            "payment_id", created.getPaymentId(),
-            "transaction_id", created.getTransactionId(),
-            "amount", created.getAmount(),
-            "verification_code", created.getVerificationCode(), // For testing only - remove in production
-            "expires_at", created.getVerificationExpiresAt()
-        ));
+        Map<String, Object> responseBody = new java.util.HashMap<>();
+        responseBody.put("message", "Giao dịch đã được tạo. Vui lòng nhập mã xác thực");
+        responseBody.put("payment_id", created.getPaymentId());
+        responseBody.put("transaction_id", created.getTransactionId());
+        responseBody.put("amount", created.getAmount());
+        responseBody.put("verification_code", created.getVerificationCode()); // For testing only - remove in production
+        responseBody.put("expires_at", created.getVerificationExpiresAt());
+
+        return ResponseEntity.ok(responseBody);
     }
 
     @PostMapping("/verify")

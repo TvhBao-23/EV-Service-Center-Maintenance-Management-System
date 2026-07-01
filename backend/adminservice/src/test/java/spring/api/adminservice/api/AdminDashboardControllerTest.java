@@ -64,5 +64,93 @@ class AdminDashboardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(5));
     }
+
+    // --- BVA TESTS FOR POST /config ---
+
+    @Test
+    void updateConfig_validNominal() throws Exception {
+        String json = """
+                {
+                    "maxActivities": 12,
+                    "lowStockWarning": 25,
+                    "refreshInterval": 120,
+                    "revenueTarget": 5.0
+                }
+                """;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/config")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"));
+    }
+
+    @Test
+    void updateConfig_validMinBoundary() throws Exception {
+        String json = """
+                {
+                    "maxActivities": 5,
+                    "lowStockWarning": 1,
+                    "refreshInterval": 30,
+                    "revenueTarget": 1.0
+                }
+                """;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/config")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateConfig_validMaxBoundary() throws Exception {
+        String json = """
+                {
+                    "maxActivities": 20,
+                    "lowStockWarning": 50,
+                    "refreshInterval": 300,
+                    "revenueTarget": 10.0
+                }
+                """;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/config")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateConfig_invalidMaxActivities_belowMin() throws Exception {
+        String json = """
+                {
+                    "maxActivities": 4,
+                    "lowStockWarning": 25,
+                    "refreshInterval": 120,
+                    "revenueTarget": 5.0
+                }
+                """;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/config")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.maxActivities").exists());
+    }
+
+    @Test
+    void updateConfig_invalidMultipleFields() throws Exception {
+        String json = """
+                {
+                    "maxActivities": 25,
+                    "lowStockWarning": 60,
+                    "refreshInterval": 15,
+                    "revenueTarget": 12.5
+                }
+                """;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/config")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.maxActivities").exists())
+                .andExpect(jsonPath("$.lowStockWarning").exists())
+                .andExpect(jsonPath("$.refreshInterval").exists())
+                .andExpect(jsonPath("$.revenueTarget").exists());
+    }
 }
 
