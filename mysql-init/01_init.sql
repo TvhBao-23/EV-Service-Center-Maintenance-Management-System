@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     FOREIGN KEY (center_id) REFERENCES service_centers(center_id) ON DELETE CASCADE
 );
 
+
 -- Create indexes for better performance
 -- Note: idx_users_email is already created in 00_complete_schema.sql
 -- CREATE INDEX idx_customers_user_id ON customers(user_id);
@@ -97,6 +98,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 -- CREATE INDEX idx_appointments_service_id ON appointments(service_id);
 -- CREATE INDEX idx_appointments_center_id ON appointments(center_id);
 -- CREATE INDEX idx_appointments_requested_date_time ON appointments(requested_date_time);
+
 
 -- Insert seed data for service centers
 INSERT INTO service_centers (name, address, phone) VALUES
@@ -132,10 +134,12 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE
 );
 
+
 -- CREATE INDEX idx_payments_appointment_id ON payments(appointment_id);
 -- CREATE INDEX idx_payments_customer_id ON payments(customer_id);
 -- CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
 -- CREATE INDEX idx_payments_status ON payments(status);
+
 
 -- =====================================================
 -- STAFF MANAGEMENT TABLES
@@ -159,10 +163,12 @@ CREATE TABLE IF NOT EXISTS assignments (
     FOREIGN KEY (assigned_by) REFERENCES users(user_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_assignments_appointment_id ON assignments(appointment_id);
 -- CREATE INDEX idx_assignments_technician_id ON assignments(technician_id);
 -- CREATE INDEX idx_assignments_status ON assignments(status);
 -- CREATE INDEX idx_assignments_assigned_at ON assignments(assigned_at);
+
 
 -- Service Receipts table (phiếu tiếp nhận dịch vụ)
 CREATE TABLE IF NOT EXISTS service_receipts (
@@ -184,9 +190,11 @@ CREATE TABLE IF NOT EXISTS service_receipts (
     FOREIGN KEY (received_by) REFERENCES users(user_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_service_receipts_appointment_id ON service_receipts(appointment_id);
 -- CREATE INDEX idx_service_receipts_vehicle_id ON service_receipts(vehicle_id);
 -- CREATE INDEX idx_service_receipts_receipt_number ON service_receipts(receipt_number);
+
 
 -- Checklists table (checklist kiểm tra EV)
 CREATE TABLE IF NOT EXISTS checklists (
@@ -215,9 +223,11 @@ CREATE TABLE IF NOT EXISTS checklists (
     FOREIGN KEY (technician_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_checklists_assignment_id ON checklists(assignment_id);
 -- CREATE INDEX idx_checklists_vehicle_id ON checklists(vehicle_id);
 -- CREATE INDEX idx_checklists_technician_id ON checklists(technician_id);
+
 
 -- Maintenance Reports table (báo cáo bảo dưỡng)
 CREATE TABLE IF NOT EXISTS maintenance_reports (
@@ -242,10 +252,12 @@ CREATE TABLE IF NOT EXISTS maintenance_reports (
     FOREIGN KEY (approved_by) REFERENCES users(user_id) ON DELETE SET NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_maintenance_reports_assignment_id ON maintenance_reports(assignment_id);
 -- CREATE INDEX idx_maintenance_reports_vehicle_id ON maintenance_reports(vehicle_id);
 -- CREATE INDEX idx_maintenance_reports_technician_id ON maintenance_reports(technician_id);
 -- CREATE INDEX idx_maintenance_reports_status ON maintenance_reports(status);
+
 
 -- Parts table (phụ tùng)
 CREATE TABLE IF NOT EXISTS parts (
@@ -267,9 +279,11 @@ CREATE TABLE IF NOT EXISTS parts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_parts_part_code ON parts(part_code);
 -- CREATE INDEX idx_parts_category ON parts(category);
 -- CREATE INDEX idx_parts_status ON parts(status);
+
 
 -- Part Requests table (yêu cầu phụ tùng từ khách hàng)
 CREATE TABLE IF NOT EXISTS part_requests (
@@ -297,10 +311,12 @@ CREATE TABLE IF NOT EXISTS part_requests (
     FOREIGN KEY (approved_by) REFERENCES users(user_id) ON DELETE SET NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_part_requests_customer_id ON part_requests(customer_id);
 -- CREATE INDEX idx_part_requests_part_id ON part_requests(part_id);
 -- CREATE INDEX idx_part_requests_status ON part_requests(status);
 -- CREATE INDEX idx_part_requests_created_at ON part_requests(created_at);
+
 
 -- Part Inventory Logs table (lịch sử nhập xuất kho)
 CREATE TABLE IF NOT EXISTS part_inventory_logs (
@@ -317,9 +333,11 @@ CREATE TABLE IF NOT EXISTS part_inventory_logs (
     FOREIGN KEY (performed_by) REFERENCES users(user_id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 -- CREATE INDEX idx_part_inventory_logs_part_id ON part_inventory_logs(part_id);
 -- CREATE INDEX idx_part_inventory_logs_type ON part_inventory_logs(type);
 -- CREATE INDEX idx_part_inventory_logs_created_at ON part_inventory_logs(created_at);
+
 
 -- Insert sample parts data
 INSERT INTO parts (part_code, name, description, category, manufacturer, compatible_models, unit_price, stock_quantity, min_stock_level, location, warranty_months, status) VALUES
