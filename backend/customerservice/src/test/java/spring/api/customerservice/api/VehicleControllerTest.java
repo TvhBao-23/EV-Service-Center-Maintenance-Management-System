@@ -8,6 +8,7 @@ import spring.api.customerservice.TestSupport;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,8 +16,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class VehicleControllerTest {
 
@@ -133,9 +132,16 @@ class VehicleControllerTest {
     }
 
     private Authentication authentication(Object principal) {
-        Authentication auth = mock(Authentication.class);
-        when(auth.getPrincipal()).thenReturn(principal);
-        return auth;
+        return (Authentication) Proxy.newProxyInstance(
+                Authentication.class.getClassLoader(),
+                new Class<?>[]{Authentication.class},
+                (proxy, method, args) -> {
+                    if ("getPrincipal".equals(method.getName())) {
+                        return principal;
+                    }
+                    return defaultValue(method.getReturnType());
+                }
+        );
     }
 
     private Object buildUser() {
