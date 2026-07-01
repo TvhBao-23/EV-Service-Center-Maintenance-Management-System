@@ -100,4 +100,56 @@ class RateLimitServiceTest {
         assertNull(attempt.getBlockedUntil());
         verify(attemptRepository, times(1)).save(attempt);
     }
+
+    @Test
+    void testGetRemainingAttempts_Blocked() {
+        PasswordResetAttempt attempt = new PasswordResetAttempt();
+        attempt.setAttemptCount(5);
+        attempt.setBlockedUntil(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30));
+
+        when(attemptRepository.findByEmail("test@example.com")).thenReturn(Optional.of(attempt));
+        assertEquals(0, rateLimitService.getRemainingAttempts("test@example.com"));
+    }
+
+    @Test
+    void testGetRemainingAttempts_NotBlocked() {
+        PasswordResetAttempt attempt = new PasswordResetAttempt();
+        attempt.setAttemptCount(3);
+
+        when(attemptRepository.findByEmail("test@example.com")).thenReturn(Optional.of(attempt));
+        assertEquals(2, rateLimitService.getRemainingAttempts("test@example.com"));
+    }
+
+    @Test
+    void testGetBlockedMinutesRemaining_Blocked() {
+        PasswordResetAttempt attempt = new PasswordResetAttempt();
+        attempt.setAttemptCount(5);
+        attempt.setBlockedUntil(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30));
+
+        when(attemptRepository.findByEmail("test@example.com")).thenReturn(Optional.of(attempt));
+        assertTrue(rateLimitService.getBlockedMinutesRemaining("test@example.com") > 0);
+    }
+
+    @Test
+    void testCheckAndIncrementAttempts_AlreadyBlocked() {
+        PasswordResetAttempt attempt = new PasswordResetAttempt();
+        attempt.setAttemptCount(5);
+        attempt.setBlockedUntil(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30));
+
+        when(attemptRepository.findByEmail("test@example.com")).thenReturn(Optional.of(attempt));
+        assertFalse(rateLimitService.checkAndIncrementAttempts("test@example.com", "127.0.0.1"));
+    }
+
+    @Test
+    void testCheckAndIncrementAttempts_ResetAttemptsAfterTime() {
+        PasswordResetAttempt attempt = new PasswordResetAttempt();
+        attempt.setAttemptCount(3);
+        attempt.setLastAttemptAt(LocalDateTime.now(ZoneId.systemDefault()).minusMinutes(61)); // Expired
+
+        when(attemptRepository.findByEmail("test@example.com")).thenReturn(Optional.of(attempt));
+        when(attemptRepository.save(any(PasswordResetAttempt.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertTrue(rateLimitService.checkAndIncrementAttempts("test@example.com", "127.0.0.1"));
+        assertEquals(1, attempt.getAttemptCount()); // Reset to 0 then increment to 1
+    }
 }

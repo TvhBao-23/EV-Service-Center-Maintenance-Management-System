@@ -100,4 +100,38 @@ class PasswordResetServiceTest {
         verify(tokenRepository, times(1)).save(token);
         verify(rateLimitService, times(1)).resetAttempts("user@example.com");
     }
+
+    @Test
+    void testVerifyResetToken_Expired() {
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken("123456");
+        token.setUsed(false);
+        token.setExpiresAt(LocalDateTime.now(ZoneId.systemDefault()).minusMinutes(1)); // Expired
+
+        when(tokenRepository.findByEmailAndTokenAndUsedFalse("user@example.com", "123456"))
+                .thenReturn(Optional.of(token));
+
+        assertFalse(passwordResetService.verifyResetToken("user@example.com", "123456"));
+    }
+
+    @Test
+    void testResetPassword_ExpiredToken_ThrowsException() {
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken("123456");
+        token.setUsed(false);
+        token.setExpiresAt(LocalDateTime.now(ZoneId.systemDefault()).minusMinutes(1)); // Expired
+
+        when(tokenRepository.findByEmailAndTokenAndUsedFalse("user@example.com", "123456"))
+                .thenReturn(Optional.of(token));
+
+        assertThrows(AuthException.class, () -> 
+            passwordResetService.resetPassword("user@example.com", "123456", "newPassword")
+        );
+    }
+
+    @Test
+    void testCleanupExpiredTokens() {
+        passwordResetService.cleanupExpiredTokens();
+        verify(tokenRepository, times(1)).deleteByExpiresAtBefore(any(LocalDateTime.class));
+    }
 }
