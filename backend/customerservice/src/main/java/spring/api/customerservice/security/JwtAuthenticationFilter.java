@@ -43,12 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = extractAllClaims(token);
                 String email = claims.getSubject();
                 String role = claims.get("role", String.class);
-                
-                Object userIdObj = claims.get("user_id");
-                Long userId = null;
-                if (userIdObj instanceof Number) {
-                    userId = ((Number) userIdObj).longValue();
-                }
+                Long userId = claims.get("user_id", Long.class);
                 
                 if (email != null && userId != null) {
                     User user = userRepository.findById(userId).orElse(null);

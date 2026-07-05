@@ -23,7 +23,7 @@ public class TrackingController {
 
     @GetMapping("/{appointmentId}")
     public ResponseEntity<?> trackAppointment(Authentication auth, @PathVariable Long appointmentId) {
-        if (auth == null || auth.getPrincipal() == null) {
+        if (auth == null || !(auth.getPrincipal() instanceof User)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         User user = (User) auth.getPrincipal();
@@ -41,7 +41,7 @@ public class TrackingController {
 
     @GetMapping("/history")
     public ResponseEntity<List<Appointment>> getAppointmentHistory(Authentication auth) {
-        if (auth == null || auth.getPrincipal() == null) {
+        if (auth == null || !(auth.getPrincipal() instanceof User)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         User user = (User) auth.getPrincipal();

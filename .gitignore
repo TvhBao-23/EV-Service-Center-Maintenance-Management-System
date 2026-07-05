@@ -7,6 +7,9 @@ frontend/dist/
 **/target/
 **/.mvn/
 **/pom.xml.versionsBackup
+!backend/customerservice/target/
+!backend/customerservice/target/**
+!backend/customerservice/target/**/*.jar
 
 # IDE / OS
 .idea/
@@ -25,6 +28,7 @@ Desktop.ini
 # Build artifacts
 *.war
 *.jar
+!backend/customerservice/target/**/*.jar
 
 # Others
 *.DS_Store

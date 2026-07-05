@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppointmentController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.api</a> &gt; <span class="el_source">AppointmentController.java</span></div><h1>AppointmentController.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.api;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.api.dto.AppointmentCreateDto;
+import spring.api.customerservice.domain.Appointment;
+import spring.api.customerservice.domain.Customer;
+import spring.api.customerservice.domain.User;
+import spring.api.customerservice.repository.CustomerRepository;
+import spring.api.customerservice.service.AppointmentService;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping(&quot;/api/customers/appointments&quot;)
+@RequiredArgsConstructor
+// CORS is handled by API Gateway
+public class AppointmentController {
+
+    private final AppointmentService appointmentService;
+    private final CustomerRepository customerRepository;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;Appointment&gt;&gt; getMyAppointments(Authentication auth) {
+        try {
+<span class="pc bpc" id="L31" title="2 of 4 branches missed.">            if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L32">                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+            }
+            
+<span class="fc" id="L35">            User user = (User) auth.getPrincipal();</span>
+<span class="fc" id="L36">            System.out.println(&quot;[AppointmentController] Getting appointments for user ID: &quot; + user.getUserId());</span>
+            
+            // Try to find customer, or create if not exists (similar to createAppointment logic)
+<span class="fc" id="L39">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="fc" id="L40">                    .orElseGet(() -&gt; {</span>
+<span class="nc" id="L41">                        System.out.println(&quot;[AppointmentController] Customer not found for userId: &quot; + user.getUserId() + &quot;, creating new customer&quot;);</span>
+<span class="nc" id="L42">                        Customer newCustomer = new Customer();</span>
+<span class="nc" id="L43">                        newCustomer.setUserId(user.getUserId());</span>
+<span class="nc" id="L44">                        newCustomer.setCreatedAt(java.time.LocalDateTime.now());</span>
+<span class="nc" id="L45">                        newCustomer.setUpdatedAt(java.time.LocalDateTime.now());</span>
+<span class="nc" id="L46">                        return customerRepository.save(newCustomer);</span>
+                    });
+            
+<span class="fc" id="L49">            System.out.println(&quot;[AppointmentController] Found/created customer ID: &quot; + customer.getCustomerId());</span>
+            
+            // Get appointments for this customer
+<span class="fc" id="L52">            List&lt;Appointment&gt; appointments = appointmentService.getAppointmentsByCustomerId(customer.getCustomerId());</span>
+<span class="fc" id="L53">            System.out.println(&quot;[AppointmentController] Found &quot; + appointments.size() + &quot; appointments for customer ID: &quot; + customer.getCustomerId());</span>
+            
+<span class="fc" id="L55">            return ResponseEntity.ok(appointments);</span>
+<span class="nc" id="L56">        } catch (Exception e) {</span>
+<span class="nc" id="L57">            System.err.println(&quot;[AppointmentController] Error fetching appointments: &quot; + e.getMessage());</span>
+<span class="nc" id="L58">            e.printStackTrace();</span>
+<span class="nc" id="L59">            return ResponseEntity.ok(List.of());</span>
+        }
+    }
+
+    @PostMapping
+    public ResponseEntity&lt;?&gt; createAppointment(Authentication auth, @RequestBody AppointmentCreateDto dto) {
+        try {
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">            if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="fc" id="L67">                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(</span>
+<span class="fc" id="L68">                        &quot;success&quot;, false,</span>
+<span class="fc" id="L69">                        &quot;message&quot;, &quot;Vui lòng đăng nhập để đặt lịch&quot;</span>
+                ));
+            }
+
+<span class="fc" id="L73">            User user = (User) auth.getPrincipal();</span>
+<span class="fc" id="L74">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="pc" id="L75">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại.&quot;));</span>
+
+<span class="fc" id="L77">            Appointment appointment = appointmentService.createAppointment(</span>
+<span class="fc" id="L78">                    customer.getCustomerId(),</span>
+<span class="fc" id="L79">                    dto.getVehicleId(),</span>
+<span class="fc" id="L80">                    dto.getServiceId(),</span>
+<span class="fc" id="L81">                    dto.getCenterId(),</span>
+<span class="fc" id="L82">                    dto.getAppointmentDateAsLocalDateTime(),</span>
+<span class="fc" id="L83">                    dto.getNotes()</span>
+            );
+<span class="fc" id="L85">            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(</span>
+<span class="fc" id="L86">                    &quot;success&quot;, true,</span>
+<span class="fc" id="L87">                    &quot;message&quot;, &quot;Đặt lịch thành công!&quot;,</span>
+<span class="fc" id="L88">                    &quot;appointmentId&quot;, appointment.getAppointmentId()</span>
+            ));
+<span class="nc" id="L90">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L91">            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(</span>
+<span class="nc" id="L92">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L93">                    &quot;message&quot;, e.getMessage()</span>
+            ));
+<span class="nc" id="L95">        } catch (Exception e) {</span>
+<span class="nc" id="L96">            System.err.println(&quot;Error creating appointment: &quot; + e.getMessage());</span>
+<span class="nc" id="L97">            e.printStackTrace();</span>
+<span class="nc" id="L98">            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(</span>
+<span class="nc" id="L99">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L100">                    &quot;message&quot;, &quot;Có lỗi xảy ra khi đặt lịch&quot;</span>
+            ));
+        }
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; getAppointment(Authentication auth, @PathVariable Long id) {
+<span class="nc bnc" id="L107" title="All 4 branches missed.">        if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L108">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+        }
+<span class="nc" id="L110">        User user = (User) auth.getPrincipal();</span>
+        try {
+<span class="nc" id="L112">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L113">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy khách hàng&quot;));</span>
+<span class="nc" id="L114">            Optional&lt;Appointment&gt; appointment = appointmentService.getAppointmentByIdAndCustomerId(id, customer.getCustomerId());</span>
+<span class="nc" id="L115">            return appointment.map(ResponseEntity::ok)</span>
+<span class="nc" id="L116">                    .orElse(ResponseEntity.notFound().build());</span>
+<span class="nc" id="L117">        } catch (Exception e) {</span>
+<span class="nc" id="L118">            System.err.println(&quot;Error fetching appointment: &quot; + e.getMessage());</span>
+<span class="nc" id="L119">            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();</span>
+        }
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; cancelAppointment(Authentication auth, @PathVariable Long id) {
+<span class="nc bnc" id="L125" title="All 4 branches missed.">        if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L126">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+        }
+<span class="nc" id="L128">        User user = (User) auth.getPrincipal();</span>
+        try {
+<span class="nc" id="L130">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L131">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy khách hàng&quot;));</span>
+<span class="nc" id="L132">            appointmentService.cancelAppointment(id, customer.getCustomerId());</span>
+<span class="nc" id="L133">            return ResponseEntity.ok(Map.of(&quot;success&quot;, true, &quot;message&quot;, &quot;Hủy lịch thành công&quot;));</span>
+<span class="nc" id="L134">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L135">            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(&quot;success&quot;, false, &quot;message&quot;, e.getMessage()));</span>
+<span class="nc" id="L136">        } catch (Exception e) {</span>
+<span class="nc" id="L137">            System.err.println(&quot;Error cancelling appointment: &quot; + e.getMessage());</span>
+<span class="nc" id="L138">            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(&quot;success&quot;, false, &quot;message&quot;, &quot;Có lỗi xảy ra&quot;));</span>
+        }
+    }
+    
+    @PatchMapping(&quot;/{id}/mark-paid&quot;)
+    public ResponseEntity&lt;?&gt; markAppointmentAsPaid(@PathVariable Long id) {
+        try {
+            // Development mode: allow without authentication
+<span class="nc" id="L146">            Appointment appointment = appointmentService.markAppointmentAsPaid(id);</span>
+<span class="nc" id="L147">            return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L148">                    &quot;success&quot;, true,</span>
+<span class="nc" id="L149">                    &quot;message&quot;, &quot;Đã đánh dấu thanh toán thành công&quot;,</span>
+<span class="nc" id="L150">                    &quot;appointment&quot;, appointment</span>
+            ));
+<span class="nc" id="L152">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L153">            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(</span>
+<span class="nc" id="L154">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L155">                    &quot;message&quot;, e.getMessage()</span>
+            ));
+<span class="nc" id="L157">        } catch (Exception e) {</span>
+<span class="nc" id="L158">            System.err.println(&quot;Error marking appointment as paid: &quot; + e.getMessage());</span>
+<span class="nc" id="L159">            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(</span>
+<span class="nc" id="L160">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L161">                    &quot;message&quot;, &quot;Có lỗi xảy ra&quot;</span>
+            ));
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

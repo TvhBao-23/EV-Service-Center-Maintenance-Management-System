@@ -52,7 +52,7 @@ public class VehicleController {
     @GetMapping("/{id}")
     public ResponseEntity<Vehicle> getVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         return ResponseEntity.ok(vehicle);
     }
@@ -104,7 +104,7 @@ public class VehicleController {
             @Valid @RequestBody VehicleDto dto) {
         
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         // Update all fields from DTO
         vehicle.setBrand(dto.brand());
@@ -129,21 +129,15 @@ public class VehicleController {
             @RequestBody Map<String, Object> updates) {
         
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         // Update only provided fields
         if (updates.containsKey("odometerKm")) {
-            Object kmValue = updates.get("odometerKm");
-            if (kmValue instanceof Number) {
-                vehicle.setOdometerKm(((Number) kmValue).intValue());
-            }
+            vehicle.setOdometerKm(requireInteger(updates.get("odometerKm"), "odometerKm"));
         }
         
         if (updates.containsKey("lastServiceKm")) {
-            Object kmValue = updates.get("lastServiceKm");
-            if (kmValue instanceof Number) {
-                vehicle.setLastServiceKm(((Number) kmValue).intValue());
-            }
+            vehicle.setLastServiceKm(requireInteger(updates.get("lastServiceKm"), "lastServiceKm"));
         }
         
         if (updates.containsKey("lastServiceDate")) {
@@ -156,10 +150,17 @@ public class VehicleController {
         return ResponseEntity.ok(saved);
     }
 
+    private Integer requireInteger(Object value, String fieldName) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        throw new IllegalArgumentException(fieldName + " phải là số");
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         vehicleRepository.delete(vehicle);
         return ResponseEntity.ok(Map.of("message", "Xóa xe thành công"));

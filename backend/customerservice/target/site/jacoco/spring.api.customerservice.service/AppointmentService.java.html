@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppointmentService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.service</a> &gt; <span class="el_source">AppointmentService.java</span></div><h1>AppointmentService.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import spring.api.customerservice.domain.Appointment;
+import spring.api.customerservice.domain.AppointmentStatus;
+import spring.api.customerservice.repository.AppointmentRepository;
+import spring.api.customerservice.repository.PaymentRepository;
+import spring.api.customerservice.repository.ServiceRepository;
+import spring.api.customerservice.repository.ServiceCenterRepository;
+import spring.api.customerservice.domain.Payment;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class AppointmentService {
+
+    private final AppointmentRepository appointmentRepository;
+    private final PaymentRepository paymentRepository;
+    private final ServiceRepository serviceRepository;
+    private final ServiceCenterRepository serviceCenterRepository;
+
+    public Appointment createAppointment(Long customerId, Long vehicleId, Long serviceId, Long centerId,
+            LocalDateTime appointmentDate, String notes) {
+<span class="fc" id="L28">        Appointment appointment = new Appointment();</span>
+<span class="fc" id="L29">        appointment.setCustomerId(customerId);</span>
+<span class="fc" id="L30">        appointment.setVehicleId(vehicleId);</span>
+<span class="fc" id="L31">        appointment.setServiceId(serviceId);</span>
+        
+        // Customers must choose an existing service center when booking.
+<span class="pc bpc" id="L34" title="2 of 6 branches missed.">        if (centerId == null || centerId &lt;= 0 || !serviceCenterRepository.existsById(centerId)) {</span>
+<span class="fc" id="L35">            throw new RuntimeException(&quot;Trung tam dich vu khong ton tai&quot;);</span>
+        }
+<span class="fc" id="L37">        appointment.setCenterId(centerId);</span>
+        
+<span class="fc" id="L39">        appointment.setAppointmentDate(appointmentDate);</span>
+<span class="fc" id="L40">        appointment.setNotes(notes);</span>
+<span class="fc" id="L41">        appointment.setStatus(AppointmentStatus.pending); // Default status</span>
+<span class="fc" id="L42">        return appointmentRepository.save(appointment);</span>
+    }
+
+    public List&lt;Appointment&gt; getAppointmentsByCustomerId(Long customerId) {
+<span class="fc" id="L46">        return appointmentRepository.findByCustomerId(customerId);</span>
+    }
+
+    public List&lt;Appointment&gt; getAllAppointments() {
+<span class="nc" id="L50">        return appointmentRepository.findAll();</span>
+    }
+
+    public Optional&lt;Appointment&gt; getAppointmentByIdAndCustomerId(Long appointmentId, Long customerId) {
+<span class="fc" id="L54">        return appointmentRepository.findByAppointmentIdAndCustomerId(appointmentId, customerId);</span>
+    }
+
+    public void cancelAppointment(Long appointmentId, Long customerId) {
+<span class="nc" id="L58">        Appointment appointment = appointmentRepository.findByAppointmentIdAndCustomerId(appointmentId, customerId)</span>
+<span class="nc" id="L59">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy lịch đặt hoặc bạn không có quyền hủy.&quot;));</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (appointment.getStatus() == AppointmentStatus.pending) {</span>
+<span class="nc" id="L61">            appointment.setStatus(AppointmentStatus.cancelled);</span>
+<span class="nc" id="L62">            appointmentRepository.save(appointment);</span>
+        } else {
+<span class="nc" id="L64">            throw new RuntimeException(&quot;Không thể hủy lịch đặt ở trạng thái hiện tại.&quot;);</span>
+        }
+<span class="nc" id="L66">    }</span>
+
+    public List&lt;Appointment&gt; getAppointmentHistoryByCustomerId(Long customerId) {
+        // For history, we might want to include COMPLETED and CANCELLED appointments
+<span class="fc" id="L70">        return appointmentRepository.findByCustomerIdAndStatusIn(customerId,</span>
+<span class="fc" id="L71">                List.of(AppointmentStatus.completed, AppointmentStatus.cancelled));</span>
+    }
+
+    public boolean isAppointmentPaid(Long appointmentId) {
+<span class="nc" id="L75">        return paymentRepository.existsByAppointmentIdAndStatus(appointmentId, Payment.PaymentStatus.completed);</span>
+    }
+
+    /**
+     * Get service price from database by serviceId
+     * Throws exception if service not found or price is invalid
+     */
+    private java.math.BigDecimal getServicePrice(Long serviceId) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (serviceId == null) {</span>
+<span class="nc" id="L84">            throw new RuntimeException(&quot;Service ID cannot be null&quot;);</span>
+        }
+
+        try {
+<span class="nc" id="L88">            Optional&lt;spring.api.customerservice.domain.Service&gt; serviceOpt = serviceRepository.findById(serviceId);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (serviceOpt.isEmpty()) {</span>
+<span class="nc" id="L90">                throw new RuntimeException(&quot;Service not found for serviceId: &quot; + serviceId);</span>
+            }
+
+<span class="nc" id="L93">            spring.api.customerservice.domain.Service service = serviceOpt.get();</span>
+<span class="nc" id="L94">            java.math.BigDecimal price = service.getBasePrice();</span>
+
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (price == null) {</span>
+<span class="nc" id="L97">                throw new RuntimeException(&quot;Service price is null for serviceId: &quot; + serviceId +</span>
+<span class="nc" id="L98">                        &quot;, service name: &quot; + service.getName());</span>
+            }
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (price.compareTo(java.math.BigDecimal.ZERO) &lt;= 0) {</span>
+<span class="nc" id="L102">                throw new RuntimeException(&quot;Service price must be greater than 0 for serviceId: &quot; + serviceId +</span>
+                        &quot;, current price: &quot; + price);
+            }
+
+<span class="nc" id="L106">            System.out.println(&quot;[AppointmentService] Found service ID: &quot; + serviceId +</span>
+<span class="nc" id="L107">                    &quot;, name: &quot; + service.getName() +</span>
+                    &quot;, price: &quot; + price);
+<span class="nc" id="L109">            return price;</span>
+<span class="nc" id="L110">        } catch (RuntimeException e) {</span>
+            // Re-throw RuntimeException as-is
+<span class="nc" id="L112">            throw e;</span>
+<span class="nc" id="L113">        } catch (Exception e) {</span>
+<span class="nc" id="L114">            throw new RuntimeException(&quot;Error fetching service price for serviceId: &quot; + serviceId +</span>
+<span class="nc" id="L115">                    &quot;, error: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    public Appointment markAppointmentAsPaid(Long appointmentId) {
+<span class="nc" id="L120">        Appointment appointment = appointmentRepository.findById(appointmentId)</span>
+<span class="nc" id="L121">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy lịch đặt&quot;));</span>
+
+        // Check if payment already exists for this appointment
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (isAppointmentPaid(appointmentId)) {</span>
+<span class="nc" id="L125">            System.out.println(&quot;[AppointmentService] Payment already exists for appointment: &quot; + appointmentId);</span>
+            // Payment already exists, just return appointment without changing status
+            // Appointment status should remain as is (pending/confirmed) - payment doesn't mean work is completed
+<span class="nc" id="L128">            return appointment;</span>
+        }
+
+        // Get service price from database
+<span class="nc" id="L132">        java.math.BigDecimal servicePrice = getServicePrice(appointment.getServiceId());</span>
+<span class="nc" id="L133">        System.out.println(&quot;[AppointmentService] Creating payment for appointment: &quot; + appointmentId +</span>
+<span class="nc" id="L134">                &quot;, serviceId: &quot; + appointment.getServiceId() +</span>
+                &quot;, amount: &quot; + servicePrice);
+
+        // Create payment record with correct amount from database
+<span class="nc" id="L138">        Payment payment = new Payment();</span>
+<span class="nc" id="L139">        payment.setAppointmentId(appointmentId);</span>
+<span class="nc" id="L140">        payment.setCustomerId(appointment.getCustomerId());</span>
+<span class="nc" id="L141">        payment.setAmount(servicePrice); // Use actual service price from database</span>
+<span class="nc" id="L142">        payment.setStatus(Payment.PaymentStatus.completed);</span>
+<span class="nc" id="L143">        payment.setPaymentDate(LocalDateTime.now());</span>
+<span class="nc" id="L144">        payment.setPaymentMethod(Payment.PaymentMethod.e_wallet);</span>
+<span class="nc" id="L145">        payment.setTransactionId(&quot;QUICK_PAY_&quot; + appointmentId + &quot;_&quot; + System.currentTimeMillis());</span>
+<span class="nc" id="L146">        payment.setNotes(&quot;Thanh toán trước cho lịch đặt dịch vụ #&quot; + appointmentId);</span>
+<span class="nc" id="L147">        paymentRepository.save(payment);</span>
+
+<span class="nc" id="L149">        System.out.println(&quot;[AppointmentService] ✅ Created payment ID: &quot; + payment.getPaymentId() +</span>
+<span class="nc" id="L150">                &quot; with amount: &quot; + payment.getAmount());</span>
+
+        // IMPORTANT: Do NOT change appointment status to completed when payment is made
+        // Payment is just prepayment - work still needs to be done:
+        // pending -&gt; confirmed -&gt; received -&gt; in_maintenance -&gt; completed
+        // If appointment is still pending, we can optionally set it to confirmed (but not completed)
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (appointment.getStatus() == AppointmentStatus.pending) {</span>
+<span class="nc" id="L157">            appointment.setStatus(AppointmentStatus.confirmed);</span>
+<span class="nc" id="L158">            System.out.println(&quot;[AppointmentService] Updated appointment status from pending to confirmed (payment made)&quot;);</span>
+<span class="nc" id="L159">            return appointmentRepository.save(appointment);</span>
+        }
+        
+        // If already confirmed or other status, keep it as is
+<span class="nc" id="L163">        System.out.println(&quot;[AppointmentService] Appointment status remains: &quot; + appointment.getStatus() + </span>
+                &quot; (payment completed but work not done yet)&quot;);
+<span class="nc" id="L165">        return appointment;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

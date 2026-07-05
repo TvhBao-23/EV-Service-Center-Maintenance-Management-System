@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServiceController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.api</a> &gt; <span class="el_source">ServiceController.java</span></div><h1>ServiceController.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.api;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.domain.Service;
+import spring.api.customerservice.repository.ServiceRepository;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(value = &quot;/api/customers/services&quot;, produces = &quot;application/json;charset=UTF-8&quot;)
+@RequiredArgsConstructor
+public class ServiceController {
+
+    private final ServiceRepository serviceRepository;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;Service&gt;&gt; getAllServices() {
+<span class="nc" id="L20">        List&lt;Service&gt; services = serviceRepository.findAll();</span>
+        // Fix encoding for all services
+<span class="nc" id="L22">        services.forEach(this::fixServiceEncoding);</span>
+<span class="nc" id="L23">        return ResponseEntity.ok(services);</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; getService(@PathVariable Long id) {
+<span class="nc" id="L28">        Service service = serviceRepository.findById(id)</span>
+<span class="nc" id="L29">                .orElseThrow(() -&gt; new RuntimeException(&quot;Service not found&quot;));</span>
+<span class="nc" id="L30">        return ResponseEntity.ok(service);</span>
+    }
+
+    /**
+     * Get all distinct service categories (loại dịch vụ)
+     * Returns list of category names like: [&quot;battery&quot;, &quot;charging&quot;, &quot;motor&quot;, ...]
+     */
+    @GetMapping(&quot;/categories&quot;)
+    public ResponseEntity&lt;List&lt;String&gt;&gt; getServiceCategories() {
+<span class="nc" id="L39">        List&lt;String&gt; categories = serviceRepository.findDistinctCategories();</span>
+<span class="nc" id="L40">        return ResponseEntity.ok(categories);</span>
+    }
+
+    /**
+     * Get services by category (lấy các service cụ thể trong một loại)
+     * Example: GET /api/customers/services?category=battery
+     */
+    @GetMapping(params = &quot;category&quot;)
+    public ResponseEntity&lt;List&lt;Service&gt;&gt; getServicesByCategory(@RequestParam String category) {
+<span class="nc" id="L49">        System.out.println(&quot;[ServiceController] Getting services for category: &quot; + category);</span>
+<span class="nc" id="L50">        List&lt;Service&gt; services = serviceRepository.findByCategory(category);</span>
+
+        // Fix encoding for all services
+<span class="nc" id="L53">        services.forEach(this::fixServiceEncoding);</span>
+
+<span class="nc" id="L55">        System.out.println(&quot;[ServiceController] Found &quot; + services.size() + &quot; services for category: &quot; + category);</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        for (Service s : services) {</span>
+<span class="nc" id="L57">            System.out.println(&quot;[ServiceController] - Service ID: &quot; + s.getServiceId() + &quot;, Name: &quot; + s.getName()</span>
+<span class="nc" id="L58">                    + &quot;, Price: &quot; + s.getBasePrice());</span>
+<span class="nc" id="L59">        }</span>
+<span class="nc" id="L60">        return ResponseEntity.ok(services);</span>
+    }
+
+    /**
+     * Fix encoding issues in service name and description
+     */
+    private void fixServiceEncoding(Service service) {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (service.getName() != null) {</span>
+<span class="nc" id="L68">            service.setName(fixStringEncoding(service.getName()));</span>
+        }
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (service.getDescription() != null) {</span>
+<span class="nc" id="L71">            service.setDescription(fixStringEncoding(service.getDescription()));</span>
+        }
+<span class="nc" id="L73">    }</span>
+
+    /**
+     * Fix common UTF-8 encoding issues
+     */
+    private String fixStringEncoding(String str) {
+<span class="nc bnc" id="L79" title="All 4 branches missed.">        if (str == null || str.isEmpty()) {</span>
+<span class="nc" id="L80">            return str;</span>
+        }
+
+        // Check if string has encoding issues (including single ? character)
+<span class="nc bnc" id="L84" title="All 8 branches missed.">        if (str.contains(&quot;???&quot;) || str.contains(&quot;Ã&quot;) || str.contains(&quot;áº&quot;) || str.contains(&quot;Æ°&quot;)</span>
+<span class="nc bnc" id="L85" title="All 8 branches missed.">                || str.contains(&quot;á»&quot;) || str.contains(&quot;S?a&quot;) || str.contains(&quot;h?&quot;) || str.contains(&quot;B?o&quot;)</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">                || str.contains(&quot;?&quot;) || str.contains(&quot;&quot;)) {</span>
+            try {
+                // Try to decode as if it was UTF-8 bytes interpreted as Latin1
+<span class="nc" id="L89">                byte[] bytes = new byte[str.length()];</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                for (int i = 0; i &lt; str.length(); i++) {</span>
+<span class="nc" id="L91">                    bytes[i] = (byte) (str.charAt(i) &amp; 0xFF);</span>
+                }
+<span class="nc" id="L93">                String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);</span>
+
+                // If decoded is different and doesn't contain encoding artifacts, use it
+<span class="nc bnc" id="L96" title="All 6 branches missed.">                if (!decoded.equals(str) &amp;&amp; !decoded.contains(&quot;???&quot;) &amp;&amp; !decoded.contains(&quot;?&quot;)</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">                        &amp;&amp; !decoded.contains(&quot;&quot;)) {</span>
+<span class="nc" id="L98">                    System.out.println(&quot;[ServiceController] Fixed encoding: '&quot; + str + &quot;' -&gt; '&quot; + decoded + &quot;'&quot;);</span>
+<span class="nc" id="L99">                    return decoded;</span>
+                }
+<span class="nc" id="L101">            } catch (Exception e) {</span>
+<span class="nc" id="L102">                System.err.println(&quot;[ServiceController] Failed to fix encoding for string: &quot; + str);</span>
+<span class="nc" id="L103">            }</span>
+
+            // Manual replacement for common Vietnamese encoding issues
+<span class="nc" id="L106">            String fixed = str</span>
+<span class="nc" id="L107">                    .replace(&quot;áº&quot;, &quot;ư&quot;)</span>
+<span class="nc" id="L108">                    .replace(&quot;á»&quot;, &quot;ộ&quot;)</span>
+<span class="nc" id="L109">                    .replace(&quot;á»&quot;, &quot;ệ&quot;)</span>
+<span class="nc" id="L110">                    .replace(&quot;á»&quot;, &quot;ồ&quot;)</span>
+<span class="nc" id="L111">                    .replace(&quot;á»&quot;, &quot;ề&quot;)</span>
+<span class="nc" id="L112">                    .replace(&quot;Ã¡&quot;, &quot;á&quot;)</span>
+<span class="nc" id="L113">                    .replace(&quot;Ã©&quot;, &quot;é&quot;)</span>
+<span class="nc" id="L114">                    .replace(&quot;Ã­&quot;, &quot;í&quot;)</span>
+<span class="nc" id="L115">                    .replace(&quot;Ã³&quot;, &quot;ó&quot;)</span>
+<span class="nc" id="L116">                    .replace(&quot;Ãº&quot;, &quot;ú&quot;)</span>
+<span class="nc" id="L117">                    .replace(&quot;Ã½&quot;, &quot;ý&quot;)</span>
+<span class="nc" id="L118">                    .replace(&quot;á»&quot;, &quot;à&quot;)</span>
+<span class="nc" id="L119">                    .replace(&quot;á»&quot;, &quot;è&quot;)</span>
+<span class="nc" id="L120">                    .replace(&quot;á»&quot;, &quot;ì&quot;)</span>
+<span class="nc" id="L121">                    .replace(&quot;á»&quot;, &quot;ò&quot;)</span>
+<span class="nc" id="L122">                    .replace(&quot;á»&quot;, &quot;ù&quot;)</span>
+<span class="nc" id="L123">                    .replace(&quot;S?a&quot;, &quot;Sửa&quot;)</span>
+<span class="nc" id="L124">                    .replace(&quot;ch?a&quot;, &quot;chữa&quot;)</span>
+<span class="nc" id="L125">                    .replace(&quot;h?&quot;, &quot;hệ&quot;)</span>
+<span class="nc" id="L126">                    .replace(&quot;th?ng&quot;, &quot;thống&quot;)</span>
+<span class="nc" id="L127">                    .replace(&quot;s?c&quot;, &quot;sạc&quot;)</span>
+<span class="nc" id="L128">                    .replace(&quot;B?o&quot;, &quot;Bảo&quot;)</span>
+<span class="nc" id="L129">                    .replace(&quot;d??ng&quot;, &quot;dưỡng&quot;)</span>
+<span class="nc" id="L130">                    .replace(&quot;l?m&quot;, &quot;làm&quot;)</span>
+<span class="nc" id="L131">                    .replace(&quot;m?t&quot;, &quot;mát&quot;)</span>
+<span class="nc" id="L132">                    .replace(&quot;???&quot;, &quot;&quot;)</span>
+                    // Fix specific patterns
+<span class="nc" id="L134">                    .replace(&quot;B?o d?ng&quot;, &quot;Bảo dưỡng&quot;)</span>
+<span class="nc" id="L135">                    .replace(&quot;?nh k?&quot;, &quot;định kỳ&quot;)</span>
+<span class="nc" id="L136">                    .replace(&quot;?i?n&quot;, &quot;điện&quot;)</span>
+<span class="nc" id="L137">                    .replace(&quot;?p nh?t&quot;, &quot;ập nhật&quot;)</span>
+<span class="nc" id="L138">                    .replace(&quot;ph?n m?m&quot;, &quot;phần mềm&quot;)</span>
+<span class="nc" id="L139">                    .replace(&quot;h?th?ng&quot;, &quot;hệ thống&quot;)</span>
+<span class="nc" id="L140">                    .replace(&quot;qu?n l?y&quot;, &quot;quản lý&quot;)</span>
+<span class="nc" id="L141">                    .replace(&quot;c?m bi?n&quot;, &quot;cảm biến&quot;)</span>
+<span class="nc" id="L142">                    .replace(&quot;nhi?t?&quot;, &quot;nhiệt độ&quot;)</span>
+<span class="nc" id="L143">                    .replace(&quot;?&quot;, &quot;độ&quot;)</span>
+<span class="nc" id="L144">                    .replace(&quot;?&quot;, &quot;&quot;);</span>
+
+            // If still contains ?, try one more pass with common replacements
+<span class="nc bnc" id="L147" title="All 4 branches missed.">            if (fixed.contains(&quot;?&quot;) &amp;&amp; !str.equals(fixed)) {</span>
+<span class="nc" id="L148">                fixed = fixed</span>
+<span class="nc" id="L149">                        .replace(&quot;?nh&quot;, &quot;định&quot;)</span>
+<span class="nc" id="L150">                        .replace(&quot;?i&quot;, &quot;đi&quot;)</span>
+<span class="nc" id="L151">                        .replace(&quot;?p&quot;, &quot;ập&quot;)</span>
+<span class="nc" id="L152">                        .replace(&quot;?n&quot;, &quot;ần&quot;)</span>
+<span class="nc" id="L153">                        .replace(&quot;?m&quot;, &quot;ềm&quot;)</span>
+<span class="nc" id="L154">                        .replace(&quot;?ng&quot;, &quot;ống&quot;)</span>
+<span class="nc" id="L155">                        .replace(&quot;?y&quot;, &quot;ấy&quot;)</span>
+<span class="nc" id="L156">                        .replace(&quot;?&quot;, &quot;&quot;);</span>
+            }
+
+<span class="nc" id="L159">            return fixed;</span>
+        }
+
+<span class="nc" id="L162">        return str;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

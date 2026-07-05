@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PaymentController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.api</a> &gt; <span class="el_source">PaymentController.java</span></div><h1>PaymentController.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.api;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.domain.Customer;
+import spring.api.customerservice.domain.CustomerSubscription;
+import spring.api.customerservice.domain.Payment;
+import spring.api.customerservice.domain.User;
+import spring.api.customerservice.repository.CustomerRepository;
+import spring.api.customerservice.repository.CustomerSubscriptionRepository;
+import spring.api.customerservice.repository.PaymentRepository;
+import spring.api.customerservice.repository.AppointmentRepository;
+import spring.api.customerservice.repository.ServiceRepository;
+import spring.api.customerservice.domain.Appointment;
+import spring.api.customerservice.domain.Service;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/customers/payments&quot;)
+@RequiredArgsConstructor
+// CORS is handled by API Gateway
+public class PaymentController {
+    private final PaymentRepository paymentRepository;
+    private final CustomerRepository customerRepository;
+    private final CustomerSubscriptionRepository subscriptionRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ServiceRepository serviceRepository;
+
+    @GetMapping(&quot;/pending&quot;)
+    public ResponseEntity&lt;List&lt;Payment&gt;&gt; getPendingPayments(Authentication auth) {
+        try {
+<span class="nc bnc" id="L36" title="All 2 branches missed.">            System.out.println(&quot;[PaymentController] GET /pending - Auth: &quot; + (auth != null ? &quot;present&quot; : &quot;null&quot;));</span>
+<span class="nc bnc" id="L37" title="All 4 branches missed.">            if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L38">                System.out.println(&quot;[PaymentController] No auth, returning empty list&quot;);</span>
+<span class="nc" id="L39">                return ResponseEntity.ok(List.of());</span>
+            }
+            
+<span class="nc" id="L42">            User user = (User) auth.getPrincipal();</span>
+<span class="nc" id="L43">            System.out.println(&quot;[PaymentController] User ID: &quot; + user.getUserId());</span>
+<span class="nc" id="L44">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L45">                    .orElseGet(() -&gt; {</span>
+<span class="nc" id="L46">                        System.out.println(&quot;[PaymentController] Creating new customer for userId: &quot; + user.getUserId());</span>
+<span class="nc" id="L47">                        Customer newCustomer = new Customer();</span>
+<span class="nc" id="L48">                        newCustomer.setUserId(user.getUserId());</span>
+<span class="nc" id="L49">                        newCustomer.setCreatedAt(java.time.LocalDateTime.now());</span>
+<span class="nc" id="L50">                        newCustomer.setUpdatedAt(java.time.LocalDateTime.now());</span>
+<span class="nc" id="L51">                        return customerRepository.save(newCustomer);</span>
+                    });
+            
+<span class="nc" id="L54">            System.out.println(&quot;[PaymentController] Customer ID: &quot; + customer.getCustomerId());</span>
+<span class="nc" id="L55">            List&lt;Payment&gt; pendingPayments = paymentRepository.findByCustomerIdAndStatus(</span>
+<span class="nc" id="L56">                    customer.getCustomerId(), </span>
+                    Payment.PaymentStatus.pending
+            );
+            
+<span class="nc" id="L60">            System.out.println(&quot;[PaymentController] Found &quot; + pendingPayments.size() + &quot; pending payments&quot;);</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">            for (Payment p : pendingPayments) {</span>
+<span class="nc" id="L62">                System.out.println(&quot;[PaymentController] Payment ID: &quot; + p.getPaymentId() + </span>
+<span class="nc" id="L63">                    &quot;, Subscription ID: &quot; + p.getSubscriptionId() + </span>
+<span class="nc" id="L64">                    &quot;, Appointment ID: &quot; + p.getAppointmentId() + </span>
+<span class="nc" id="L65">                    &quot;, Amount: &quot; + p.getAmount() + </span>
+<span class="nc" id="L66">                    &quot;, Status: &quot; + p.getStatus());</span>
+<span class="nc" id="L67">            }</span>
+            
+<span class="nc" id="L69">            return ResponseEntity.ok(pendingPayments);</span>
+<span class="nc" id="L70">        } catch (Exception e) {</span>
+<span class="nc" id="L71">            System.err.println(&quot;[PaymentController] Error fetching pending payments: &quot; + e.getMessage());</span>
+<span class="nc" id="L72">            e.printStackTrace();</span>
+<span class="nc" id="L73">            return ResponseEntity.ok(List.of());</span>
+        }
+    }
+
+    @PatchMapping(&quot;/{paymentId}/mark-paid&quot;)
+    public ResponseEntity&lt;?&gt; markPaymentAsPaid(@PathVariable Long paymentId) {
+        try {
+<span class="nc" id="L80">            Payment payment = paymentRepository.findById(paymentId)</span>
+<span class="nc" id="L81">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Payment not found&quot;));</span>
+            
+<span class="nc" id="L83">            payment.setStatus(Payment.PaymentStatus.completed);</span>
+<span class="nc" id="L84">            payment.setPaymentDate(java.time.LocalDateTime.now());</span>
+<span class="nc" id="L85">            paymentRepository.save(payment);</span>
+            
+<span class="nc" id="L87">            return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L88">                    &quot;success&quot;, true,</span>
+                    &quot;message&quot;, &quot;Đã đánh dấu thanh toán thành công&quot;
+            ));
+<span class="nc" id="L91">        } catch (Exception e) {</span>
+<span class="nc" id="L92">            System.err.println(&quot;[PaymentController] Error marking payment as paid: &quot; + e.getMessage());</span>
+<span class="nc" id="L93">            e.printStackTrace();</span>
+<span class="nc" id="L94">            return ResponseEntity.status(400).body(Map.of(</span>
+<span class="nc" id="L95">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L96">                    &quot;message&quot;, &quot;Có lỗi xảy ra: &quot; + e.getMessage()</span>
+            ));
+        }
+    }
+
+    @PostMapping(&quot;/sync-subscription-payments&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; syncSubscriptionPayments(Authentication auth) {
+        try {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            System.out.println(&quot;[PaymentController] POST /sync-subscription-payments - Auth: &quot; + (auth != null ? &quot;present&quot; : &quot;null&quot;));</span>
+<span class="nc bnc" id="L105" title="All 4 branches missed.">            if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L106">                System.out.println(&quot;[PaymentController] No auth for sync&quot;);</span>
+<span class="nc" id="L107">                return ResponseEntity.status(401).body(Map.of(&quot;success&quot;, false, &quot;message&quot;, &quot;Unauthorized&quot;));</span>
+            }
+            
+<span class="nc" id="L110">            User user = (User) auth.getPrincipal();</span>
+<span class="nc" id="L111">            System.out.println(&quot;[PaymentController] Sync - User ID: &quot; + user.getUserId());</span>
+<span class="nc" id="L112">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L113">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Customer not found&quot;));</span>
+            
+<span class="nc" id="L115">            System.out.println(&quot;[PaymentController] Sync - Customer ID: &quot; + customer.getCustomerId());</span>
+            // Get all subscriptions for this customer
+<span class="nc" id="L117">            List&lt;CustomerSubscription&gt; subscriptions = subscriptionRepository.findByCustomerId(customer.getCustomerId());</span>
+<span class="nc" id="L118">            System.out.println(&quot;[PaymentController] Found &quot; + subscriptions.size() + &quot; subscriptions for customer&quot;);</span>
+            
+<span class="nc" id="L120">            int createdCount = 0;</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">            for (CustomerSubscription sub : subscriptions) {</span>
+<span class="nc" id="L122">                System.out.println(&quot;[PaymentController] Checking subscription: &quot; + sub.getSubscriptionId() + &quot;, Status: &quot; + sub.getStatus());</span>
+                // Check if payment already exists for this subscription
+<span class="nc" id="L124">                List&lt;Payment&gt; existingPayments = paymentRepository.findBySubscriptionId(sub.getSubscriptionId());</span>
+<span class="nc" id="L125">                System.out.println(&quot;[PaymentController] Existing payments for subscription &quot; + sub.getSubscriptionId() + &quot;: &quot; + existingPayments.size());</span>
+                
+<span class="nc bnc" id="L127" title="All 4 branches missed.">                if (existingPayments.isEmpty() &amp;&amp; sub.getStatus().name().equals(&quot;ACTIVE&quot;)) {</span>
+<span class="nc" id="L128">                    System.out.println(&quot;[PaymentController] Creating payment for ACTIVE subscription: &quot; + sub.getSubscriptionId());</span>
+                    // Create payment for this subscription
+<span class="nc" id="L130">                    Payment payment = new Payment();</span>
+<span class="nc" id="L131">                    payment.setSubscriptionId(sub.getSubscriptionId());</span>
+<span class="nc" id="L132">                    payment.setCustomerId(customer.getCustomerId());</span>
+<span class="nc" id="L133">                    payment.setAmount(sub.getServicePackage().getPrice());</span>
+<span class="nc" id="L134">                    payment.setPaymentMethod(Payment.PaymentMethod.e_wallet);</span>
+<span class="nc" id="L135">                    payment.setStatus(Payment.PaymentStatus.pending);</span>
+<span class="nc" id="L136">                    payment.setTransactionId(&quot;SUB_&quot; + sub.getSubscriptionId() + &quot;_&quot; + System.currentTimeMillis());</span>
+<span class="nc" id="L137">                    payment.setNotes(&quot;Thanh toán cho gói dịch vụ: &quot; + sub.getServicePackage().getName());</span>
+<span class="nc" id="L138">                    Payment saved = paymentRepository.save(payment);</span>
+<span class="nc" id="L139">                    createdCount++;</span>
+<span class="nc" id="L140">                    System.out.println(&quot;[PaymentController] ✅ Created payment ID: &quot; + saved.getPaymentId() + &quot; for subscription: &quot; + sub.getSubscriptionId());</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                } else if (!existingPayments.isEmpty()) {</span>
+<span class="nc" id="L142">                    System.out.println(&quot;[PaymentController] ⚠️ Payment already exists for subscription: &quot; + sub.getSubscriptionId());</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">                } else if (!sub.getStatus().name().equals(&quot;ACTIVE&quot;)) {</span>
+<span class="nc" id="L144">                    System.out.println(&quot;[PaymentController] ⚠️ Subscription not ACTIVE: &quot; + sub.getStatus());</span>
+                }
+<span class="nc" id="L146">            }</span>
+            
+<span class="nc" id="L148">            System.out.println(&quot;[PaymentController] Sync completed. Created &quot; + createdCount + &quot; payments&quot;);</span>
+<span class="nc" id="L149">            return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L150">                    &quot;success&quot;, true,</span>
+                    &quot;message&quot;, &quot;Đã tạo &quot; + createdCount + &quot; payment(s) cho subscriptions&quot;,
+<span class="nc" id="L152">                    &quot;created&quot;, createdCount</span>
+            ));
+<span class="nc" id="L154">        } catch (Exception e) {</span>
+<span class="nc" id="L155">            System.err.println(&quot;[PaymentController] Error syncing subscription payments: &quot; + e.getMessage());</span>
+<span class="nc" id="L156">            e.printStackTrace();</span>
+<span class="nc" id="L157">            return ResponseEntity.status(400).body(Map.of(</span>
+<span class="nc" id="L158">                    &quot;success&quot;, false,</span>
+<span class="nc" id="L159">                    &quot;message&quot;, &quot;Có lỗi xảy ra: &quot; + e.getMessage()</span>
+            ));
+        }
+    }
+
+    @GetMapping(&quot;/statistics&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getPaymentStatistics() {
+        try {
+            // Get all payments
+<span class="nc" id="L168">            List&lt;Payment&gt; allPayments = paymentRepository.findAll();</span>
+            
+            // Calculate total revenue (sum of completed payments)
+<span class="nc" id="L171">            java.math.BigDecimal totalRevenue = allPayments.stream()</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                    .filter(p -&gt; p.getStatus() == Payment.PaymentStatus.completed)</span>
+<span class="nc" id="L173">                    .map(Payment::getAmount)</span>
+<span class="nc" id="L174">                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);</span>
+            
+            // Calculate pending payments from payments table (status = 'pending')
+<span class="nc" id="L177">            java.math.BigDecimal pendingPaymentsFromPayments = allPayments.stream()</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">                    .filter(p -&gt; p.getStatus() == Payment.PaymentStatus.pending)</span>
+<span class="nc" id="L179">                    .map(Payment::getAmount)</span>
+<span class="nc" id="L180">                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);</span>
+            
+            // Calculate unpaid appointments cost (appointments without payment or payment status != 'completed')
+<span class="nc" id="L183">            java.math.BigDecimal unpaidAppointmentsCost = java.math.BigDecimal.ZERO;</span>
+            try {
+<span class="nc" id="L185">                List&lt;Appointment&gt; allAppointments = appointmentRepository.findAll();</span>
+<span class="nc" id="L186">                List&lt;Service&gt; allServices = serviceRepository.findAll();</span>
+                
+<span class="nc bnc" id="L188" title="All 2 branches missed.">                for (Appointment appointment : allAppointments) {</span>
+<span class="nc" id="L189">                    Long appointmentId = appointment.getAppointmentId();</span>
+<span class="nc" id="L190">                    Long serviceId = appointment.getServiceId();</span>
+                    
+                    // Find payment for this appointment
+<span class="nc" id="L193">                    Payment relatedPayment = allPayments.stream()</span>
+<span class="nc bnc" id="L194" title="All 4 branches missed.">                            .filter(p -&gt; p.getAppointmentId() != null &amp;&amp; p.getAppointmentId().equals(appointmentId))</span>
+<span class="nc" id="L195">                            .findFirst()</span>
+<span class="nc" id="L196">                            .orElse(null);</span>
+                    
+                    // If no payment or payment status != 'completed', add to unpaid cost
+<span class="nc bnc" id="L199" title="All 4 branches missed.">                    if (relatedPayment == null || relatedPayment.getStatus() != Payment.PaymentStatus.completed) {</span>
+<span class="nc" id="L200">                        java.math.BigDecimal appointmentCost = java.math.BigDecimal.ZERO;</span>
+                        
+                        // If has payment with amount and status != 'completed', use payment amount
+<span class="nc bnc" id="L203" title="All 4 branches missed.">                        if (relatedPayment != null &amp;&amp; relatedPayment.getAmount() != null) {</span>
+<span class="nc" id="L204">                            appointmentCost = relatedPayment.getAmount();</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">                        } else if (serviceId != null) {</span>
+                            // Otherwise, use service basePrice
+<span class="nc" id="L207">                            Service service = allServices.stream()</span>
+<span class="nc" id="L208">                                    .filter(s -&gt; s.getServiceId().equals(serviceId))</span>
+<span class="nc" id="L209">                                    .findFirst()</span>
+<span class="nc" id="L210">                                    .orElse(null);</span>
+<span class="nc bnc" id="L211" title="All 4 branches missed.">                            if (service != null &amp;&amp; service.getBasePrice() != null) {</span>
+<span class="nc" id="L212">                                appointmentCost = service.getBasePrice();</span>
+                            }
+                        }
+                        
+<span class="nc" id="L216">                        unpaidAppointmentsCost = unpaidAppointmentsCost.add(appointmentCost);</span>
+                    }
+<span class="nc" id="L218">                }</span>
+<span class="nc" id="L219">            } catch (Exception e) {</span>
+<span class="nc" id="L220">                System.err.println(&quot;[PaymentController] Error calculating unpaid appointments cost: &quot; + e.getMessage());</span>
+<span class="nc" id="L221">                e.printStackTrace();</span>
+<span class="nc" id="L222">            }</span>
+            
+            // Total pending payments = pending payments + unpaid appointments cost
+<span class="nc" id="L225">            java.math.BigDecimal totalPendingPayments = pendingPaymentsFromPayments.add(unpaidAppointmentsCost);</span>
+            
+<span class="nc" id="L227">            System.out.println(&quot;[PaymentController] Payment statistics - Pending from payments: &quot; + </span>
+                    pendingPaymentsFromPayments + &quot;, Unpaid appointments: &quot; + unpaidAppointmentsCost + 
+                    &quot;, Total pending: &quot; + totalPendingPayments);
+            
+<span class="nc" id="L231">            return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L232">                    &quot;totalRevenue&quot;, totalRevenue.longValue(),</span>
+<span class="nc" id="L233">                    &quot;pendingPayments&quot;, totalPendingPayments.longValue()</span>
+            ));
+<span class="nc" id="L235">        } catch (Exception e) {</span>
+<span class="nc" id="L236">            System.err.println(&quot;[PaymentController] Error getting payment statistics: &quot; + e.getMessage());</span>
+<span class="nc" id="L237">            e.printStackTrace();</span>
+<span class="nc" id="L238">            return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L239">                    &quot;totalRevenue&quot;, 0L,</span>
+<span class="nc" id="L240">                    &quot;pendingPayments&quot;, 0L</span>
+            ));
+        }
+    }
+
+    @GetMapping(&quot;/all&quot;)
+    public ResponseEntity&lt;List&lt;Payment&gt;&gt; getAllPayments() {
+        try {
+            // Get all payments (for admin dashboard)
+<span class="nc" id="L249">            List&lt;Payment&gt; allPayments = paymentRepository.findAll();</span>
+<span class="nc" id="L250">            return ResponseEntity.ok(allPayments);</span>
+<span class="nc" id="L251">        } catch (Exception e) {</span>
+<span class="nc" id="L252">            System.err.println(&quot;[PaymentController] Error getting all payments: &quot; + e.getMessage());</span>
+<span class="nc" id="L253">            e.printStackTrace();</span>
+<span class="nc" id="L254">            return ResponseEntity.ok(List.of());</span>
+        }
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

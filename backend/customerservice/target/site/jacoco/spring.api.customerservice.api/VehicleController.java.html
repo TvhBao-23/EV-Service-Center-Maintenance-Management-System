@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VehicleController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.api</a> &gt; <span class="el_source">VehicleController.java</span></div><h1>VehicleController.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.api;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.api.dto.VehicleDto;
+import spring.api.customerservice.domain.Customer;
+import spring.api.customerservice.domain.User;
+import spring.api.customerservice.domain.Vehicle;
+import spring.api.customerservice.repository.CustomerRepository;
+import spring.api.customerservice.repository.VehicleRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/customers/vehicles&quot;)
+@RequiredArgsConstructor
+public class VehicleController {
+
+    private final VehicleRepository vehicleRepository;
+    private final CustomerRepository customerRepository;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;Vehicle&gt;&gt; getAllVehicles(Authentication authentication) {
+        // Get current user from JWT token
+<span class="pc bpc" id="L30" title="1 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
+<span class="fc" id="L31">            return ResponseEntity.status(401).build();</span>
+        }
+        
+<span class="fc" id="L34">        User user = (User) authentication.getPrincipal();</span>
+<span class="fc" id="L35">        Long userId = user.getUserId();</span>
+        
+        // Find or create customer for this user
+<span class="fc" id="L38">        Customer customer = customerRepository.findByUserId(userId)</span>
+<span class="fc" id="L39">                .orElseGet(() -&gt; {</span>
+<span class="fc" id="L40">                    Customer newCustomer = new Customer();</span>
+<span class="fc" id="L41">                    newCustomer.setUserId(userId);</span>
+<span class="fc" id="L42">                    newCustomer.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L43">                    newCustomer.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L44">                    return customerRepository.save(newCustomer);</span>
+                });
+        
+        // Return only vehicles owned by this customer
+<span class="fc" id="L48">        List&lt;Vehicle&gt; vehicles = vehicleRepository.findByCustomerId(customer.getCustomerId());</span>
+<span class="fc" id="L49">        return ResponseEntity.ok(vehicles);</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Vehicle&gt; getVehicle(@PathVariable Long id) {
+<span class="nc" id="L54">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="nc" id="L55">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
+        
+<span class="nc" id="L57">        return ResponseEntity.ok(vehicle);</span>
+    }
+
+    @PostMapping
+    public ResponseEntity&lt;?&gt; createVehicle(@Valid @RequestBody VehicleDto dto, Authentication authentication) {
+        // Get current user from JWT token
+<span class="pc bpc" id="L63" title="1 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
+<span class="fc" id="L64">            return ResponseEntity.status(401).build();</span>
+        }
+        
+<span class="fc" id="L67">        User user = (User) authentication.getPrincipal();</span>
+<span class="fc" id="L68">        Long userId = user.getUserId();</span>
+        
+        // Find or create customer for this user
+<span class="fc" id="L71">        Customer customer = customerRepository.findByUserId(userId)</span>
+<span class="fc" id="L72">                .orElseGet(() -&gt; {</span>
+<span class="nc" id="L73">                    Customer newCustomer = new Customer();</span>
+<span class="nc" id="L74">                    newCustomer.setUserId(userId);</span>
+<span class="nc" id="L75">                    newCustomer.setCreatedAt(LocalDateTime.now());</span>
+<span class="nc" id="L76">                    newCustomer.setUpdatedAt(LocalDateTime.now());</span>
+<span class="nc" id="L77">                    return customerRepository.save(newCustomer);</span>
+                });
+        
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (vehicleRepository.findByVin(dto.vin()).isPresent()) {</span>
+<span class="fc" id="L81">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;VIN đã tồn tại&quot;));</span>
+        }
+        
+<span class="fc" id="L84">        Vehicle vehicle = new Vehicle();</span>
+<span class="fc" id="L85">        vehicle.setCustomerId(customer.getCustomerId());</span>
+<span class="fc" id="L86">        vehicle.setVin(dto.vin());</span>
+<span class="fc" id="L87">        vehicle.setBrand(dto.brand());</span>
+<span class="fc" id="L88">        vehicle.setModel(dto.model());</span>
+<span class="fc" id="L89">        vehicle.setYear(dto.year());</span>
+<span class="fc" id="L90">        vehicle.setBatteryCapacityKwh(dto.batteryCapacityKwh());</span>
+<span class="fc" id="L91">        vehicle.setOdometerKm(dto.odometerKm());</span>
+<span class="fc" id="L92">        vehicle.setLastServiceDate(dto.lastServiceDate());</span>
+<span class="fc" id="L93">        vehicle.setLastServiceKm(dto.lastServiceKm());</span>
+<span class="fc" id="L94">        vehicle.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L95">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
+        
+<span class="fc" id="L97">        Vehicle saved = vehicleRepository.save(vehicle);</span>
+<span class="fc" id="L98">        return ResponseEntity.ok(saved);</span>
+    }
+
+    @PutMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; updateVehicle(
+            @PathVariable Long id,
+            @Valid @RequestBody VehicleDto dto) {
+        
+<span class="fc" id="L106">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="fc" id="L107">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
+        
+        // Update all fields from DTO
+<span class="fc" id="L110">        vehicle.setBrand(dto.brand());</span>
+<span class="fc" id="L111">        vehicle.setModel(dto.model());</span>
+<span class="fc" id="L112">        vehicle.setVin(dto.vin());</span>
+<span class="fc" id="L113">        vehicle.setYear(dto.year());</span>
+<span class="fc" id="L114">        vehicle.setBatteryCapacityKwh(dto.batteryCapacityKwh());</span>
+<span class="fc" id="L115">        vehicle.setOdometerKm(dto.odometerKm());</span>
+<span class="fc" id="L116">        vehicle.setLastServiceDate(dto.lastServiceDate());</span>
+<span class="fc" id="L117">        vehicle.setLastServiceKm(dto.lastServiceKm());</span>
+<span class="fc" id="L118">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
+        
+<span class="fc" id="L120">        Vehicle saved = vehicleRepository.save(vehicle);</span>
+        
+<span class="fc" id="L122">        return ResponseEntity.ok(saved);</span>
+    }
+
+    // PATCH endpoint for partial updates (e.g., odometer only)
+    @PatchMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; patchVehicle(
+            @PathVariable Long id,
+            @RequestBody Map&lt;String, Object&gt; updates) {
+        
+<span class="fc" id="L131">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="pc" id="L132">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
+        
+        // Update only provided fields
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;odometerKm&quot;)) {</span>
+<span class="fc" id="L136">            vehicle.setOdometerKm(requireInteger(updates.get(&quot;odometerKm&quot;), &quot;odometerKm&quot;));</span>
+        }
+        
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;lastServiceKm&quot;)) {</span>
+<span class="nc" id="L140">            vehicle.setLastServiceKm(requireInteger(updates.get(&quot;lastServiceKm&quot;), &quot;lastServiceKm&quot;));</span>
+        }
+        
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;lastServiceDate&quot;)) {</span>
+            // Handle date if needed
+        }
+        
+<span class="fc" id="L147">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L148">        Vehicle saved = vehicleRepository.save(vehicle);</span>
+        
+<span class="fc" id="L150">        return ResponseEntity.ok(saved);</span>
+    }
+
+    private Integer requireInteger(Object value, String fieldName) {
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (value instanceof Number number) {</span>
+<span class="fc" id="L155">            return number.intValue();</span>
+        }
+<span class="fc" id="L157">        throw new IllegalArgumentException(fieldName + &quot; phải là số&quot;);</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; deleteVehicle(@PathVariable Long id) {
+<span class="fc" id="L162">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="pc" id="L163">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
+        
+<span class="fc" id="L165">        vehicleRepository.delete(vehicle);</span>
+<span class="fc" id="L166">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Xóa xe thành công&quot;));</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

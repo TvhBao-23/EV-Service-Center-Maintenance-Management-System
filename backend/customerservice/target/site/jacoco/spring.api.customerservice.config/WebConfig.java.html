@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WebConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.config</a> &gt; <span class="el_source">WebConfig.java</span></div><h1>WebConfig.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+@Configuration
+@EnableJpaAuditing
+<span class="nc" id="L19">public class WebConfig implements WebMvcConfigurer {</span>
+    
+    @Bean
+    public StringHttpMessageConverter stringHttpMessageConverter() {
+<span class="nc" id="L23">        return new StringHttpMessageConverter(StandardCharsets.UTF_8);</span>
+    }
+    
+    @Bean
+    public MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter() {
+<span class="nc" id="L28">        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();</span>
+<span class="nc" id="L29">        ObjectMapper mapper = new ObjectMapper();</span>
+        // Register JavaTimeModule để hỗ trợ LocalDate, LocalDateTime, etc.
+<span class="nc" id="L31">        mapper.registerModule(new JavaTimeModule());</span>
+<span class="nc" id="L32">        converter.setObjectMapper(mapper);</span>
+<span class="nc" id="L33">        converter.setDefaultCharset(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L34">        return converter;</span>
+    }
+    
+    @Override
+    public void configureMessageConverters(List&lt;HttpMessageConverter&lt;?&gt;&gt; converters) {
+<span class="nc" id="L39">        converters.add(stringHttpMessageConverter());</span>
+<span class="nc" id="L40">        converters.add(mappingJackson2HttpMessageConverter());</span>
+<span class="nc" id="L41">    }</span>
+    
+    // CORS được xử lý bởi SecurityConfig để tránh conflict
+    // @Override
+    // public void addCorsMappings(CorsRegistry registry) {
+    //     ...
+    // }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

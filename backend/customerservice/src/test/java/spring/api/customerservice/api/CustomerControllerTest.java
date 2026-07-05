@@ -13,9 +13,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 class CustomerControllerTest {
 
     private Object controller;
@@ -102,6 +102,22 @@ class CustomerControllerTest {
         assertThat(TestSupport.getProperty(customer, "getAddress")).isEqualTo("Ha Noi");
     }
 
+    @Test
+    void tc14_updateProfile_withEmptyBody_shouldKeepDataUnchanged() throws Exception {
+        ResponseEntity<?> response = (ResponseEntity<?>) TestSupport.invoke(
+                controller,
+                "updateProfile",
+                new Class<?>[]{Authentication.class, Map.class},
+                authentication(user),
+                Map.of()
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(TestSupport.getProperty(user, "getFullName")).isEqualTo("Nguyen Van A");
+        assertThat(TestSupport.getProperty(user, "getPhone")).isEqualTo("0901234567");
+        assertThat(TestSupport.getProperty(customer, "getAddress")).isEqualTo("Ha Noi");
+    }
+
     private Authentication authentication(Object principal) {
         return (Authentication) Proxy.newProxyInstance(
                 Authentication.class.getClassLoader(),
@@ -184,5 +200,4 @@ class CustomerControllerTest {
             }
         });
     }
-
 }
