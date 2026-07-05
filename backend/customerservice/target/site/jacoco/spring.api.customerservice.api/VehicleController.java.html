@@ -27,8 +27,8 @@ public class VehicleController {
     @GetMapping
     public ResponseEntity&lt;List&lt;Vehicle&gt;&gt; getAllVehicles(Authentication authentication) {
         // Get current user from JWT token
-<span class="pc bpc" id="L30" title="2 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
-<span class="nc" id="L31">            return ResponseEntity.status(401).build();</span>
+<span class="pc bpc" id="L30" title="1 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
+<span class="fc" id="L31">            return ResponseEntity.status(401).build();</span>
         }
         
 <span class="fc" id="L34">        User user = (User) authentication.getPrincipal();</span>
@@ -52,7 +52,7 @@ public class VehicleController {
     @GetMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;Vehicle&gt; getVehicle(@PathVariable Long id) {
 <span class="nc" id="L54">        Vehicle vehicle = vehicleRepository.findById(id)</span>
-<span class="nc" id="L55">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy xe&quot;));</span>
+<span class="nc" id="L55">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
         
 <span class="nc" id="L57">        return ResponseEntity.ok(vehicle);</span>
     }
@@ -60,8 +60,8 @@ public class VehicleController {
     @PostMapping
     public ResponseEntity&lt;?&gt; createVehicle(@Valid @RequestBody VehicleDto dto, Authentication authentication) {
         // Get current user from JWT token
-<span class="pc bpc" id="L63" title="2 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
-<span class="nc" id="L64">            return ResponseEntity.status(401).build();</span>
+<span class="pc bpc" id="L63" title="1 of 4 branches missed.">        if (authentication == null || authentication.getPrincipal() == null) {</span>
+<span class="fc" id="L64">            return ResponseEntity.status(401).build();</span>
         }
         
 <span class="fc" id="L67">        User user = (User) authentication.getPrincipal();</span>
@@ -103,23 +103,23 @@ public class VehicleController {
             @PathVariable Long id,
             @Valid @RequestBody VehicleDto dto) {
         
-<span class="nc" id="L106">        Vehicle vehicle = vehicleRepository.findById(id)</span>
-<span class="nc" id="L107">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy xe&quot;));</span>
+<span class="fc" id="L106">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="fc" id="L107">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
         
         // Update all fields from DTO
-<span class="nc" id="L110">        vehicle.setBrand(dto.brand());</span>
-<span class="nc" id="L111">        vehicle.setModel(dto.model());</span>
-<span class="nc" id="L112">        vehicle.setVin(dto.vin());</span>
-<span class="nc" id="L113">        vehicle.setYear(dto.year());</span>
-<span class="nc" id="L114">        vehicle.setBatteryCapacityKwh(dto.batteryCapacityKwh());</span>
-<span class="nc" id="L115">        vehicle.setOdometerKm(dto.odometerKm());</span>
-<span class="nc" id="L116">        vehicle.setLastServiceDate(dto.lastServiceDate());</span>
-<span class="nc" id="L117">        vehicle.setLastServiceKm(dto.lastServiceKm());</span>
-<span class="nc" id="L118">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L110">        vehicle.setBrand(dto.brand());</span>
+<span class="fc" id="L111">        vehicle.setModel(dto.model());</span>
+<span class="fc" id="L112">        vehicle.setVin(dto.vin());</span>
+<span class="fc" id="L113">        vehicle.setYear(dto.year());</span>
+<span class="fc" id="L114">        vehicle.setBatteryCapacityKwh(dto.batteryCapacityKwh());</span>
+<span class="fc" id="L115">        vehicle.setOdometerKm(dto.odometerKm());</span>
+<span class="fc" id="L116">        vehicle.setLastServiceDate(dto.lastServiceDate());</span>
+<span class="fc" id="L117">        vehicle.setLastServiceKm(dto.lastServiceKm());</span>
+<span class="fc" id="L118">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
         
-<span class="nc" id="L120">        Vehicle saved = vehicleRepository.save(vehicle);</span>
+<span class="fc" id="L120">        Vehicle saved = vehicleRepository.save(vehicle);</span>
         
-<span class="nc" id="L122">        return ResponseEntity.ok(saved);</span>
+<span class="fc" id="L122">        return ResponseEntity.ok(saved);</span>
     }
 
     // PATCH endpoint for partial updates (e.g., odometer only)
@@ -128,41 +128,42 @@ public class VehicleController {
             @PathVariable Long id,
             @RequestBody Map&lt;String, Object&gt; updates) {
         
-<span class="nc" id="L131">        Vehicle vehicle = vehicleRepository.findById(id)</span>
-<span class="nc" id="L132">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy xe&quot;));</span>
+<span class="fc" id="L131">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="pc" id="L132">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
         
         // Update only provided fields
-<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (updates.containsKey(&quot;odometerKm&quot;)) {</span>
-<span class="nc" id="L136">            Object kmValue = updates.get(&quot;odometerKm&quot;);</span>
-<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (kmValue instanceof Number) {</span>
-<span class="nc" id="L138">                vehicle.setOdometerKm(((Number) kmValue).intValue());</span>
-            }
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;odometerKm&quot;)) {</span>
+<span class="fc" id="L136">            vehicle.setOdometerKm(requireInteger(updates.get(&quot;odometerKm&quot;), &quot;odometerKm&quot;));</span>
         }
         
-<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (updates.containsKey(&quot;lastServiceKm&quot;)) {</span>
-<span class="nc" id="L143">            Object kmValue = updates.get(&quot;lastServiceKm&quot;);</span>
-<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (kmValue instanceof Number) {</span>
-<span class="nc" id="L145">                vehicle.setLastServiceKm(((Number) kmValue).intValue());</span>
-            }
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;lastServiceKm&quot;)) {</span>
+<span class="nc" id="L140">            vehicle.setLastServiceKm(requireInteger(updates.get(&quot;lastServiceKm&quot;), &quot;lastServiceKm&quot;));</span>
         }
         
-<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (updates.containsKey(&quot;lastServiceDate&quot;)) {</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;lastServiceDate&quot;)) {</span>
             // Handle date if needed
         }
         
-<span class="nc" id="L153">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
-<span class="nc" id="L154">        Vehicle saved = vehicleRepository.save(vehicle);</span>
+<span class="fc" id="L147">        vehicle.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L148">        Vehicle saved = vehicleRepository.save(vehicle);</span>
         
-<span class="nc" id="L156">        return ResponseEntity.ok(saved);</span>
+<span class="fc" id="L150">        return ResponseEntity.ok(saved);</span>
+    }
+
+    private Integer requireInteger(Object value, String fieldName) {
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (value instanceof Number number) {</span>
+<span class="fc" id="L155">            return number.intValue();</span>
+        }
+<span class="fc" id="L157">        throw new IllegalArgumentException(fieldName + &quot; phải là số&quot;);</span>
     }
 
     @DeleteMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;?&gt; deleteVehicle(@PathVariable Long id) {
-<span class="nc" id="L161">        Vehicle vehicle = vehicleRepository.findById(id)</span>
-<span class="nc" id="L162">                .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy xe&quot;));</span>
+<span class="fc" id="L162">        Vehicle vehicle = vehicleRepository.findById(id)</span>
+<span class="pc" id="L163">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Xe không tồn tại&quot;));</span>
         
-<span class="nc" id="L164">        vehicleRepository.delete(vehicle);</span>
-<span class="nc" id="L165">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Xóa xe thành công&quot;));</span>
+<span class="fc" id="L165">        vehicleRepository.delete(vehicle);</span>
+<span class="fc" id="L166">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Xóa xe thành công&quot;));</span>
     }
 }
 

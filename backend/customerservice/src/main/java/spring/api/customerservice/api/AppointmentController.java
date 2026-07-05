@@ -28,12 +28,8 @@ public class AppointmentController {
     @GetMapping
     public ResponseEntity<List<Appointment>> getMyAppointments(Authentication auth) {
         try {
-            // Get customer from authentication
             if (auth == null || auth.getPrincipal() == null) {
-                // Development mode: return all appointments if no auth
-                System.out.println("[AppointmentController] No authentication, returning all appointments");
-                List<Appointment> appointments = appointmentService.getAllAppointments();
-                return ResponseEntity.ok(appointments);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             
             User user = (User) auth.getPrincipal();

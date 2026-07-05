@@ -43,7 +43,7 @@ public class AppointmentService {
     }
 
     public List&lt;Appointment&gt; getAppointmentsByCustomerId(Long customerId) {
-<span class="nc" id="L46">        return appointmentRepository.findByCustomerId(customerId);</span>
+<span class="fc" id="L46">        return appointmentRepository.findByCustomerId(customerId);</span>
     }
 
     public List&lt;Appointment&gt; getAllAppointments() {
@@ -51,7 +51,7 @@ public class AppointmentService {
     }
 
     public Optional&lt;Appointment&gt; getAppointmentByIdAndCustomerId(Long appointmentId, Long customerId) {
-<span class="nc" id="L54">        return appointmentRepository.findByAppointmentIdAndCustomerId(appointmentId, customerId);</span>
+<span class="fc" id="L54">        return appointmentRepository.findByAppointmentIdAndCustomerId(appointmentId, customerId);</span>
     }
 
     public void cancelAppointment(Long appointmentId, Long customerId) {
@@ -67,8 +67,8 @@ public class AppointmentService {
 
     public List&lt;Appointment&gt; getAppointmentHistoryByCustomerId(Long customerId) {
         // For history, we might want to include COMPLETED and CANCELLED appointments
-<span class="nc" id="L70">        return appointmentRepository.findByCustomerIdAndStatusIn(customerId,</span>
-<span class="nc" id="L71">                List.of(AppointmentStatus.completed, AppointmentStatus.cancelled));</span>
+<span class="fc" id="L70">        return appointmentRepository.findByCustomerIdAndStatusIn(customerId,</span>
+<span class="fc" id="L71">                List.of(AppointmentStatus.completed, AppointmentStatus.cancelled));</span>
     }
 
     public boolean isAppointmentPaid(Long appointmentId) {

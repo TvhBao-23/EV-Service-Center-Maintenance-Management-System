@@ -57,7 +57,7 @@ public class CustomerController {
 <span class="fc bfc" id="L57" title="All 2 branches covered.">        if (updates.containsKey(&quot;full_name&quot;)) {</span>
 <span class="fc" id="L58">            user.setFullName(updates.get(&quot;full_name&quot;));</span>
         }
-<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        if (updates.containsKey(&quot;phone&quot;)) {</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (updates.containsKey(&quot;phone&quot;)) {</span>
 <span class="fc" id="L61">            user.setPhone(updates.get(&quot;phone&quot;));</span>
         }
 <span class="fc" id="L63">        userRepository.save(user);</span>

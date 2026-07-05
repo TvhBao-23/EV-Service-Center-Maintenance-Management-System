@@ -33,6 +33,7 @@ spring\api\customerservice\repository\ServiceCenterRepository.class
 spring\api\customerservice\domain\ServiceCenter.class
 spring\api\customerservice\domain\CustomerSubscription.class
 spring\api\customerservice\domain\Payment$PaymentMethod.class
+spring\api\customerservice\api\ResourceNotFoundException.class
 spring\api\customerservice\repository\ServiceRepository.class
 spring\api\customerservice\service\AppointmentService.class
 spring\api\customerservice\domain\Appointment.class
