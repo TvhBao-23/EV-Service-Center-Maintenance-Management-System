@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TrackingController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.api</a> &gt; <span class="el_source">TrackingController.java</span></div><h1>TrackingController.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.api;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import spring.api.customerservice.domain.Appointment;
+import spring.api.customerservice.domain.Customer;
+import spring.api.customerservice.domain.User;
+import spring.api.customerservice.repository.CustomerRepository;
+import spring.api.customerservice.service.AppointmentService;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/customers/tracking&quot;)
+@RequiredArgsConstructor
+public class TrackingController {
+
+    private final AppointmentService appointmentService;
+    private final CustomerRepository customerRepository;
+
+    @GetMapping(&quot;/{appointmentId}&quot;)
+    public ResponseEntity&lt;?&gt; trackAppointment(Authentication auth, @PathVariable Long appointmentId) {
+<span class="nc bnc" id="L26" title="All 4 branches missed.">        if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L27">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+        }
+<span class="nc" id="L29">        User user = (User) auth.getPrincipal();</span>
+        try {
+<span class="nc" id="L31">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L32">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy khách hàng&quot;));</span>
+<span class="nc" id="L33">            return appointmentService.getAppointmentByIdAndCustomerId(appointmentId, customer.getCustomerId())</span>
+<span class="nc" id="L34">                    .map(ResponseEntity::ok)</span>
+<span class="nc" id="L35">                    .orElse(ResponseEntity.notFound().build());</span>
+<span class="nc" id="L36">        } catch (Exception e) {</span>
+<span class="nc" id="L37">            System.err.println(&quot;Error tracking appointment: &quot; + e.getMessage());</span>
+<span class="nc" id="L38">            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();</span>
+        }
+    }
+
+    @GetMapping(&quot;/history&quot;)
+    public ResponseEntity&lt;List&lt;Appointment&gt;&gt; getAppointmentHistory(Authentication auth) {
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        if (auth == null || auth.getPrincipal() == null) {</span>
+<span class="nc" id="L45">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+        }
+<span class="nc" id="L47">        User user = (User) auth.getPrincipal();</span>
+        try {
+<span class="nc" id="L49">            Customer customer = customerRepository.findByUserId(user.getUserId())</span>
+<span class="nc" id="L50">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Không tìm thấy khách hàng&quot;));</span>
+<span class="nc" id="L51">            List&lt;Appointment&gt; appointments = appointmentService.getAppointmentHistoryByCustomerId(customer.getCustomerId());</span>
+<span class="nc" id="L52">            return ResponseEntity.ok(appointments);</span>
+<span class="nc" id="L53">        } catch (Exception e) {</span>
+<span class="nc" id="L54">            System.err.println(&quot;Error fetching appointment history: &quot; + e.getMessage());</span>
+<span class="nc" id="L55">            return ResponseEntity.ok(List.of());</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

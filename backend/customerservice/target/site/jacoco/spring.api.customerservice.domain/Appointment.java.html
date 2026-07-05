@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Appointment.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.domain</a> &gt; <span class="el_source">Appointment.java</span></div><h1>Appointment.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.domain;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = &quot;appointments&quot;)
+@Data
+public class Appointment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long appointmentId;
+
+    @Column(name = &quot;customer_id&quot;, nullable = false)
+    private Long customerId;
+
+    @Column(name = &quot;vehicle_id&quot;, nullable = false)
+    private Long vehicleId;
+
+    @Column(name = &quot;service_id&quot;, nullable = true)
+    private Long serviceId;
+
+    @Column(name = &quot;center_id&quot;, nullable = true)
+    private Long centerId;
+
+    @Column(name = &quot;requested_date_time&quot;, nullable = false)
+    private LocalDateTime appointmentDate;
+
+    @Column(name = &quot;notes&quot;, length = 500)
+    private String notes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = &quot;status&quot;, nullable = false)
+    private AppointmentStatus status = AppointmentStatus.pending;
+
+    @Column(name = &quot;created_at&quot;)
+    private LocalDateTime createdAt;
+
+    @Column(name = &quot;updated_at&quot;)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+<span class="nc" id="L46">        createdAt = LocalDateTime.now();</span>
+<span class="nc" id="L47">        updatedAt = LocalDateTime.now();</span>
+<span class="nc" id="L48">    }</span>
+
+    @PreUpdate
+    protected void onUpdate() {
+<span class="nc" id="L52">        updatedAt = LocalDateTime.now();</span>
+<span class="nc" id="L53">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

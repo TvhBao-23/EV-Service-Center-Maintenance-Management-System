@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseSchemaInitializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">customerservice</a> &gt; <a href="index.source.html" class="el_package">spring.api.customerservice.config</a> &gt; <span class="el_source">DatabaseSchemaInitializer.java</span></div><h1>DatabaseSchemaInitializer.java</h1><pre class="source lang-java linenums">package spring.api.customerservice.config;
+
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+<span class="nc" id="L11">@Slf4j</span>
+public class DatabaseSchemaInitializer {
+
+    private final JdbcTemplate jdbcTemplate;
+
+    @PostConstruct
+    public void ensureSubscriptionColumn() {
+        try {
+<span class="nc" id="L19">            Integer count = jdbcTemplate.queryForObject(</span>
+                    &quot;SELECT COUNT(*) FROM information_schema.columns &quot; +
+                            &quot;WHERE table_schema = DATABASE() &quot; +
+                            &quot;AND table_name = 'payments' &quot; +
+                            &quot;AND column_name = 'subscription_id'&quot;,
+                    Integer.class);
+
+<span class="nc bnc" id="L26" title="All 4 branches missed.">            if (count == null || count == 0) {</span>
+<span class="nc" id="L27">                jdbcTemplate.execute(&quot;ALTER TABLE payments ADD COLUMN subscription_id BIGINT NULL&quot;);</span>
+<span class="nc" id="L28">                log.info(&quot;Added subscription_id column to payments table&quot;);</span>
+            } else {
+<span class="nc" id="L30">                log.info(&quot;subscription_id column already exists in payments table&quot;);</span>
+            }
+<span class="nc" id="L32">        } catch (Exception e) {</span>
+<span class="nc" id="L33">            log.error(&quot;Failed to ensure subscription_id column&quot;, e);</span>
+<span class="nc" id="L34">        }</span>
+<span class="nc" id="L35">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
