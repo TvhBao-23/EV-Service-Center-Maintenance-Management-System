@@ -52,7 +52,7 @@ public class VehicleController {
     @GetMapping("/{id}")
     public ResponseEntity<Vehicle> getVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         return ResponseEntity.ok(vehicle);
     }
@@ -104,7 +104,7 @@ public class VehicleController {
             @Valid @RequestBody VehicleDto dto) {
         
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         // Update all fields from DTO
         vehicle.setBrand(dto.brand());
@@ -129,7 +129,7 @@ public class VehicleController {
             @RequestBody Map<String, Object> updates) {
         
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         // Update only provided fields
         if (updates.containsKey("odometerKm")) {
@@ -159,7 +159,7 @@ public class VehicleController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteVehicle(@PathVariable Long id) {
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+                .orElseThrow(() -> new ResourceNotFoundException("Xe không tồn tại"));
         
         vehicleRepository.delete(vehicle);
         return ResponseEntity.ok(Map.of("message", "Xóa xe thành công"));
