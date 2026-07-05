@@ -67,21 +67,16 @@ public class AppointmentController {
     @PostMapping
     public ResponseEntity<?> createAppointment(Authentication auth, @RequestBody AppointmentCreateDto dto) {
         try {
-            // Get customer from authentication
-            Customer customer;
             if (auth == null || auth.getPrincipal() == null) {
-                // Development mode: use first customer or create new one if no auth
-                customer = customerRepository.findAll().stream().findFirst()
-                        .orElseGet(() -> {
-                            Customer newCustomer = new Customer();
-                            newCustomer.setUserId(1L);
-                            return customerRepository.save(newCustomer);
-                        });
-            } else {
-                User user = (User) auth.getPrincipal();
-                customer = customerRepository.findByUserId(user.getUserId())
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại."));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "message", "Vui lòng đăng nhập để đặt lịch"
+                ));
             }
+
+            User user = (User) auth.getPrincipal();
+            Customer customer = customerRepository.findByUserId(user.getUserId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại."));
 
             Appointment appointment = appointmentService.createAppointment(
                     customer.getCustomerId(),
