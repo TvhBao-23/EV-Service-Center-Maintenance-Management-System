@@ -133,17 +133,11 @@ public class VehicleController {
         
         // Update only provided fields
         if (updates.containsKey("odometerKm")) {
-            Object kmValue = updates.get("odometerKm");
-            if (kmValue instanceof Number) {
-                vehicle.setOdometerKm(((Number) kmValue).intValue());
-            }
+            vehicle.setOdometerKm(requireInteger(updates.get("odometerKm"), "odometerKm"));
         }
         
         if (updates.containsKey("lastServiceKm")) {
-            Object kmValue = updates.get("lastServiceKm");
-            if (kmValue instanceof Number) {
-                vehicle.setLastServiceKm(((Number) kmValue).intValue());
-            }
+            vehicle.setLastServiceKm(requireInteger(updates.get("lastServiceKm"), "lastServiceKm"));
         }
         
         if (updates.containsKey("lastServiceDate")) {
@@ -154,6 +148,13 @@ public class VehicleController {
         Vehicle saved = vehicleRepository.save(vehicle);
         
         return ResponseEntity.ok(saved);
+    }
+
+    private Integer requireInteger(Object value, String fieldName) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        throw new IllegalArgumentException(fieldName + " phải là số");
     }
 
     @DeleteMapping("/{id}")
