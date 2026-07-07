@@ -1,0 +1,259 @@
+Staff Service – Giải thích mã nguồn
+====================================
+
+1. Tệp gốc & cấu hình build
+- `StaffserviceApplication.java`: lớp khởi động Spring Boot, đăng ký toàn bộ bean và bật auto-configuration cho service.
+- `pom.xml`: khai báo Maven dependencies (Spring Boot Starter Web, Data JPA, Validation, MySQL driver, Lombok, Security, JWT…), plugin build và cấu hình Java 17.
+- `Dockerfile`, `mvnw`, `mvnw.cmd`: phục vụ đóng gói container và chạy Maven Wrapper khi không cài sẵn Maven.
+
+2. Cấu hình ứng dụng (`src/main/resources`)
+- `application.properties`: cấu hình môi trường local (cổng 8083, kết nối MySQL trên localhost:3307, thông số JPA, CORS, logging, JWT secret).
+- `application-docker.properties`: cấu hình tương tự nhưng trỏ tới service MySQL trong Docker network, user/password khác để chạy trong container.
+
+3. Gói `config` – Cấu hình Spring Framework
+Mục đích: Chứa các class cấu hình Spring Boot, định nghĩa các bean và thiết lập bảo mật.
+
+- `SecurityConfig.java`:
+  + Cấu hình Spring Security cho service
+  + Tắt CSRF protection (dùng cho dev/test)
+  + Cấu hình session management: STATELESS (dùng JWT)
+  + Cho phép tất cả request không cần authentication (`permitAll()`)
+  + Đăng ký JWT Authentication Filter
+  + Lưu ý: Trong production cần bật authentication và authorization
+  + CORS được xử lý bởi API Gateway
+
+4. Gói `api` – REST API Endpoints chính
+Mục đích: Định nghĩa các REST API endpoints chính, nhận request từ Frontend/API Gateway và trả về response.
+
+- `StaffController.java`:
+  + Controller chính quản lý tất cả nghiệp vụ của staff service
+  + Quản lý appointments: GET `/appointments`, GET `/appointments/{id}`, GET `/appointments/status/{status}`
+  + Quản lý customers: GET `/customers`, GET `/customers/{id}`
+  + Quản lý vehicles: GET `/vehicles`, GET `/vehicles/{id}`, POST `/vehicles`
+  + Quản lý assignments: GET `/assignments`, POST `/assignments`, GET `/assignments/{id}`
+  + Quản lý service receipts: GET `/service-receipts`, POST `/service-receipts`
+  + Quản lý maintenance reports: GET `/maintenance-reports`, POST `/maintenance-reports`
+  + Quản lý technicians: GET `/technicians`, GET `/technicians/{id}`
+  + Quản lý staff members: GET `/staff-members`, POST `/staff-members`
+  + Sắp xếp appointments theo `createdAt DESC` để hiển thị mới nhất trước
+
+- `AuthController.java`:
+  + Xử lý authentication và authorization
+  + Endpoints: login, register, refresh token
+  + Tích hợp với JWT để tạo và validate token
+
+- `HealthController.java`:
+  + Health check endpoint
+  + Trả về trạng thái service (UP/DOWN)
+  + Dùng cho monitoring và load balancer
+
+5. Gói `controller` – REST API Endpoints chuyên biệt
+Mục đích: Định nghĩa các REST API endpoints chuyên biệt cho từng nghiệp vụ cụ thể.
+
+- `PartController.java`:
+  + Quản lý phụ tùng (Parts)
+  + Endpoints: GET `/parts`, GET `/parts/{id}`, GET `/parts/category/{category}`, GET `/parts/service/{serviceCategory}`
+  + POST `/parts`, PUT `/parts/{id}`, DELETE `/parts/{id}`
+  + Fix encoding issues cho part names và descriptions
+  + Trả về JSON với charset UTF-8
+
+- `PartRequestController.java`:
+  + Quản lý yêu cầu phụ tùng (Part Requests)
+  + Endpoints: GET `/part-requests`, POST `/part-requests`, PUT `/part-requests/{id}/approve`, PUT `/part-requests/{id}/reject`
+  + Xử lý workflow: PENDING → APPROVED/REJECTED
+  + Tích hợp với inventory service khi approve
+
+6. Gói `domain` – JPA Entities
+Mục đích: Định nghĩa các entity class map với bảng database, sử dụng JPA annotations.
+
+- `Appointment.java`:
+  + Entity lịch hẹn dịch vụ
+  + Thông tin: appointmentId, customerId, vehicleId, serviceId, requestedDateTime, status, notes, createdAt
+  + Enum status: PENDING, CONFIRMED, RECEIVED, COMPLETED, CANCELLED
+
+- `Assignment.java`:
+  + Entity phân công kỹ thuật viên
+  + Thông tin: assignmentId, appointmentId, technicianId, status, assignedAt, completedAt
+  + Liên kết appointment với technician
+
+- `Customer.java`:
+  + Entity khách hàng
+  + Thông tin: customerId, userId, fullName, email, phone, address, createdAt
+  + Liên kết với User trong authservice qua userId
+
+- `Vehicle.java`:
+  + Entity thông tin xe
+  + Thông tin: vehicleId, customerId, brand, model, year, VIN, licensePlate, createdAt
+  + Liên kết với Customer qua customerId
+
+- `Part.java`:
+  + Entity phụ tùng
+  + Thông tin: partId, partCode, name, description, category, manufacturer, unitPrice, stockQuantity, status
+  + Enum status: AVAILABLE, OUT_OF_STOCK, DISCONTINUED
+  + Quản lý tồn kho và giá cả
+
+- `PartRequest.java`:
+  + Entity yêu cầu phụ tùng
+  + Thông tin: requestId, partId, requestedBy, quantity, reason, status, requestedAt, approvedAt
+  + Enum status: PENDING, APPROVED, REJECTED
+  + Workflow phê duyệt phụ tùng
+
+- `ServicePartCategory.java`:
+  + Entity mapping dịch vụ với danh mục phụ tùng
+  + Thông tin: id, serviceCategory, partCategory
+  + Xác định phụ tùng nào phù hợp với dịch vụ nào
+
+- `MaintenanceReport.java`:
+  + Entity báo cáo bảo dưỡng
+  + Thông tin: reportId, assignmentId, vehicleId, technicianId, workPerformed, partsUsed, issuesFound, recommendations, createdAt
+  + Lưu trữ chi tiết công việc đã thực hiện
+
+- `ServiceReceipt.java`:
+  + Entity phiếu dịch vụ
+  + Thông tin: receiptId, appointmentId, customerId, vehicleId, serviceId, totalAmount, status, createdAt
+  + Quản lý hóa đơn dịch vụ
+
+- `Checklist.java`:
+  + Entity checklist công việc
+  + Thông tin: checklistId, assignmentId, itemName, isCompleted, completedBy, completedAt
+  + Quản lý từng bước công việc trong bảo dưỡng
+
+- `Message.java`:
+  + Entity tin nhắn
+  + Thông tin: messageId, conversationId, senderId, recipientId, subject, messageText, parentMessageId, isRead, sentAt
+  + Hệ thống tin nhắn nội bộ
+
+- `ChatConversation.java`:
+  + Entity cuộc trò chuyện
+  + Thông tin: conversationId, participant1Id, participant2Id, lastMessageAt, createdAt
+  + Quản lý cuộc trò chuyện giữa users
+
+- `User.java`:
+  + Entity người dùng (tham chiếu từ authservice)
+  + Thông tin: userId, email, fullName, phone, role, isActive
+  + Enum role: CUSTOMER, STAFF, TECHNICIAN, ADMIN
+
+- `UserRole.java`:
+  + Enum định nghĩa các vai trò trong hệ thống
+  + CUSTOMER, STAFF, TECHNICIAN, ADMIN
+
+7. Gói `dto` – Data Transfer Objects
+Mục đích: Định nghĩa các class chuyển dữ liệu giữa các layer, tách payload khỏi entity.
+
+- `SendMessageRequest.java`:
+  + Payload gửi tin nhắn
+  + Thông tin: recipientId, subject, messageText, parentMessageId
+  + Dùng cho API gửi tin nhắn
+
+- `MessageDTO.java`:
+  + DTO cho tin nhắn
+  + Chứa thông tin tin nhắn kèm thông tin người gửi/nhận
+  + Dùng để trả về cho Frontend
+
+8. Gói `repository` – Data Access Layer
+Mục đích: Định nghĩa các interface truy cập database, sử dụng Spring Data JPA.
+
+- `AppointmentRepository.java`:
+  + Extends `JpaRepository<Appointment, Long>`
+  + Finder methods: `findByStatus`, `findByCustomerId`, `findByVehicleId`
+  + Custom query: `findAllByOrderByCreatedAtDesc()` để sắp xếp theo ngày tạo
+
+- `AssignmentRepository.java`:
+  + Truy vấn assignments theo appointmentId, technicianId, status
+  + Tìm assignments chưa hoàn thành
+
+- `CustomerRepository.java`:
+  + Truy vấn customers theo userId, email, phone
+  + Tìm kiếm khách hàng
+
+- `VehicleRepository.java`:
+  + Truy vấn vehicles theo customerId, licensePlate, VIN
+  + Tìm kiếm xe
+
+- `PartRepository.java`:
+  + Truy vấn parts theo partCode, category, status
+  + Tìm parts sắp hết hàng (`findByStockQuantityLessThanEqual`)
+  + Lọc theo nhiều categories (`findByCategoryIn`)
+
+- `PartRequestRepository.java`:
+  + Truy vấn part requests theo status, requestedBy, partId
+  + Tìm requests đang chờ phê duyệt
+
+- `ServicePartCategoryRepository.java`:
+  + Truy vấn mapping service-part category
+  + Tìm part categories cho một service category
+
+- `MaintenanceReportRepository.java`:
+  + Truy vấn maintenance reports theo assignmentId, technicianId, vehicleId
+  + Tìm reports theo ngày tạo
+
+- `ServiceReceiptRepository.java`:
+  + Truy vấn service receipts theo appointmentId, customerId, status
+  + Tìm receipts chưa thanh toán
+
+- `ChecklistRepository.java`:
+  + Truy vấn checklist theo assignmentId, isCompleted
+  + Đếm số bước đã hoàn thành
+
+- `MessageRepository.java`:
+  + Truy vấn messages theo conversationId, senderId, recipientId
+  + Tìm messages chưa đọc
+
+- `ChatConversationRepository.java`:
+  + Truy vấn conversations theo participantId
+  + Tìm conversation giữa 2 users
+
+- `UserRepository.java`:
+  + Truy vấn users theo email, userId, role
+  + Tìm users theo trạng thái active
+
+9. Gói `service` – Business Logic Layer
+Mục đích: Chứa logic nghiệp vụ, xử lý dữ liệu trước khi lưu vào database hoặc trả về cho controller.
+
+- `PartService.java`:
+  + Nghiệp vụ quản lý phụ tùng
+  + CRUD operations cho parts
+  + Lọc parts theo category, service category
+  + Fix encoding issues cho part names và descriptions
+  + Tìm parts phù hợp với dịch vụ thông qua ServicePartCategory
+  + Validate dữ liệu trước khi lưu
+
+- `PartRequestService.java`:
+  + Nghiệp vụ yêu cầu phụ tùng
+  + Tạo part request mới
+  + Phê duyệt/từ chối part request
+  + Workflow: PENDING → APPROVED/REJECTED
+  + Tích hợp với inventory service khi approve
+  + Gửi thông báo khi request được phê duyệt
+
+- `MessageService.java`:
+  + Nghiệp vụ tin nhắn
+  + Gửi tin nhắn giữa users
+  + Tạo conversation tự động nếu chưa có
+  + Đánh dấu tin nhắn đã đọc
+  + Lấy danh sách conversations và messages
+  + Hỗ trợ reply (parentMessageId)
+
+10. Gói `security` – Bảo mật
+Mục đích: Chứa các class xử lý authentication và authorization.
+
+- `JwtAuthenticationFilter.java`:
+  + Filter xử lý JWT token
+  + Extract token từ Authorization header
+  + Validate token và set authentication vào SecurityContext
+  + Cho phép request tiếp tục nếu token hợp lệ
+  + Tích hợp với Spring Security
+
+11. Thư mục `src/test`
+- Chứa các test cơ bản (Repository và Service) để đảm bảo mapping JPA và luồng nghiệp vụ chính không bị vỡ khi refactor.
+
+12. Tệp cấu hình triển khai khác
+- `Dockerfile`: build image bằng Maven Wrapper → copy jar → chạy trên `eclipse-temurin:17-jre`.
+- `target/`: sản phẩm build (JAR, classes) – không nên sửa trực tiếp.
+
+Ghi chú
+- Mọi thay đổi ở domain/repository cần cập nhật diagram và tài liệu mô tả.
+- Khi thêm endpoint mới, cần tạo DTO riêng để tách payload khỏi entity nhằm tránh expose toàn bộ trường lên FE.
+- Service này quản lý chính về phụ tùng (Parts), appointments, assignments, và maintenance reports.
+- Tích hợp với các service khác qua API Gateway hoặc direct service-to-service communication.
+

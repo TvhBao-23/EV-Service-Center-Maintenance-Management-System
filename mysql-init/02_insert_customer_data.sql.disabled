@@ -1,0 +1,83 @@
+-- Insert Sample Customer Data
+-- File này chạy sau init.sql để thêm dữ liệu khách hàng mẫu
+
+USE ev_service_center;
+
+-- Insert sample customer users (password: 230305 - BCrypt encoded)
+INSERT INTO users (email, password, full_name, phone, role) VALUES
+('customer1@gmail.com', '$2b$10$pYvi5iguAjkpj7MXXnnSEeacT1Pi4LV/Sl.zAM9aXLidzHjkZUBBq', 'Nguyễn Văn An', '0901234567', 'customer'),
+('customer2@gmail.com', '$2b$10$pYvi5iguAjkpj7MXXnnSEeacT1Pi4LV/Sl.zAM9aXLidzHjkZUBBq', 'Trần Thị Bình', '0902345678', 'customer'),
+('customer3@gmail.com', '$2b$10$pYvi5iguAjkpj7MXXnnSEeacT1Pi4LV/Sl.zAM9aXLidzHjkZUBBq', 'Lê Hoàng Cường', '0903456789', 'customer'),
+('customer4@gmail.com', '$2b$10$pYvi5iguAjkpj7MXXnnSEeacT1Pi4LV/Sl.zAM9aXLidzHjkZUBBq', 'Phạm Thị Dung', '0904567890', 'customer'),
+('customer5@gmail.com', '$2b$10$pYvi5iguAjkpj7MXXnnSEeacT1Pi4LV/Sl.zAM9aXLidzHjkZUBBq', 'Hoàng Văn Em', '0905678901', 'customer');
+
+-- Insert customer profiles
+INSERT INTO customers (user_id, address) VALUES
+(7, '123 Lê Lợi, Quận 1, TP.HCM'),
+(8, '456 Trần Hưng Đạo, Quận 5, TP.HCM'),
+(9, '789 Nguyễn Trãi, Quận 1, TP.HCM'),
+(10, '321 Võ Văn Tần, Quận 3, TP.HCM'),
+(11, '654 Điện Biên Phủ, Quận Bình Thạnh, TP.HCM');
+
+-- Insert sample vehicles
+INSERT INTO vehicles (customer_id, vin, brand, model, year, battery_capacity_kwh, odometer_km, last_service_date, last_service_km) VALUES
+(1, 'VF8ABC1234567890A', 'VinFast', 'VF8', 2023, 87.70, 5000, '2024-10-15', 3000),
+(1, 'TESLA3XYZ9876543B', 'Tesla', 'Model 3', 2022, 75.00, 12000, '2024-09-20', 10000),
+(2, 'NISSAN123456789LC', 'Nissan', 'Leaf', 2021, 62.00, 25000, '2024-08-10', 23000),
+(3, 'VF9DEF4567890123D', 'VinFast', 'VF9', 2024, 123.00, 2000, '2024-11-01', 1500),
+(4, 'HYUND567890123I5E', 'Hyundai', 'Ioniq 5', 2023, 72.60, 8000, '2024-10-05', 7000),
+(5, 'TESLAYMNO1234567F', 'Tesla', 'Model Y', 2023, 75.00, 6000, '2024-10-20', 5000);
+
+-- Insert sample appointments
+INSERT INTO appointments (customer_id, vehicle_id, service_id, center_id, requested_date_time, status, notes) VALUES
+-- Pending appointments
+(1, 1, 2, 1, '2025-11-10 09:00:00', 'pending', 'Xe có tiếng kêu lạ ở bánh trước'),
+(2, 3, 1, 2, '2025-11-12 14:00:00', 'pending', 'Bảo dưỡng định kỳ'),
+(3, 4, 3, 1, '2025-11-15 10:00:00', 'pending', 'Kiểm tra toàn bộ hệ thống'),
+
+-- Confirmed appointments
+(4, 5, 2, 3, '2025-11-08 08:30:00', 'confirmed', 'Cần thay má phanh'),
+(5, 6, 1, 1, '2025-11-09 15:00:00', 'confirmed', 'Kiểm tra pin'),
+
+-- Completed appointments (lịch sử)
+(1, 2, 1, 1, '2024-10-15 09:00:00', 'completed', 'Bảo dưỡng định kỳ hoàn tất'),
+(2, 3, 2, 2, '2024-09-20 14:00:00', 'completed', 'Thay má phanh và kiểm tra tổng thể'),
+(3, 4, 1, 1, '2024-11-01 10:00:00', 'completed', 'Xe mới - kiểm tra đầu tiên'),
+
+-- Cancelled appointments
+(4, 5, 1, 2, '2024-10-25 11:00:00', 'cancelled', 'Khách hủy do bận việc đột xuất');
+
+-- Insert sample payments for completed appointments
+INSERT INTO payments (appointment_id, customer_id, amount, payment_method, status, transaction_id, payment_date, verified, notes) VALUES
+(6, 1, 100000.00, 'card', 'completed', 'PAY001-20241015-001', '2024-10-15 11:30:00', TRUE, 'Thanh toán bằng thẻ visa'),
+(7, 2, 500000.00, 'bank_transfer', 'completed', 'PAY002-20240920-002', '2024-09-20 16:45:00', TRUE, 'Chuyển khoản ngân hàng'),
+(8, 3, 100000.00, 'e_wallet', 'completed', 'PAY003-20241101-003', '2024-11-01 12:20:00', TRUE, 'Thanh toán qua MoMo');
+
+-- Insert sample part requests from customers
+INSERT INTO part_requests (customer_id, part_id, vehicle_id, quantity, request_type, status, notes, delivery_method, delivery_address) VALUES
+-- Pending requests
+(1, 9, 1, 1, 'purchase', 'pending', 'Cần thay má phanh trước', 'delivery', '123 Lê Lợi, Quận 1, TP.HCM'),
+(2, 23, 3, 1, 'quote', 'pending', 'Xin báo giá lọc gió cabin', 'pickup', NULL),
+
+-- Approved requests
+(3, 13, 4, 4, 'purchase', 'approved', 'Cần 4 lốp mới', 'delivery', '789 Nguyễn Trãi, Quận 1, TP.HCM'),
+
+-- Fulfilled requests
+(1, 23, 1, 2, 'purchase', 'fulfilled', 'Lọc gió cabin đã nhận', 'pickup', NULL),
+(4, 24, 5, 2, 'purchase', 'fulfilled', 'Cần gạt nước đã lắp', 'pickup', NULL);
+
+-- Update approved part requests with staff info
+UPDATE part_requests 
+SET approved_by = 2, approved_at = NOW(), approved_price = 1200000.00, estimated_delivery_date = '2025-11-10'
+WHERE request_id = 3;
+
+UPDATE part_requests 
+SET approved_by = 2, approved_at = '2024-10-14 10:00:00', approved_price = 800000.00
+WHERE request_id = 4;
+
+UPDATE part_requests 
+SET approved_by = 2, approved_at = '2024-10-18 14:30:00', approved_price = 450000.00
+WHERE request_id = 5;
+
+SELECT 'Sample customer data inserted successfully!' as message;
+

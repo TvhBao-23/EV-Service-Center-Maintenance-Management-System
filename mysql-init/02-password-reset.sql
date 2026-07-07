@@ -1,0 +1,2 @@
+-- Deprecated: superseded by 04_password_reset.sql
+-- Intentionally left blank to avoid schema conflicts.

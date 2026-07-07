@@ -1,0 +1,35 @@
+﻿# Node
+frontend/node_modules/
+**/node_modules/
+frontend/dist/
+
+# Java / Maven
+**/target/
+**/.mvn/
+**/pom.xml.versionsBackup
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+*.log
+*.tmp
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Env / secrets
+.env
+.env.local
+
+# Build artifacts
+*.war
+*.jar
+
+# Others
+*.DS_Store
+
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc
+.codacy/

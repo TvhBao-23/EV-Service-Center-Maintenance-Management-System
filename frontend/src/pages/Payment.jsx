@@ -1,0 +1,832 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { paymentAPI, customerAPI } from '../lib/api.js'
+import { loadList, saveList, upsertItem, loadGlobalList } from '../lib/store.js'
+import { formatDate, toDateObject } from '../utils/dateUtils.js'
+
+function Payment() {
+  const { user, isAuthenticated } = useAuth()
+  const [appointments, setAppointments] = useState([])
+  const [subscriptionPayments, setSubscriptionPayments] = useState([])
+  const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [selectedPayment, setSelectedPayment] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('card')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [message, setMessage] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [showVerification, setShowVerification] = useState(false)
+  const [currentPayment, setCurrentPayment] = useState(null)
+  const [bills, setBills] = useState([])
+  const [services, setServices] = useState([]) // Services từ API
+  const [payments, setPayments] = useState([]) // Payments để lấy amount từ database
+  const isStaff = (user?.role === 'admin' || user?.role === 'staff')
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    
+    // Load data in sequence: services and payments first, then appointments
+    const loadDataSequentially = async () => {
+      await loadServices() // Load services từ API
+      await loadPayments() // Load payments để lấy amount từ database
+      // Wait a bit to ensure payments are set in state
+      setTimeout(() => {
+        loadAppointments() // Load appointments after payments are loaded
+      }, 100)
+    }
+    
+    loadDataSequentially()
+    loadPendingPayments()
+    // load existing local bills
+    setBills(loadList('bills'))
+
+    // Listen for real-time updates from Admin
+    const handleGlobalBookingsUpdate = (event) => {
+      console.log('[Payment] Received bookings update event:', event.type, event.detail)
+      setTimeout(() => {
+        loadAppointments()
+        loadPendingPayments()
+      }, 100) // Small delay to ensure localStorage is updated
+    }
+
+    const handleStorageUpdate = (event) => {
+      // Only reload if bookings key changed
+      if (event.key === 'bookings' || event.key === null) {
+        console.log('[Payment] Received storage update for bookings')
+        setTimeout(() => {
+          loadAppointments()
+          loadPendingPayments()
+        }, 100)
+      }
+    }
+
+    // Listen for subscription updates
+    const handleSubscriptionUpdate = () => {
+      console.log('[Payment] Received subscription update event')
+      setTimeout(() => {
+        loadPendingPayments()
+      }, 100)
+    }
+
+    window.addEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
+    window.addEventListener('storage', handleStorageUpdate)
+    window.addEventListener('subscription-created', handleSubscriptionUpdate)
+    
+    console.log('[Payment] Event listeners registered')
+
+    return () => {
+      window.removeEventListener('local-bookings-updated', handleGlobalBookingsUpdate)
+      window.removeEventListener('storage', handleStorageUpdate)
+      window.removeEventListener('subscription-created', handleSubscriptionUpdate)
+      console.log('[Payment] Event listeners removed')
+    }
+  }, [isAuthenticated])
+
+  const loadServices = async () => {
+    try {
+      console.log('[Payment] Loading services from API...')
+      const apiServices = await customerAPI.getServices()
+      console.log('[Payment] Loaded services from API:', apiServices)
+      if (Array.isArray(apiServices)) {
+        setServices(apiServices)
+        console.log('[Payment] Services loaded:', apiServices.length, 'services')
+        // Debug: log first few services
+        if (apiServices.length > 0) {
+          console.log('[Payment] Sample service:', {
+            serviceId: apiServices[0].serviceId || apiServices[0].id || apiServices[0].service_id,
+            name: apiServices[0].name,
+            basePrice: apiServices[0].basePrice || apiServices[0].base_price || apiServices[0].price
+          })
+        }
+      } else {
+        console.warn('[Payment] Services API response is not an array:', apiServices)
+        setServices([])
+      }
+    } catch (error) {
+      console.error('[Payment] Error loading services:', error)
+      setServices([])
+    }
+  }
+
+  const loadPayments = async () => {
+    try {
+      console.log('[Payment] Loading all payments from API...')
+      const allPayments = await customerAPI.getAllPayments()
+      console.log('[Payment] Loaded all payments from API:', allPayments)
+      if (Array.isArray(allPayments)) {
+        setPayments(allPayments)
+        console.log('[Payment] Payments loaded:', allPayments.length, 'payments')
+      } else {
+        console.warn('[Payment] Payments API response is not an array:', allPayments)
+        setPayments([])
+      }
+    } catch (error) {
+      console.error('[Payment] Error loading payments:', error)
+      setPayments([])
+    }
+  }
+
+  const loadAppointments = async () => {
+    try {
+      console.log('[Payment] Loading appointments...')
+      
+      let userBookings = []
+      
+      // Try backend API first
+      try {
+        const apiAppointments = await customerAPI.getAppointments()
+        console.log('[Payment] Loaded appointments from API:', apiAppointments)
+        
+        // Ensure it's an array
+        if (Array.isArray(apiAppointments)) {
+          userBookings = apiAppointments
+        } else {
+          console.warn('[Payment] API response is not an array:', apiAppointments)
+          userBookings = []
+        }
+      } catch (apiError) {
+        console.error('[Payment] API failed:', apiError)
+        console.error('[Payment] Error details:', apiError.message)
+        
+        // API only - no fallback
+        setMessage('⚠️ Không thể tải danh sách hóa đơn. Vui lòng thử lại.')
+        userBookings = []
+      }
+
+      // Enhance with service information and filter out PAID appointments
+      // Show only appointments that need payment (no payment record OR payment status = pending)
+      const enhancedAppointments = userBookings
+        .filter(appointment => {
+          const appointmentId = appointment.appointmentId || appointment.appointment_id || appointment.id
+          
+          // Skip cancelled appointments
+          const isCancelled = appointment.status === 'cancelled' || appointment.status === 'CANCELLED'
+          if (isCancelled) {
+            return false
+          }
+          
+          // Find related payment record
+          const relatedPayment = payments.find(p => {
+            const pAppointmentId = p.appointmentId || p.appointment_id
+            return pAppointmentId && appointmentId && String(pAppointmentId) === String(appointmentId)
+          })
+          
+          // If there's a payment record with status 'completed' or 'paid', filter it out
+          if (relatedPayment) {
+            const paymentStatus = String(relatedPayment.status || '').toLowerCase()
+            if (paymentStatus === 'completed' || paymentStatus === 'paid') {
+              console.log('[Payment] Filtering out paid appointment:', appointmentId, 'Payment status:', paymentStatus)
+              return false // Don't show this appointment - already paid
+            }
+            // If payment status is 'pending', show it (needs payment)
+            if (paymentStatus === 'pending') {
+              console.log('[Payment] Showing appointment with pending payment:', appointmentId)
+              return true
+            }
+            // For other payment statuses (failed, processing, etc.), show them (needs payment)
+            console.log('[Payment] Showing appointment with payment status:', paymentStatus, 'appointmentId:', appointmentId)
+            return true
+          }
+          
+          // If no payment record exists, show it (needs payment)
+          console.log('[Payment] Showing appointment without payment record:', appointmentId, 'Appointment status:', appointment.status)
+          return true
+        })
+        .map(appointment => {
+          // Priority 1: Tìm payment record cho appointment này (nếu đã có payment, dùng amount từ payment)
+          const relatedPayment = payments.find(p => 
+            (p.appointmentId || p.appointment_id) === (appointment.appointmentId || appointment.appointment_id || appointment.id)
+          )
+          
+          // Priority 2: Tìm service từ API để lấy basePrice
+          const appointmentServiceId = appointment.serviceId || appointment.service_id
+          
+          // Debug: Log services array to see what we have
+          if (services.length === 0) {
+            console.warn('[Payment] Services array is empty when trying to find service for appointment:', appointmentServiceId)
+          }
+          
+          const service = services.find(s => {
+            const sId = s.serviceId || s.id || s.service_id
+            const match = sId && appointmentServiceId && String(sId) === String(appointmentServiceId)
+            if (match) {
+              console.log('[Payment] Found service match:', { serviceId: sId, name: s.name, appointmentServiceId })
+            }
+            return match
+          })
+          
+          // Debug log
+          if (!service && appointmentServiceId && services.length > 0) {
+            console.warn('[Payment] Service not found for serviceId:', appointmentServiceId, 
+              'Available services:', services.map(s => ({ id: s.serviceId || s.id || s.service_id, name: s.name })))
+          }
+          
+          // Determine service name
+          const serviceName = service?.name 
+            || service?.serviceName 
+            || appointment.serviceName 
+            || (appointmentServiceId ? `Dịch vụ #${appointmentServiceId}` : 'Dịch vụ không xác định')
+          
+          // Determine service price (Priority: payment amount > service basePrice > fallback)
+          let servicePrice = null
+          if (relatedPayment && relatedPayment.amount) {
+            servicePrice = Number(relatedPayment.amount)
+            console.log('[Payment] Using amount from payment record:', servicePrice, 'for appointment:', appointment.appointmentId || appointment.id)
+          } else if (service) {
+            servicePrice = Number(service.basePrice || service.base_price || service.price || 0)
+            console.log('[Payment] Using basePrice from service:', servicePrice, 'for serviceId:', appointmentServiceId)
+          } else if (appointment.amount) {
+            servicePrice = Number(appointment.amount)
+            console.log('[Payment] Using amount from appointment:', servicePrice)
+          } else {
+            servicePrice = 100000 // Fallback
+            console.warn('[Payment] Using fallback price 100000 for appointment:', appointment.appointmentId || appointment.id, 'serviceId:', appointmentServiceId)
+          }
+          
+          return {
+            ...appointment,
+            serviceName,
+            servicePrice
+          }
+        })
+      
+      setAppointments(enhancedAppointments)
+      console.log('[Payment] Enhanced appointments (unpaid only) set to state:', enhancedAppointments)
+    } catch (error) {
+      console.error('[Payment] Error loading appointments:', error)
+      setAppointments([])
+    }
+  }
+
+  // Reload appointments when services or payments are loaded
+  // IMPORTANT: Only reload when BOTH services and payments are loaded to avoid race condition
+  useEffect(() => {
+    if (isAuthenticated && services.length > 0 && payments.length >= 0) {
+      // Wait a bit for both services and payments to be fully loaded
+      // payments.length >= 0 means we wait even if payments array is empty (after API call completes)
+      const timer = setTimeout(() => {
+        console.log('[Payment] Reloading appointments - services:', services.length, 'payments:', payments.length)
+        loadAppointments()
+      }, 500) // Increased delay to ensure both services and payments are fully loaded
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services.length, payments.length, isAuthenticated])
+
+  const loadPendingPayments = async () => {
+    try {
+      console.log('[Payment] Loading pending payments...')
+      const payments = await customerAPI.getPendingPayments()
+      console.log('[Payment] Loaded pending payments:', payments)
+      
+      // Filter subscription payments
+      const subscriptionPaymentsList = payments.filter(p => p.subscriptionId != null)
+      
+      // If no subscription payments found, try to sync (create payments for existing subscriptions)
+      if (subscriptionPaymentsList.length === 0) {
+        console.log('[Payment] No subscription payments found, attempting to sync...')
+        try {
+          await customerAPI.syncSubscriptionPayments()
+          // Reload payments after sync
+          const updatedPayments = await customerAPI.getPendingPayments()
+          const updatedSubscriptionPayments = updatedPayments.filter(p => p.subscriptionId != null)
+          setSubscriptionPayments(updatedSubscriptionPayments)
+          console.log('[Payment] After sync, subscription payments:', updatedSubscriptionPayments)
+          return
+        } catch (syncError) {
+          console.warn('[Payment] Sync failed (may be normal if no subscriptions):', syncError)
+        }
+      }
+      
+      setSubscriptionPayments(subscriptionPaymentsList)
+      console.log('[Payment] Subscription payments:', subscriptionPaymentsList)
+    } catch (error) {
+      console.error('[Payment] Error loading pending payments:', error)
+      setSubscriptionPayments([])
+    }
+  }
+
+  const handleConfirmOrder = () => {
+    if (!selectedAppointment) return
+    // Save override status locally
+    const overrides = loadList('appointment_overrides')
+    const nextOverrides = upsertItem('appointment_overrides', {
+      appointmentId: selectedAppointment.appointmentId,
+      status: 'Đã xác nhận'
+    }, 'appointmentId')
+    // Create or update a local bill
+    const billId = `bill-${selectedAppointment.appointmentId}`
+    const newBill = {
+      id: billId,
+      appointmentId: selectedAppointment.appointmentId,
+      serviceName: selectedAppointment.serviceName,
+      amount: selectedAppointment.servicePrice || 100000,
+      status: 'Đã xác nhận',
+      createdAt: new Date().toISOString()
+    }
+    const nextBills = upsertItem('bills', newBill)
+    setBills(nextBills)
+    // Reflect immediately in UI
+    setAppointments(prev => prev.map(a => a.appointmentId === selectedAppointment.appointmentId ? { ...a, status: 'Đã xác nhận' } : a))
+    setMessage('Đơn đã được xác nhận! Bạn có thể tiến hành thanh toán.')
+  }
+
+  const handlePayment = async () => {
+    if (!selectedAppointment) return
+    
+    setIsProcessing(true)
+    setMessage('')
+    
+    try {
+      // Get service price from the appointment's service
+      const servicePrice = selectedAppointment.servicePrice || 100000 // Default to basic package
+      
+      // Create payment
+      const paymentData = {
+        appointmentId: selectedAppointment.appointmentId,
+        amount: servicePrice,
+        paymentMethod: paymentMethod,
+        notes: `Payment for appointment ${selectedAppointment.appointmentId}`
+      }
+      
+      const payment = await paymentAPI.initiatePayment(paymentData)
+      setCurrentPayment(payment)
+      setShowVerification(true)
+      setMessage(`Mã xác thực: ${payment.verification_code}`)
+    } catch (error) {
+      setMessage('Có lỗi xảy ra khi tạo thanh toán')
+    } finally {
+    setIsProcessing(false)
+    }
+  }
+
+  // Handle subscription payment
+  const handleSubscriptionPayment = async (payment) => {
+    if (!confirm(`Xác nhận thanh toán ${Number(payment.amount).toLocaleString('vi-VN')} VNĐ cho gói dịch vụ?`)) {
+      return
+    }
+    
+    setIsProcessing(true)
+    setMessage('')
+    
+    try {
+      await customerAPI.markPaymentAsPaid(payment.paymentId)
+      console.log('[Payment] ✅ Subscription payment marked as paid')
+      
+      // Remove from list
+      setSubscriptionPayments(prev => prev.filter(p => p.paymentId !== payment.paymentId))
+      
+      setMessage('✅ Thanh toán gói dịch vụ thành công!')
+      setSelectedPayment(null)
+      
+      // Dispatch event for Subscriptions tab
+      window.dispatchEvent(new CustomEvent('subscription-paid', { detail: { paymentId: payment.paymentId } }))
+      
+      // Reload to get updated data
+      await loadPendingPayments()
+    } catch (error) {
+      console.error('[Payment] Error paying subscription:', error)
+      setMessage('❌ Có lỗi xảy ra khi thanh toán: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Quick payment without verification (for demo/development)
+  const handleQuickPayment = async () => {
+    if (!selectedAppointment) return
+    
+    if (!confirm(`Xác nhận thanh toán ${(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ?`)) {
+      return
+    }
+    
+    setIsProcessing(true)
+    setMessage('')
+    
+    try {
+      const appointmentId = selectedAppointment.appointmentId
+      
+      console.log('[QuickPayment] Calling API to mark appointment', appointmentId, 'as PAID')
+      
+      // Call backend API to mark as paid - 100% API-driven
+      await customerAPI.markAppointmentAsPaid(appointmentId)
+      
+      console.log('[QuickPayment] ✅ API call successful - appointment marked as PAID')
+      
+      // Remove from appointments list immediately
+      setAppointments(prev => prev.filter(apt => apt.appointmentId !== appointmentId))
+      
+      setMessage('✅ Thanh toán thành công! Hóa đơn đã được thanh toán.')
+      setSelectedAppointment(null)
+      
+      // Dispatch event for other components
+      window.dispatchEvent(new CustomEvent('payment-completed', { detail: { appointmentId } }))
+      
+      // DO NOT reload - the paid appointment will not appear on next load from API
+    } catch (error) {
+      console.error('[QuickPayment] API Error:', error)
+      setMessage('❌ Có lỗi xảy ra khi thanh toán: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleVerifyPayment = async () => {
+    if (!currentPayment || !verificationCode) return
+    
+    setIsProcessing(true)
+    
+    try {
+      await paymentAPI.verifyPayment(currentPayment.payment_id, verificationCode)
+      
+      // Mark appointment as PAID - this will hide it from the payment list
+      const appointmentId = currentPayment.appointment_id || currentPayment.appointmentId || selectedAppointment?.appointmentId
+      
+      // Update global bookings list to mark as PAID - read directly from localStorage
+      const bookingsString = localStorage.getItem('bookings')
+      const globalBookings = bookingsString ? JSON.parse(bookingsString) : []
+      
+      console.log('[VerifyPayment] Current bookings in localStorage:', globalBookings)
+      console.log('[VerifyPayment] Marking appointmentId', appointmentId, 'as PAID')
+      
+      const updatedBookings = globalBookings.map(booking => 
+        booking.appointmentId === appointmentId 
+          ? { ...booking, status: 'PAID', paymentStatus: 'completed', paidAt: new Date().toISOString() }
+          : booking
+      )
+      
+      console.log('[VerifyPayment] Updated bookings with PAID status:', updatedBookings)
+      localStorage.setItem('bookings', JSON.stringify(updatedBookings))
+      console.log('[VerifyPayment] ✅ Saved to localStorage.bookings')
+      
+      // Remove from appointments list immediately (since PAID appointments should not show)
+      setAppointments(prev => prev.filter(apt => apt.appointmentId !== appointmentId))
+      
+      // Update local bill status
+      const paidBill = {
+        id: `bill-${appointmentId}`,
+        appointmentId: appointmentId,
+        status: 'Đã thanh toán',
+        paidAt: new Date().toISOString(),
+        amount: selectedAppointment?.servicePrice || 100000
+      }
+      upsertItem('bills', paidBill)
+      setBills(loadList('bills'))
+      
+      setMessage('✅ Thanh toán thành công! Hóa đơn đã được thanh toán và ẩn khỏi danh sách.')
+      setShowVerification(false)
+      setCurrentPayment(null)
+      setVerificationCode('')
+      setSelectedAppointment(null)
+      
+      // Dispatch event for other components
+      window.dispatchEvent(new CustomEvent('payment-completed', { detail: { appointmentId } }))
+      
+      // DO NOT reload - keep the paid invoice hidden permanently
+    } catch (error) {
+      setMessage('❌ Mã xác thực không đúng')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Thanh toán</h2>
+          <p className="text-gray-600 mt-2">Thanh toán cho các lịch đặt dịch vụ</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 md:col-span-1">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Tổng cần thanh toán</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {(appointments.reduce((total, apt) => total + (apt.servicePrice || 100000), 0) + 
+                  subscriptionPayments.reduce((total, p) => total + Number(p.amount || 0), 0)).toLocaleString('vi-VN')} VNĐ
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {appointments.length + subscriptionPayments.length > 0 
+                  ? `Từ ${appointments.length} lịch đặt + ${subscriptionPayments.length} gói dịch vụ` 
+                  : 'Không có hóa đơn nào'}
+              </p>
+          </div>
+        </div>
+
+        {message && (
+          <div className={`mb-6 rounded-lg border p-4 ${message.includes('thành công') ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+            <p className="font-medium">{message}</p>
+          </div>
+        )}
+
+        {showVerification && currentPayment && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Xác thực thanh toán</h3>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-800">Mã xác thực đã được gửi. Vui lòng nhập mã 6 số để hoàn tất thanh toán.</p>
+                <p className="font-mono text-lg text-blue-900 mt-2">{currentPayment.verification_code}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mã xác thực</label>
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  maxLength={6}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-lg font-mono"
+                  placeholder="Nhập mã 6 số"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleVerifyPayment}
+                  disabled={isProcessing || verificationCode.length !== 6}
+                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? 'Đang xác thực...' : 'Xác thực thanh toán'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowVerification(false)
+                    setCurrentPayment(null)
+                    setVerificationCode('')
+                  }}
+                  className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subscription Payments Section */}
+        {subscriptionPayments.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Gói dịch vụ cần thanh toán</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {subscriptionPayments.map((payment) => (
+                <div
+                  key={payment.paymentId}
+                  className={`bg-white rounded-lg shadow-md p-4 border-2 cursor-pointer transition-all ${
+                    selectedPayment?.paymentId === payment.paymentId
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedPayment(payment)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-gray-900">Gói dịch vụ</h4>
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      Chờ thanh toán
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{payment.notes || 'Thanh toán cho gói dịch vụ'}</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {Number(payment.amount).toLocaleString('vi-VN')} VNĐ
+                  </p>
+                  {selectedPayment?.paymentId === payment.paymentId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSubscriptionPayment(payment)
+                      }}
+                      disabled={isProcessing}
+                      className="w-full mt-3 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Đang xử lý...' : 'Thanh toán'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Appointments Section */}
+        {appointments.length === 0 && subscriptionPayments.length === 0 && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Không có hóa đơn nào</h3>
+            <p className="text-gray-600">Bạn chưa có lịch đặt dịch vụ hoặc gói dịch vụ nào cần thanh toán.</p>
+          </div>
+        )}
+
+        {appointments.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Lịch đặt của bạn</h3>
+              <div className="space-y-4">
+                {appointments.map((appointment) => (
+                    <div
+                    key={appointment.appointmentId}
+                      className={`bg-white rounded-lg shadow-md p-4 border-2 cursor-pointer transition-all ${
+                      selectedAppointment?.appointmentId === appointment.appointmentId 
+                          ? 'border-green-500 bg-green-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    onClick={() => setSelectedAppointment(appointment)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{appointment.serviceName}</h4>
+                        <p className="text-sm text-gray-600">Ngày: {formatDate(appointment.appointmentDate) || 'N/A'}</p>
+                        {appointment.notes && (
+                          <p className="text-sm text-gray-600">Ghi chú: {appointment.notes}</p>
+                        )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">{(appointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ</p>
+                          {(() => {
+                            const status = String(appointment.status || 'PENDING').toUpperCase()
+                            let badgeClass = 'bg-yellow-100 text-yellow-800'
+                            let statusText = 'Chờ xử lý'
+                            
+                            if (status === 'PENDING') {
+                              badgeClass = 'bg-yellow-100 text-yellow-800'
+                              statusText = 'Chờ tiếp nhận'
+                            } else if (status === 'RECEIVED') {
+                              badgeClass = 'bg-blue-100 text-blue-800'
+                              statusText = 'Đã tiếp nhận'
+                            } else if (status === 'IN_MAINTENANCE') {
+                              badgeClass = 'bg-orange-100 text-orange-800'
+                              statusText = 'Đang bảo dưỡng'
+                            } else if (status === 'DONE') {
+                              badgeClass = 'bg-green-100 text-green-800'
+                              statusText = 'Hoàn tất'
+                            }
+                            
+                            return (
+                              <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}`}>
+                                {statusText}
+                          </span>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment Form */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin thanh toán</h3>
+                
+                {selectedAppointment ? (
+                  <>
+                    <div className="mb-6">
+                      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center mb-2">
+                          <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                          </svg>
+                          <h4 className="font-medium text-green-900">Hóa đơn đã chọn</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900 mt-1">{selectedAppointment.serviceName}</p>
+                        <p className="text-sm text-gray-600">{formatDate(selectedAppointment.appointmentDate) || 'N/A'}</p>
+                      </div>
+                      
+                      <div className="flex justify-between items-center mb-4 bg-gray-50 p-3 rounded-lg">
+                        <span className="text-gray-600 font-medium">Tổng tiền:</span>
+                        <span className="text-2xl font-bold text-green-600">{(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ</span>
+                      </div>
+
+                      {/* QR Code Section - Compact & Balanced */}
+                      <div className="mb-4 p-3 bg-gradient-to-br from-green-50 via-white to-red-50 rounded-lg border-2 border-green-500 shadow-md">
+                        <div className="text-center mb-2">
+                          <h4 className="font-bold text-gray-900 text-base mb-1">💳 Quét mã thanh toán</h4>
+                          <p className="text-xs text-gray-600">VietQR - Napas 247</p>
+                      </div>
+                      
+                        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                          <div className="text-center">
+                            {/* VPBank QR Code - Compact */}
+                            <div className="relative mx-auto mb-2" style={{ maxWidth: '220px' }}>
+                              <div className="bg-white p-2 rounded-lg border-3 border-green-500 mx-auto flex items-center justify-center shadow-md">
+                                <img 
+                                  src="/images/vpbank-qr.jpg" 
+                                  alt="VPBank QR Code"
+                                  className="w-full h-auto object-contain rounded"
+                                  style={{ maxWidth: '200px' }}
+                                  onError={(e) => {
+                                    console.log('Real QR not loaded, trying SVG fallback')
+                                    e.target.src = '/images/vpbank-qr.svg'
+                                  }}
+                                />
+                      </div>
+                    </div>
+
+                            {/* Payment Info - Compact */}
+                            <div className="mt-2 pt-2 border-t border-dashed border-gray-300">
+                              <div className="space-y-1.5 text-left bg-gray-50 p-2 rounded">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-600">Ngân hàng:</span>
+                                  <span className="text-xs font-bold text-green-700">VPBank</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-600">Số tiền:</span>
+                                  <span className="text-sm font-bold text-red-600">{(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-600">Nội dung:</span>
+                                  <span className="text-xs font-mono font-bold text-blue-600">EVSC {selectedAppointment.appointmentId}</span>
+                            </div>
+                          </div>
+                              
+                              <div className="mt-2 p-1.5 bg-yellow-50 border border-yellow-200 rounded">
+                                <p className="text-xs text-yellow-800 flex items-center">
+                                  <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                              </svg>
+                                  <span className="text-xs">Ghi đúng nội dung để xác nhận tự động</span>
+                                </p>
+                              </div>
+                            </div>
+                            </div>
+                          </div>
+                      </div>
+                    </div>
+
+                    {/* Nút thanh toán duy nhất */}
+                    <button
+                      onClick={handleQuickPayment}
+                      disabled={isProcessing}
+                      className="w-full bg-green-600 text-white py-4 px-6 rounded-xl hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Đang xử lý thanh toán...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Thanh toán {(selectedAppointment.servicePrice || 100000).toLocaleString('vi-VN')} VNĐ
+                        </>
+                      )}
+                    </button>
+                    
+                    <p className="text-center text-xs text-gray-500 mt-3">
+                      💡 Quét mã QR bên trên hoặc bấm nút để xác nhận thanh toán
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-4">
+                      <svg className="w-16 h-16 text-blue-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                      </svg>
+                      <h4 className="font-semibold text-gray-900 mb-2">👆 Chọn hóa đơn để thanh toán</h4>
+                      <p className="text-sm text-gray-600 mb-4">Click vào bất kỳ hóa đơn nào bên trái để xem thông tin và thanh toán</p>
+                      <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
+                          <span>Hóa đơn đã chọn</span>
+                        </div>
+                        <span>•</span>
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 bg-gray-300 rounded-full mr-1"></div>
+                          <span>Chưa chọn</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
+                      <div className="flex">
+                        <svg className="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                    </svg>
+                        <div className="text-xs text-gray-700">
+                          <p className="font-semibold mb-1">💡 Hướng dẫn thanh toán:</p>
+                          <ol className="list-decimal list-inside space-y-1">
+                            <li>Chọn hóa đơn cần thanh toán</li>
+                            <li>Quét mã QR hoặc chọn phương thức</li>
+                            <li>Bấm nút "💳 Thanh toán"</li>
+                            <li>Hoàn tất!</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default Payment
