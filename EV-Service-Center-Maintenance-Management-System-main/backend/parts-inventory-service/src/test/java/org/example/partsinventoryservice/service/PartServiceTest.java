@@ -130,9 +130,6 @@ class PartServiceTest {
         Part updateRequest = validPart();
         updateRequest.setPartId(1L);
         updateRequest.setName(null);
-
-        when(partRepository.findByPartCode(updateRequest.getPartCode())).thenReturn(Optional.empty());
-
         BadRequestException ex = assertThrows(BadRequestException.class, () -> partService.update(1L, updateRequest));
 
         assertEquals("name is required", ex.getMessage());
